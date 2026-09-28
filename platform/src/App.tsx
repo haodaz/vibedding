@@ -129,7 +129,7 @@ function Lab() {
       <Canvas key={open} spec={{ type: open, props: { id: 'lab-' + open, goals: open === 'board' ? 'pinmode:PC13, blink:PC13:500, serial:hello' : '', task: '让板载 LED 每 500ms 翻转一次，并在串口打印 hello' }, body: open === 'board' ? DEFAULT_CODE : '' }} />
       <div className="lab-howto">
         <h3>怎么在任务卡里嵌一个实验</h3>
-        <Markdown text={'```\n```canvas\ntype: board\nid: my-blink\ngoals: pinmode:PC13, blink:PC13:200\ntask: 让 LED 每 200ms 眨一次\nrubric: 用了 pinMode；周期约 200ms\n---\n// 这里是初始代码（可省略）\n```\n```'} />
+        <pre className="howto">{'```canvas\ntype: board\nid: my-blink\ngoals: pinmode:PC13, blink:PC13:200\ntask: 让 LED 每 200ms 眨一次\nrubric: 用了 pinMode；周期约 200ms\n---\n// 这里是初始代码（可省略）\n```'}</pre>
       </div>
     </>
   )
