@@ -343,7 +343,8 @@ input[type=range] { accent-color: var(--amber); width: 100%; }
 .ws-avatar .npc { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); height: 70px; width: auto; }
 .ws-avatar .npc-fallback { position: static; transform: none; width: 34px; height: 34px; border-radius: 50%; font-size: 16px; }
 .ws-row.sys { color: var(--red); font-family: var(--mono); font-size: 12px; padding: 6px 10px; border: 1px dashed rgba(255,92,92,.4); border-radius: 8px; }
-.ws-row.card { display: block; }
+.ws-row.cardrow { display: block; }
+.ws-log > * { flex-shrink: 0; }
 .ws-row.tool { display: block; padding-left: 44px; }
 .tool-chip { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; color: var(--muted); background: rgba(10,14,30,.5); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px 4px 8px; cursor: pointer; }
 .tool-chip:hover { border-color: var(--border-2); color: var(--text); }

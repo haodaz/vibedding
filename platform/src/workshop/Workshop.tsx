@@ -98,8 +98,8 @@ function Row({ it, onAnswer }: { it: Item; onAnswer: (id: string, s: string) => 
   if (it.kind === 'user') return <div className="ws-row user"><div className="bubble">{it.text}</div></div>
   if (it.kind === 'assistant') return <div className="ws-row ai"><div className="ws-avatar"><NpcImage name="npc_mentor" /></div><div className="bubble"><Markdown text={it.text} /></div></div>
   if (it.kind === 'system') return <div className="ws-row sys">{it.text}</div>
-  if (it.kind === 'human') return <div className="ws-row card"><HumanCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
-  if (it.kind === 'bom') return <div className="ws-row card"><BomCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
+  if (it.kind === 'human') return <div className="ws-row cardrow"><HumanCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
+  if (it.kind === 'bom') return <div className="ws-row cardrow"><BomCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
   return (
     <div className={'ws-row tool' + (it.error ? ' err' : '')}>
       <button className="tool-chip" onClick={() => setOpen(!open)}>
