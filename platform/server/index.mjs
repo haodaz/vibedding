@@ -35,7 +35,7 @@ function hasCredentials() {
 }
 
 function sh(cmd) {
-  try { return execSync(cmd, { encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return '' }
+  try { return execSync(cmd, { encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, PATH: process.env.HOME + '/.local/bin:' + process.env.PATH } }).trim() } catch { return '' }
 }
 
 function status() {

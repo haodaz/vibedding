@@ -1,41 +1,31 @@
 #!/usr/bin/env bash
-# 一键装 macOS 上的嵌入式工具链。可以重复运行，已装的会跳过。
-# 用法： bash tools/setup-mac.sh
+# 一键装 macOS 上的嵌入式工具链。不需要管理员密码：全部装进你自己的用户目录。
+# 可以重复运行，已装的会跳过。   用法： bash tools/setup-mac.sh
 set -euo pipefail
-
 say() { printf "\n\033[1;36m==> %s\033[0m\n" "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
+export PATH="$HOME/.local/bin:$PATH"
 
-if ! have brew; then
-  echo "没有 Homebrew。先装它： https://brew.sh"; exit 1
+say "1/3 uv（一个小工具，负责装 Python 和 PlatformIO，不需要 sudo）"
+if ! have uv; then
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
 fi
+uv --version
 
-say "1/4 Python 3（PlatformIO 需要 3.9+，系统自带的 3.6 太老）"
-if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)' 2>/dev/null; then
-  brew install python@3.12
-fi
-PY=$(command -v python3.12 || command -v python3)
-echo "使用: $PY ($($PY --version))"
+say "2/3 Python 3.12（PlatformIO 需要 3.9+，系统自带的太老）"
+uv python install 3.12
 
-say "2/4 PlatformIO Core（命令行编译/烧录/串口，AI 最容易驱动的方式）"
+say "3/3 PlatformIO Core（命令行编译/烧录/串口，AI 最容易驱动的方式）"
 if ! have pio; then
-  "$PY" -m pip install --user -U platformio
-  # 把 pio 加进 PATH
-  USERBASE=$("$PY" -m site --user-base)
-  if ! grep -q "$USERBASE/bin" ~/.zshrc 2>/dev/null; then
-    echo "export PATH=\"$USERBASE/bin:\$PATH\"" >> ~/.zshrc
-    echo "已把 $USERBASE/bin 加入 ~/.zshrc，重新打开终端或执行 source ~/.zshrc"
-  fi
-  export PATH="$USERBASE/bin:$PATH"
+  uv tool install platformio
 fi
 pio --version
 
-say "3/4 烧录 / 调试工具（ST-Link 用 openocd 或 stlink，串口 DFU 用 dfu-util）"
-have openocd  || brew install open-ocd
-have st-flash || brew install stlink
-have dfu-util || brew install dfu-util
-
-say "4/4 串口工具（可选，minicom 看串口输出很方便）"
-have minicom || brew install minicom
+# 烧录/调试工具（openocd、st-link）不用单独装：PlatformIO 第一次烧录时会自己下载到 ~/.platformio/packages
+if ! grep -q 'HOME/.local/bin' "$HOME/.zshrc" 2>/dev/null; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+  echo "已把 ~/.local/bin 加入 ~/.zshrc（新开的终端才生效）"
+fi
 
 say "全部完成。接下来： bash tools/check-env.sh"

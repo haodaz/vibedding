@@ -24,7 +24,7 @@ function safe(rel, allowed) {
 }
 async function sh(cmd, args, cwd, timeout = 180000) {
   try {
-    const { stdout, stderr } = await exec(cmd, args, { cwd, timeout, maxBuffer: 4e6, env: { ...process.env, PATH: process.env.PATH + ':' + process.env.HOME + '/.platformio/penv/bin:' + process.env.HOME + '/Library/Python/3.12/bin:/usr/local/bin:/opt/homebrew/bin' } })
+    const { stdout, stderr } = await exec(cmd, args, { cwd, timeout, maxBuffer: 4e6, env: { ...process.env, PATH: process.env.HOME + '/.local/bin:' + process.env.HOME + '/.platformio/penv/bin:' + process.env.PATH + ':/usr/local/bin:/opt/homebrew/bin' } })
     return { ok: true, out: (stdout + '\n' + stderr).trim() }
   } catch (e) {
     return { ok: false, out: ((e.stdout ?? '') + '\n' + (e.stderr ?? '') + '\n' + e.message).trim() }

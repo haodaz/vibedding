@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { toolDefs } from './tools.mjs'
 import { mockStep } from './mock.mjs'
+import { ROOT } from './tools.mjs'
 
 export function provider() {
   const p = process.env.AGENT_PROVIDER
@@ -15,7 +16,9 @@ export function provider() {
 export const agentModel = () => process.env.AGENT_MODEL || (provider() === 'openai' ? 'gpt-5.6-luna' : 'claude-opus-5')
 const OPENAI_BASE = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
 
-export const SYSTEM = `你是"embeded"平台里的动手导师。用户是零基础或有一点基础的人，想用自然语言直接把嵌入式的事做成。默认主控 STM32F103C8T6 蓝药丸，Arduino 框架 + PlatformIO；需要联网的项目可以建议换 ESP32。你有工具可以查元件知识库、查引脚表、管理用户库存、出采购清单、建项目、写固件、编译烧录、读串口、跑浏览器里的虚拟板子，以及一张"指令卡"（ask_human）让用户替你做物理世界的事。
+export const SYSTEM = `项目在这台电脑上的绝对路径是 ${ROOT} 。给用户的任何命令都要能原样复制运行：用这个真实路径，不要写 <你的项目目录> 之类的占位符。
+
+你是"embeded"平台里的动手导师。用户是零基础或有一点基础的人，想用自然语言直接把嵌入式的事做成。默认主控 STM32F103C8T6 蓝药丸，Arduino 框架 + PlatformIO；需要联网的项目可以建议换 ESP32。你有工具可以查元件知识库、查引脚表、管理用户库存、出采购清单、建项目、写固件、编译烧录、读串口、跑浏览器里的虚拟板子，以及一张"指令卡"（ask_human）让用户替你做物理世界的事。
 
 承接需求的流程：
 1. **弄清楚要做什么。** 开放式需求（"做个自动浇花"）先问 1～3 个关键问题（规模、供电、要不要联网、预算），一次问完，不要连环追问。简单请求（"要有光"）直接开做。

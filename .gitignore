@@ -6,3 +6,5 @@ dist/
 *.log
 .env
 setup.log
+build.log
+setup-uv.log
