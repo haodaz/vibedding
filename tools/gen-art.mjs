@@ -3,11 +3,14 @@
 // 用法（在 platform 目录）： npm run art            全部
 //                          npm run art -- --force  重新生成
 //                          npm run art -- hero_home mod1_blink   只生成这几个
+//                          npm run art -- scenes    生成全部场景图（默认不生成，兜底画面够用）
+//                          npm run art -- parts     生成全部元件贴图
 // 密钥：platform/.env 里的 DASHSCOPE_API_KEY（或环境变量）
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { rekey } from './rekey.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(here, '..')
@@ -80,7 +83,7 @@ await fs.mkdir(OUT, { recursive: true })
 
 const jobs = []
 for (const s of manifest.scenes) {
-  if (only.length && !only.includes(s.name)) continue
+  if (!only.includes(s.name) && !only.includes('scenes')) continue   // 场景要显式要求才生成
   const file = path.join(OUT, s.name + '.jpg')
   if (!force && await fs.stat(file).catch(() => null)) { console.log('跳过（已存在）', s.name); continue }
   jobs.push((async () => {
@@ -101,6 +104,18 @@ for (const n of manifest.npcs) {
       await fs.writeFile(file, await chromaKey(png))
       console.log('✔ 立绘', n.name)
     } catch (e) { console.error('✘', n.name, e.message) }
+  })())
+}
+for (const pt of manifest.parts ?? []) {
+  if (only.length && !only.includes(pt.name) && !only.includes('parts')) continue
+  const file = path.join(OUT, pt.name + '.png')
+  if (!force && await fs.stat(file).catch(() => null)) { console.log('跳过（已存在）', pt.name); continue }
+  jobs.push((async () => {
+    try {
+      const png = await genImage(`${pt.prompt}，${manifest.parts_style}`, '1024*1024')
+      await fs.writeFile(file, (await rekey(await sharp(png).resize({ width: 512 }).png().toBuffer())).buf)
+      console.log('✔ 元件', pt.name)
+    } catch (e) { console.error('✘', pt.name, e.message) }
   })())
 }
 await Promise.all(jobs)

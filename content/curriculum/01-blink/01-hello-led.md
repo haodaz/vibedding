@@ -39,6 +39,16 @@ type: led-circuit
 - 让它按 SOS 的节奏眨（· · · — — — · · ·）
 - 改成两个 LED 交替（需要外接一个 LED + 220Ω 电阻，长脚接 GPIO，短脚接电阻再接 GND）
 
+```canvas
+type: wiring
+title: 外接一个 LED 到 PA1
+left: bluepill
+right: resistor_220, led_red
+wires: bluepill.PA1 > resistor_220.一端 #39c5ff; resistor_220.另一端 > led_red.长脚(+) #ff5c5c "电阻串在哪一边都行"; led_red.短脚(-) > bluepill.GND #8b93a7
+note: 这个外接 LED 是高电平点亮（和板载的 PC13 相反），digitalWrite(PA1, HIGH) 才亮。
+```
+
+
 ## 验收
 - [ ] 不看参考代码写出来的
 - [ ] 能解释为什么 LED 要串电阻（问 AI，然后用一句话记在日志里）

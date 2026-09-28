@@ -117,6 +117,11 @@ function Curriculum() {
   )
 }
 
+const LAB_PROPS: Record<string, Record<string, string>> = {
+  board: { id: 'lab-board', goals: 'pinmode:PC13, blink:PC13:500, serial:hello', task: '让板载 LED 每 500ms 翻转一次，并在串口打印 hello' },
+  wiring: { title: '按键 + 上拉（示例）', left: 'bluepill', right: 'button, led_red, resistor_220', wires: 'bluepill.PA0 > button.脚1 #ffb454; bluepill.GND > button.脚2 #8b93a7; bluepill.PA1 > resistor_220.一端 #39c5ff; resistor_220.另一端 > led_red.长脚(+) #ff5c5c "先过电阻"; led_red.短脚(-) > bluepill.GND #8b93a7', note: '示例：按键接 PA0 和 GND，LED 经 220Ω 接 PA1。真接线前先在引脚图核对。' },
+}
+
 function Lab() {
   const [open, setOpen] = useState<string>('board')
   const types = Object.keys(CANVAS_META)
@@ -131,7 +136,7 @@ function Lab() {
         {types.map((t) => <button key={t} className={'chip' + (open === t ? ' on' : '')} onClick={() => setOpen(t)}>{CANVAS_META[t].name}</button>)}
       </div>
       <p className="muted">{CANVAS_META[open].desc}</p>
-      <Canvas key={open} spec={{ type: open, props: { id: 'lab-' + open, goals: open === 'board' ? 'pinmode:PC13, blink:PC13:500, serial:hello' : '', task: '让板载 LED 每 500ms 翻转一次，并在串口打印 hello' }, body: open === 'board' ? DEFAULT_CODE : '' }} />
+      <Canvas key={open} spec={{ type: open, props: LAB_PROPS[open] ?? { id: 'lab-' + open }, body: open === 'board' ? DEFAULT_CODE : '' }} />
       <div className="lab-howto">
         <h3>怎么在任务卡里嵌一个实验</h3>
         <pre className="howto">{'```canvas\ntype: board\nid: my-blink\ngoals: pinmode:PC13, blink:PC13:200\ntask: 让 LED 每 200ms 眨一次\nrubric: 用了 pinMode；周期约 200ms\n---\n// 这里是初始代码（可省略）\n```'}</pre>

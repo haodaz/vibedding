@@ -12,6 +12,8 @@ import { BoardSim } from './board/BoardSim'
 import { Pinout } from './pinout/Pinout'
 import { Pullup } from './circuit/Pullup'
 import { ResistorColor } from './circuit/ResistorColor'
+import { Parts } from './parts/Parts'
+import { Wiring, parseWires } from './parts/Wiring'
 import { LedCircuit } from './circuit/LedCircuit'
 
 export interface CanvasSpec { type: string; props: Record<string, string>; body: string }
@@ -32,6 +34,8 @@ export const CANVAS_META: Record<string, { name: string; desc: string }> = {
   pullup: { name: '上拉电阻', desc: '按键为什么要上拉，悬空会怎样。' },
   'led-circuit': { name: 'LED 限流', desc: '拖动电阻看电流，理解为什么 LED 要串电阻。' },
   'resistor-color': { name: '色环电阻', desc: '拨色环读阻值。' },
+  parts: { name: '元件图鉴', desc: '套件里每个零件长什么样、干什么、在哪个任务用。' },
+  wiring: { name: '接线图', desc: '零件当节点、线画中间，每根线写清接哪个脚。' },
 }
 
 export function Canvas({ spec }: { spec: CanvasSpec }) {
@@ -43,6 +47,8 @@ export function Canvas({ spec }: { spec: CanvasSpec }) {
     case 'pullup': return <Pullup />
     case 'led-circuit': return <LedCircuit />
     case 'resistor-color': return <ResistorColor />
+    case 'parts': return <Parts only={p.only ? p.only.split(',').map((x) => x.trim()) : undefined} />
+    case 'wiring': return <Wiring title={p.title} left={(p.left ?? '').split(',').map((x) => x.trim()).filter(Boolean)} right={(p.right ?? '').split(',').map((x) => x.trim()).filter(Boolean)} wires={parseWires(p.wires ?? '')} note={p.note} />
     default: return <div className="canvas"><div className="canvas-head"><span className="canvas-title">未知的 canvas 类型：{spec.type}</span></div></div>
   }
 }

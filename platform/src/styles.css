@@ -286,3 +286,37 @@ input[type=range] { accent-color: var(--amber); width: 100%; }
 .dots::after { content: ''; animation: dots 1.4s steps(4, end) infinite; }
 @keyframes dots { 0% { content: '' } 25% { content: '.' } 50% { content: '..' } 75% { content: '...' } }
 @media (max-width: 900px) { .module-head { grid-template-columns: 1fr; } .module-text { padding: 0 16px 16px; } .mentor { grid-template-columns: 1fr; } .mentor-portrait { height: 140px; } }
+
+/* ---------- 元件图鉴 ---------- */
+.part-img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 8px 14px rgba(0,0,0,.45)); }
+.part-img.placeholder { opacity: .7; }
+.parts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; padding: 14px; }
+.part-card { background: rgba(10,14,30,.5); border: 1px solid var(--border); border-radius: 12px; padding: 10px 8px 8px; cursor: pointer; color: var(--text); text-align: center; transition: .15s; font-family: var(--font); }
+.part-card:hover { border-color: var(--border-2); transform: translateY(-2px); background: rgba(20,28,48,.8); }
+.part-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(61,220,132,.3), 0 0 20px rgba(61,220,132,.15); }
+.part-thumb { height: 92px; margin-bottom: 8px; display: grid; place-items: center; }
+.part-label { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+.part-task { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: .04em; }
+.part-detail { display: grid; grid-template-columns: 220px 1fr; gap: 18px; padding: 16px; border-top: 1px solid var(--border); background: rgba(61,220,132,.04); align-items: center; }
+.part-detail-img { height: 200px; }
+.part-detail-text h3 { margin: 0 0 6px; font-size: 18px; }
+.part-detail-text p { margin: 0 0 12px; font-size: 14.5px; }
+.part-detail-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* ---------- 接线图 ---------- */
+.wiring-body { display: grid; grid-template-columns: 1fr 200px 1fr; gap: 0; padding: 8px 14px; position: relative; }
+.wiring-col { display: flex; flex-direction: column; gap: 16px; }
+.wiring-svg { width: 100%; height: 100%; display: block; }
+.wire-part { display: flex; align-items: center; gap: 10px; background: rgba(10,14,30,.55); border: 1px solid var(--border-2); border-radius: 12px; padding: 8px 10px; }
+.wire-part.L { flex-direction: row; } .wire-part.R { flex-direction: row-reverse; text-align: right; }
+.wire-part-img { width: 84px; height: 84px; flex-shrink: 0; }
+.wire-part-text { flex: 1; min-width: 0; }
+.wire-pins { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.wire-part.R .wire-pins { align-items: flex-end; }
+.wire-pins code { font-size: 11px; background: rgba(0,0,0,.35); border: 1px solid var(--border); padding: 0 6px; border-radius: 4px; color: var(--amber); line-height: 15px; width: fit-content; }
+.wiring-list { padding: 8px 14px 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.wire-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wire-row i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.wire-row code { font-size: 12px; background: rgba(0,0,0,.35); border: 1px solid var(--border); padding: 0 6px; border-radius: 4px; color: var(--amber); }
+.wiring-note { padding: 10px 14px 12px; border-top: 1px dashed var(--border-2); color: var(--muted); font-size: 13.5px; }
+@media (max-width: 760px) { .wiring-body { grid-template-columns: 1fr; } .wiring-svg { display: none; } .wire-part.R { flex-direction: row; text-align: left; } .part-detail { grid-template-columns: 1fr; } }

@@ -28,6 +28,16 @@ type: pinout
 2. **让 AI 帮你解读**：把型号发给 AI，让它按上面的格式解释一遍。然后**核对**：去 st.com 搜型号，看官方页面的参数是不是和 AI 说的一致。这是你第一次练习"不盲信 AI"。
 3. **找板载 LED 的引脚**：看板子背面丝印，或者搜"你的板子名 + schematic"。写进 `content/hardware/board.md`。
 4. **接线**：ST-Link 和板子接四根线：`SWDIO`、`SWCLK`、`GND`、`3.3V`。接反不会炸，但不通。拍张照放进 hardware 目录。
+
+```canvas
+type: wiring
+title: ST-Link 接蓝药丸（SWD 四根线）
+left: stlink
+right: bluepill
+wires: stlink.SWDIO > bluepill.SWIO #ffb454 "数据"; stlink.SWCLK > bluepill.SWCLK #39c5ff "时钟"; stlink.GND > bluepill.GND #8b93a7; stlink.3.3V > bluepill.3.3 #ff5c5c "供电（板子接了 USB 就不要接这根）"
+note: ST-Link 的 10 针口上每个脚旁边有丝印，对着名字接。蓝药丸的 SWD 四针在板子短边一端。
+```
+
 5. **插上电脑**：
 
 ```bash

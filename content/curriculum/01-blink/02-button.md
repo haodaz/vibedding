@@ -15,6 +15,18 @@ type: pullup
 
 然后在虚拟板子上写：板子右下角那个黄色按钮接在 **PA0** 和 GND 之间，按住它等于把 PA0 接地。
 
+真接线是这样（用内部上拉，不需要外接电阻）：
+
+```canvas
+type: wiring
+title: 按键接 PA0
+left: bluepill
+right: button
+wires: bluepill.PA0 > button.脚1 #ffb454; bluepill.GND > button.脚2 #8b93a7
+note: 轻触按键四个脚，同一侧的两个脚本来就是通的。接对角线的两个脚最保险。
+```
+
+
 ```canvas
 type: board
 id: button

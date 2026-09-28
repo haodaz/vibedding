@@ -29,6 +29,16 @@ void loop() {
 
 接线：板子 `TX` → 串口模块 `RX`，板子 `RX` → 串口模块 `TX`，`GND` 共地。**TX 接 RX**，交叉接，这是新手第一大坑。
 
+```canvas
+type: wiring
+title: USB 转串口接 UART1
+left: bluepill
+right: usb_serial
+wires: bluepill.PA9 (TX) > usb_serial.RX #ffb454 "交叉！"; bluepill.PA10 (RX) > usb_serial.TX #39c5ff "交叉！"; bluepill.GND > usb_serial.GND #8b93a7 "共地"
+note: 串口模块的 5V/3.3V 不要接到板子上（板子已经有自己的供电）。跳线帽拨到 3.3V 档。
+```
+
+
 `Serial.println(counter++)`，用 `pio device monitor` 看。
 
 ## 验收
