@@ -443,3 +443,7 @@ input[type=range] { accent-color: var(--amber); width: 100%; }
 .kb-term b { font-size: 14.5px; } .kb-metaphor { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .kb-term-more { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; font-size: 13px; }
 .kb-term-more p { margin: 4px 0; } .lbl { font-family: var(--mono); font-size: 10px; color: var(--accent); margin-right: 6px; letter-spacing: .06em; }
+
+.hero-cta { margin-top: 14px; }
+.ws-settings-form { display: flex; flex-direction: column; gap: 6px; }
+.ws-settings-form input { background: #0a0f1e; border: 1px solid var(--border-2); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-family: var(--mono); }

@@ -87,6 +87,11 @@ function Curriculum() {
         <h1>学习路径</h1>
         <p className="mission">把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。</p>
         <p>每个任务都以"做出一个看得见的东西"结束。顺序是建议，不是规定。卡住了就写日志，然后问 AI。</p>
+        <div className="chips hero-cta">
+          <a className="chip primary" href={href('/make?q=' + encodeURIComponent('要有光'))}>▶ 没有板子也能玩：说一句"要有光"</a>
+          <a className="chip" href={href('/kb')}>翻翻知识库</a>
+          <a className="chip" href={href('/doc/curriculum/00-setup/00-terminal.md')}>我有板子，从头开始</a>
+        </div>
       </Scene>
       {modules.map((m, mi) => (
         <section key={m.dir} className="module">

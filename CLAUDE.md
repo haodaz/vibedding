@@ -15,6 +15,11 @@
 - `board` 的 goals 检查器在 `canvases/board/goals.ts`；模拟器只支持 Arduino 教学子集，见 `transpile.ts` 顶部注释
 - 新加 canvas：写组件 + 在 index.tsx 注册 + CANVAS_META 加一行
 
+## 三种运行模式
+- local：`npm run dev`，本地服务有真工具（pio、文件）。static：Vercel，`api/` 两个函数，工具集是 `STATIC_SERVER_TOOLS`，服务端工具由 `src/workshop/local-tools.ts` 在浏览器实现（localStorage）。direct：无后端，访客自填密钥直连模型
+- 规格（系统提示、工具 schema、OpenAI 翻译）只在 `platform/shared/spec.mjs` 一处，三端共用。改工具先改这里，再在 server/tools.mjs 或 local-tools.ts 加实现
+- 访客数据存储层 `src/workshop/storage.ts`（get/set），接 Supabase 只改它
+
 ## 直接做（agent）
 - 入口 `#/make`，代码在 `platform/src/workshop/`。循环在浏览器里跑：`/api/agent/step` 调一次模型，服务端工具走 `/api/tool`，`sim_run` 和 `ask_human` 在浏览器执行
 - 工具定义在 `platform/server/tools.mjs`，系统提示在 `agent.mjs`。写文件只允许 firmware/、content/journal、content/hardware

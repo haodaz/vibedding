@@ -6,6 +6,8 @@ import { BoardSvg, type PinState } from '../canvases/board/BoardSvg'
 import { Markdown } from '../Markdown'
 import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
+import { detectMode, getDirectKey, setDirectKey, getDirectModel, setDirectModel, type ModeInfo } from './mode'
+import { store } from './storage'
 
 const SUGGEST = ['要有光', '让板载的灯眨起来', '我想做一个自动浇花的东西', '做一个桌面温湿度小站', '继续上次的项目']
 const TOOL_LABEL: Record<string, string> = { search_projects: '查项目食谱', search_troubleshooting: '查排障库', explain_concept: '查术语表', get_snippet: '取代码片段', list_boards: '看板子列表', read_board_profile: '读板子档案', part_detail: '查元件档案', search_parts: '查元件库', add_part: '收录元件', read_inventory: '看库存', update_inventory: '更新库存', save_project: '保存项目', list_projects: '列项目', read_project: '读项目', read_pinout: '查引脚表', read_board: '读板子档案', list_parts: '看套件清单', check_env: '检查环境', read_file: '读文件', list_files: '列目录', write_firmware: '写固件', pio_build: '编译', pio_upload: '烧录', serial_read: '读串口', append_journal: '记日志', record_ai_mistake: '记错误', sim_run: '虚拟板子运行' }
@@ -16,6 +18,8 @@ export function Workshop() {
   const agent = useRef<Agent | null>(null)
   if (!agent.current) agent.current = new Agent(() => tick((n) => n + 1), setLive)
   const a = agent.current
+  const [mode, setMode] = useState<ModeInfo | null>(null)
+  useEffect(() => { detectMode().then(setMode) }, [])
   const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [a.items.length, a.busy])
@@ -28,7 +32,7 @@ export function Workshop() {
         <div className="ws-head">
           <div className="eyebrow">// MAKE</div>
           <div className="ws-title"><h1>直接做</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
-          <p>说你要什么，我来写代码、跑、烧。我够不着的（插线、按键、跑命令）会弹卡片请你搭把手。{a.mock && <span className="ws-mock">现在是演示剧本（还没配 AI 密钥），只会演"要有光"。</span>}</p>
+          <p>说你要什么，我来写代码、跑、烧。我够不着的（插线、按键、跑命令）会弹卡片请你搭把手。{a.mock && <span className="ws-mock">现在是演示剧本（还没配 AI 密钥），只会演"要有光"。</span>}{mode && mode.mode !== 'local' && <span className="ws-mock">{mode.mode === 'static' ? '网页体验模式：能出方案、写代码、在虚拟板子上跑；真烧录要在本地模式。' : '没有后端：在右侧设置里填自己的密钥，直接从浏览器用。'}</span>}</p>
         </div>
         <div className="ws-log">
           {a.items.length === 0 && (
@@ -55,7 +59,8 @@ export function Workshop() {
           <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />
           <pre className="serial-out ws-serial">{live.serial || '（AI 跑 sim_run 时这里会动）'}</pre>
         </div>
-        <Projects key={a.items.length} />
+        <Projects key={a.items.length} mode={mode?.mode ?? 'local'} />
+        {mode && mode.mode !== 'local' && <Settings mode={mode} onChange={() => detectMode().then(setMode)} />}
         <div className="ws-tools">
           <div className="canvas-head"><span className="canvas-title">▣ 我有的工具</span></div>
           <ul>
@@ -79,16 +84,42 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     : <button className="chip" onClick={() => setArm(true)}>＋ 新对话</button>
 }
 
-function Projects() {
+function Projects({ mode }: { mode: string }) {
   const [list, setList] = useState<string[]>([])
   useEffect(() => {
+    if (mode !== 'local') {
+      store.get<Record<string, { title: string }>>('projects').then((ps) => setList(Object.entries(ps ?? {}).map(([k, p]) => `${k}: ${p.title}`)))
+      return
+    }
     fetch('/api/tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'list_projects', input: {} }) })
       .then((r) => r.json()).then((j) => setList(String(j.result ?? '').split('\n').filter((l) => l && !l.startsWith('还没有')))).catch(() => {})
-  }, [])
+  }, [mode])
   return (
     <div className="ws-tools ws-projects">
-      <div className="canvas-head"><span className="canvas-title">▣ 我的项目</span><span className="muted small">content/projects/</span></div>
+      <div className="canvas-head"><span className="canvas-title">▣ 我的项目</span><span className="muted small">{mode === 'local' ? 'content/projects/' : '存在你的浏览器里'}</span></div>
       <ul>{list.length ? list.map((l) => <li key={l}>{l}</li>) : <li className="muted">还没有。说一个需求就会有。</li>}</ul>
+    </div>
+  )
+}
+
+function Settings({ mode, onChange }: { mode: ModeInfo; onChange: () => void }) {
+  const [key, setKey] = useState(getDirectKey())
+  const [model, setModel] = useState(getDirectModel())
+  const [open, setOpen] = useState(mode.mode === 'direct' && !getDirectKey())
+  return (
+    <div className="ws-tools ws-settings">
+      <div className="canvas-head"><span className="canvas-title">▣ 设置</span><button className="chip" onClick={() => setOpen(!open)}>{open ? '收起' : '展开'}</button></div>
+      <ul>
+        <li><b>模式</b> {mode.reason}{mode.ai ? ` · ${mode.ai}` : ''}</li>
+        {open && (
+          <li className="ws-settings-form">
+            <div className="muted small">{mode.mode === 'direct' ? '这里没有后端。填你自己的 OpenAI 密钥，浏览器直接调模型。密钥只存在这台浏览器的本地存储里，不会发给任何人。' : '服务端已配好模型。想用自己的密钥直连也可以填在这里（优先级更高）。'}</div>
+            <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-…" />
+            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="模型，如 gpt-5.6-luna" />
+            <div className="chips"><button className="chip primary" onClick={() => { setDirectKey(key.trim()); setDirectModel(model.trim() || 'gpt-5.6-luna'); onChange() }}>保存</button>{getDirectKey() && <button className="chip" onClick={() => { setDirectKey(''); setKey(''); onChange() }}>清除</button>}</div>
+          </li>
+        )}
+      </ul>
     </div>
   )
 }

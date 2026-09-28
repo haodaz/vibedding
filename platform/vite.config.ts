@@ -10,5 +10,6 @@ export default defineConfig({
     fs: { allow: ['..'] },
     proxy: { '/api': 'http://localhost:5174' },
   },
+  preview: { port: 4173, proxy: {} },   // 预览 = 纯静态，不代理 /api，用来模拟线上体验模式
   worker: { format: 'es' },
 })

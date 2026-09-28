@@ -2,6 +2,9 @@
 import { runSim, type SimLive } from './sim'
 import type { BomAsk } from './BomCard'
 import { KNOWLEDGE_TOOLS } from './knowledge'
+import { LOCAL_TOOLS } from './local-tools'
+import { detectMode, getDirectKey, getDirectModel, type ModeInfo } from './mode'
+import { systemFor, toolDefsFor, openaiStep } from '../../shared/spec.mjs'
 
 export type Block =
   | { type: 'text'; text: string }
@@ -24,6 +27,7 @@ export class Agent {
   busy = false
   mock = false
   model = ''
+  modeInfo: ModeInfo | null = null
   private pending: { id: string; resolve: (s: string) => void } | null = null
   constructor(private onChange: () => void, private onLive: (l: SimLive) => void) {
     try {
@@ -59,16 +63,26 @@ export class Agent {
     this.busy = true; this.emit()
     try {
       for (let guard = 0; guard < 40; guard++) {
-        const res = await fetch('/api/agent/step', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: this.messages }) })
-        const j = await res.json()
-        if (j.error) { this.items.push({ kind: 'system', text: '出错了：' + j.error }); break }
-        this.mock = !!j.mock; this.model = j.agentModel ?? ''
+        this.modeInfo ??= await detectMode()
+        let j: Record<string, unknown>
+        if (this.modeInfo.mode === 'direct') {
+          const key = getDirectKey()
+          if (!key) { this.items.push({ kind: 'system', text: '这里没有后端。在右侧"设置"里填你自己的 OpenAI 密钥就能直接用（密钥只存在你的浏览器里）。' }); break }
+          try { j = { ...(await openaiStep({ apiKey: key, model: getDirectModel(), system: systemFor('static'), tools: toolDefsFor('static'), messages: this.messages })), mock: false, agentModel: getDirectModel() } }
+          catch (e) { j = { error: (e as Error).message } }
+        } else {
+          const res = await fetch('/api/agent/step', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: this.messages }) })
+          j = await res.json()
+        }
+        if (j.error === 'no-credentials') { this.items.push({ kind: 'system', text: '服务端还没配 AI 密钥（OPENAI_API_KEY）。' }); break }
+        if (j.error) { this.items.push({ kind: 'system', text: '出错了：' + String(j.error) }); break }
+        this.mock = !!j.mock; this.model = String(j.agentModel ?? '')
         const content = j.content as Block[]
         this.messages.push({ role: 'assistant', content })
         for (const b of content) if (b.type === 'text' && b.text.trim()) this.items.push({ kind: 'assistant', text: b.text })
         const uses = content.filter((b): b is Extract<Block, { type: 'tool_use' }> => b.type === 'tool_use')
         this.emit()
-        if (j.stop_reason === 'refusal') { this.items.push({ kind: 'system', text: '模型拒绝了这个请求。' + (j.stop_details?.explanation ?? '') }); break }
+        if (j.stop_reason === 'refusal') { this.items.push({ kind: 'system', text: '模型拒绝了这个请求。' }); break }
         if (!uses.length) break
         const results: unknown[] = []
         for (const u of uses) {
@@ -105,6 +119,10 @@ export class Agent {
       const { code, seconds } = u.input as { code: string; seconds?: number }
       const r = await runSim(code, Math.min(Math.max(seconds ?? 3, 1), 15), this.onLive)
       out = { text: r.summary, error: !r.ok && r.summary.startsWith('模拟器不能跑') }
+    } else if (this.modeInfo?.mode !== 'local' && LOCAL_TOOLS[u.name]) {
+      try { out = { text: await LOCAL_TOOLS[u.name](u.input) } } catch (e) { out = { text: '执行失败：' + (e as Error).message, error: true } }
+    } else if (this.modeInfo?.mode !== 'local') {
+      out = { text: `体验模式没有 ${u.name} 这个工具（需要本地模式）。`, error: true }
     } else {
       const res = await fetch('/api/tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: u.name, input: u.input }) })
       const j = await res.json()
