@@ -36,6 +36,12 @@ function split(text: string): Seg[] {
   return segs
 }
 
+// key 里带上 canvas 的 id：换到另一篇文档时同位置的 canvas 不会复用旧组件的状态
+function CanvasSeg({ block }: { block: string }) {
+  const spec = parseCanvas(block)
+  return <Canvas key={spec.type + ':' + (spec.props.id ?? '')} spec={spec} />
+}
+
 export function Markdown({ text }: { text: string }) {
   const segs = useMemo(() => split(text), [text])
   const ref = useRef<HTMLDivElement>(null)
@@ -56,7 +62,7 @@ export function Markdown({ text }: { text: string }) {
     <div ref={ref} className="md">
       {segs.map((s, i) => s.kind === 'md'
         ? <article key={i} dangerouslySetInnerHTML={{ __html: marked.parse(s.text) as string }} />
-        : <Canvas key={i} spec={parseCanvas(s.block)} />)}
+        : <CanvasSeg key={i} block={s.block} />)}
     </div>
   )
 }
