@@ -1,0 +1,571 @@
+{
+  "note": "面向蓝药丸 STM32F103C8T6 + PlatformIO + Arduino 框架的最小可编译示例。除 esp32 那条外，全部用 PlatformIO ststm32 平台 + STM32duino 核心 3.0.0（framework-arduinoststm32 4.30000.0）在 bluepill_f103c8 环境下编译通过，但未在真板子上逐条跑过。board 为 bluepill 的用了 PA0 这类 STM32 引脚名和 STM32duino 专有 API；any 的在 UNO/Nucleo/ESP32 上也能编译，引脚按注释换。lib_deps 写进 platformio.ini 的 lib_deps = 下即可。代码风格：先接线注释，再最小程序，中文注释说清每一步为什么。标\"示意\"的（PID）是教原理，不是拿去就能用的成品。",
+  "snippets": [
+    {
+      "id": "blink",
+      "title": "眨眼：板载 LED 一秒一闪",
+      "topic": "GPIO",
+      "when": "刚拿到板子，确认工具链、烧录、板子三件事都没问题",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// 板载 LED：蓝药丸 PC13（低电平亮）、Nucleo PA5、UNO 13、ESP32 GPIO2（高电平亮）\n// LED_BUILTIN 这个名字由开发板定义自动给出，不用自己查引脚\n\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);    // 先告诉芯片：这根脚我要当输出用\n}\n\nvoid loop() {\n  digitalWrite(LED_BUILTIN, HIGH); // 输出高电平（3.3V 或 5V）\n  delay(500);                      // 傻等 500 毫秒，期间芯片什么都干不了\n  digitalWrite(LED_BUILTIN, LOW);  // 输出低电平（0V）\n  delay(500);\n}\n// 看到灯在闪就说明：编译 OK、烧录 OK、板子活着。\n// 蓝药丸上 HIGH 是灭、LOW 是亮，但一闪一灭的节奏是一样的。",
+      "lib_deps": [],
+      "explain": "setup() 只在上电时跑一次，用来做准备工作：这里就是把 LED 那根脚设成输出模式。loop() 会一直循环跑，每圈把脚拉高、等半秒、拉低、再等半秒，肉眼看到的就是 1 秒一闪。LED_BUILTIN 是开发板定义好的宏，换板子不用改代码。delay 是\"傻等\"，等的时候芯片什么都干不了，后面 millis 的写法会解决这个问题。",
+      "pitfalls": [
+        "蓝药丸 PC13 是低电平点亮，digitalWrite(LOW) 才亮，别以为程序反了",
+        "灯不闪先看三件事：烧录有没有真的成功（看终端最后一行 SUCCESS）、板子是不是上了电、是不是烧到别的板子上了",
+        "delay 期间读不到按键、收不到串口，正式程序里不要用它做长时间等待"
+      ]
+    },
+    {
+      "id": "button-debounce-millis",
+      "title": "按键去抖（毫秒法）",
+      "topic": "GPIO",
+      "when": "按一下按键却计数好几次，或者想让按键\"按一次就算一次\"",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 按键一脚接 PB12，另一脚接 GND。用芯片内部上拉：没按=高电平，按下=低电平\nconst int BTN = PB12;\nconst int LED = PC13;\nconst unsigned long DEBOUNCE_MS = 30;  // 机械抖动一般 5~20ms 内结束\n\nint lastReading = HIGH;         // 上一次的原始读数\nint stableState = HIGH;         // 去抖后承认的稳定状态\nunsigned long lastChange = 0;   // 原始读数最后一次变化的时刻\nunsigned long pressCount = 0;\n\nvoid setup() {\n  pinMode(BTN, INPUT_PULLUP);   // 内部上拉，省一个电阻\n  pinMode(LED, OUTPUT);\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  int reading = digitalRead(BTN);\n  if (reading != lastReading) {   // 原始读数一变，就重新开始计时\n    lastChange = millis();\n    lastReading = reading;\n  }\n  // 读数保持不变超过 DEBOUNCE_MS，才承认它是真的\n  if (millis() - lastChange > DEBOUNCE_MS && reading != stableState) {\n    stableState = reading;\n    if (stableState == LOW) {     // 只在\"刚按下\"这一瞬间计数\n      pressCount++;\n      Serial.print(\"按下次数: \");\n      Serial.println(pressCount);\n    }\n  }\n  digitalWrite(LED, stableState); // 按下(LOW)时 PC13 低电平，灯亮\n}",
+      "lib_deps": [],
+      "explain": "机械按键按下的一瞬间，金属触点会弹跳几毫秒，芯片会读到一串高低高低。去抖的思路是：读数变了不急着信，先记下变化的时刻；只有读数连续 30ms 都没再变，才承认这是新的稳定状态。stableState 从 HIGH 变成 LOW 的那一刻，就是一次真正的按下。INPUT_PULLUP 让芯片内部把这根脚轻轻拉到高电平，按键接地一按就变低，不用外接电阻。",
+      "pitfalls": [
+        "按键必须接 GND 而不是 3.3V，因为用的是上拉模式，按下=低",
+        "30ms 不够就调到 50ms；太大会漏掉快速连按",
+        "millis() 大约 49 天会溢出归零，但用减法比较（millis() - lastChange）不受影响，别写成 millis() > lastChange + X"
+      ]
+    },
+    {
+      "id": "button-toggle",
+      "title": "按键切换状态：按一下开、再按一下关",
+      "topic": "GPIO",
+      "when": "想用一个按键控制开/关，而不是按住才亮",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 按键 PB12 接 GND，内部上拉。每按一次，LED 状态翻转一次\nconst int BTN = PB12;\nconst int LED = PC13;\n\nbool ledOn = false;             // 我们自己记住的\"当前状态\"\nint lastStable = HIGH;          // 上一次承认的按键状态\nint lastReading = HIGH;\nunsigned long lastChange = 0;\n\nvoid setup() {\n  pinMode(BTN, INPUT_PULLUP);\n  pinMode(LED, OUTPUT);\n  digitalWrite(LED, HIGH);      // PC13 高电平=灭\n}\n\nvoid loop() {\n  int reading = digitalRead(BTN);\n  if (reading != lastReading) { lastChange = millis(); lastReading = reading; }\n\n  if (millis() - lastChange > 30 && reading != lastStable) {\n    lastStable = reading;\n    if (lastStable == LOW) {    // 检测\"下降沿\"：从没按到按下的瞬间\n      ledOn = !ledOn;           // 翻转状态\n      digitalWrite(LED, ledOn ? LOW : HIGH);  // PC13 低电平亮\n    }\n  }\n}",
+      "lib_deps": [],
+      "explain": "\"按住才亮\"只要把按键读数直接写到 LED 就行，但\"按一下开、再按一下关\"需要程序自己记住当前是开还是关，这就是变量 ledOn 的作用。关键在于只在按键从\"没按\"变成\"按下\"的那一瞬间（下降沿）翻转一次，按住不放也只算一次。去抖逻辑和上一条一样，不然一次按下可能翻转好几回。",
+      "pitfalls": [
+        "如果写成 if (digitalRead(BTN)==LOW) ledOn=!ledOn; 按住时会每圈都翻转，灯疯狂闪",
+        "翻转要放在\"边沿\"里而不是\"电平\"里，这是所有按键逻辑的核心",
+        "PC13 亮灭是反的：ledOn 为 true 时要写 LOW"
+      ]
+    },
+    {
+      "id": "pwm-breathe",
+      "title": "呼吸灯：PWM 调亮度",
+      "topic": "PWM",
+      "when": "想让 LED 渐亮渐暗，或第一次接触\"模拟输出\"",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 外接 LED：PA8 → 220Ω 电阻 → LED 长脚，LED 短脚 → GND\n// PC13 板载灯背后没有定时器，analogWrite 不起作用，所以要外接一个\nconst int LED = PA8;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  analogWriteFrequency(1000);   // STM32duino 专有：PWM 频率设 1kHz，人眼看不出闪\n  analogWriteResolution(8);     // 0~255 共 256 级\n}\n\nvoid loop() {\n  for (int duty = 0; duty <= 255; duty++) {   // 渐亮\n    analogWrite(LED, duty);   // duty=0 全灭，255 全亮，128 大概半亮\n    delay(4);\n  }\n  for (int duty = 255; duty >= 0; duty--) {   // 渐暗\n    analogWrite(LED, duty);\n    delay(4);\n  }\n}\n// 想要更像\"呼吸\"的曲线：亮度用 duty*duty/255 代替 duty（人眼对暗部更敏感）",
+      "lib_deps": [],
+      "explain": "PWM 不是真的输出中间电压，而是高速开关：一个周期里高电平占的比例（占空比）越大，LED 平均亮度越高，1kHz 的频率人眼分不出来。analogWrite(pin, 0~255) 就是设占空比。这段代码用两个 for 循环让占空比从 0 爬到 255 再降回来，每步等 4ms，一个来回约 2 秒。analogWriteFrequency 是 STM32duino 的扩展函数，UNO 上没有（UNO 固定 490/980Hz）。",
+      "pitfalls": [
+        "只有带定时器通道的脚能 PWM。蓝药丸 PC13、PA4、PA5 不行；Nucleo-F103 的 PA5 也不行",
+        "LED 一定串电阻，直接接会烧 LED 或损伤 IO",
+        "线性递增的占空比看起来\"前半段变化快后半段几乎不变\"，想要均匀感就用平方曲线"
+      ]
+    },
+    {
+      "id": "adc-map",
+      "title": "读 ADC 并换算成百分比和电压",
+      "topic": "ADC",
+      "when": "接了电位器、光敏、温度这类\"输出电压\"的传感器，想把读数变成有意义的数",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 电位器：两端分别接 3.3V 和 GND，中间脚接 PA0\nconst int POT = PA0;\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);  // STM32 的 ADC 是 12 位：0~4095（默认按 10 位给 0~1023）\n}\n\nvoid loop() {\n  int raw = analogRead(POT);\n\n  // map(值, 原范围低, 原范围高, 新范围低, 新范围高)：把 0~4095 换算成 0~100\n  int percent = map(raw, 0, 4095, 0, 100);\n\n  // 换算成电压：raw / 4095 * 3.3V。用 float 和 3.3f，不然整数除法结果全是 0\n  float volts = raw * 3.3f / 4095.0f;\n\n  Serial.print(\"raw=\");\n  Serial.print(raw);\n  Serial.print(\"  \");\n  Serial.print(percent);\n  Serial.print(\"%  \");\n  Serial.print(volts, 2);    // 保留两位小数\n  Serial.println(\"V\");\n  delay(200);\n}",
+      "lib_deps": [],
+      "explain": "ADC 把 0~3.3V 之间的电压变成一个整数。STM32 是 12 位，也就是 0~4095 共 4096 格，一格约 0.8mV；Arduino 兼容层默认给你 10 位（0~1023），调 analogReadResolution(12) 才拿到全部精度。map() 做线性换算最省事，但它只算整数。算电压要用浮点，并且写 3.3f 而不是 3.3，否则 F103 没有硬件浮点会用双精度慢很多。转电位器看串口，raw 应该从 0 平滑变到 4095 附近。",
+      "pitfalls": [
+        "PA0~PA7、PB0、PB1 不耐 5V，传感器输出超过 3.3V 会烧 ADC",
+        "读数抖动是正常的（±几格），可以连读 8 次取平均",
+        "map() 的输入超出原范围不会截断，需要先 constrain(raw, 0, 4095)"
+      ]
+    },
+    {
+      "id": "serial-print-cmd",
+      "title": "串口打印与读命令",
+      "topic": "UART",
+      "when": "想从电脑给板子发指令、或想看板子内部变量",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// 在串口监视器输入 on / off / ? 再回车（监视器要设成\"发送换行 \\n\"）\n// 蓝药丸的 Serial 是 PA9(TX)/PA10(RX)，要接 USB-TTL 模块；Nucleo/UNO/ESP32 直接 USB\nString cmd = \"\";\n\nvoid handle(String c) {\n  c.trim();                  // 去掉两头的空格和回车换行\n  if (c == \"on\")       digitalWrite(LED_BUILTIN, HIGH);\n  else if (c == \"off\") digitalWrite(LED_BUILTIN, LOW);\n  else if (c == \"?\")   Serial.println(\"命令：on off ?\");\n  else { Serial.print(\"不认识: \"); Serial.println(c); return; }\n  Serial.print(\"OK \");\n  Serial.println(c);\n}\n\nvoid setup() {\n  Serial.begin(115200);      // 波特率要和 platformio.ini 的 monitor_speed 一致\n  pinMode(LED_BUILTIN, OUTPUT);\n  Serial.println(\"就绪。输入 on / off / ? 回车\");\n}\n\nvoid loop() {\n  while (Serial.available()) {          // 缓冲区里有字节就取出来\n    char ch = Serial.read();\n    if (ch == '\\n') {                   // 收到换行，说明一条命令收完了\n      handle(cmd);\n      cmd = \"\";\n    } else if (cmd.length() < 32) {     // 限长，防止乱输一堆把内存撑爆\n      cmd += ch;\n    }\n  }\n}",
+      "lib_deps": [],
+      "explain": "串口是板子和电脑说话的管道。Serial.begin 设速度，Serial.print 往电脑发，Serial.read 从电脑收。收到的是一个个字符，程序把它们攒进 cmd，直到看见换行符才认为一条命令结束，交给 handle() 去比对。trim() 把 Windows 发来的 \\r 也去掉了，不然 \"on\\r\" 永远不等于 \"on\"。",
+      "pitfalls": [
+        "波特率不一致会看到一堆乱码，代码里 115200 就要在监视器也选 115200",
+        "串口监视器要打开\"发送换行\"，否则程序永远等不到 \\n",
+        "蓝药丸插 USB 是看不到串口的，Serial 走 PA9/PA10，TX 接模块 RX、RX 接模块 TX（交叉），别忘了共地",
+        "UNO 内存小，String 拼接多了会碎片化，正式程序换成 char 数组"
+      ]
+    },
+    {
+      "id": "millis-multitask",
+      "title": "millis 非阻塞：同时闪灯和打印",
+      "topic": "定时",
+      "when": "程序里有两件以上按不同节奏做的事，delay 让它们互相卡住",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// 两件事按各自的节奏跑：LED 每 250ms 翻转一次，串口每 2 秒报一次心跳\n// 核心思想：不\"等\"，而是每圈问一句\"到点了吗？\"\n\nunsigned long lastBlink = 0;\nunsigned long lastReport = 0;\nconst unsigned long BLINK_MS = 250;\nconst unsigned long REPORT_MS = 2000;\nbool ledState = false;\nunsigned long loops = 0;\n\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  unsigned long now = millis();   // 上电到现在的毫秒数，一圈只取一次\n  loops++;\n\n  if (now - lastBlink >= BLINK_MS) {      // 任务 1：闪灯\n    lastBlink = now;\n    ledState = !ledState;\n    digitalWrite(LED_BUILTIN, ledState);\n  }\n\n  if (now - lastReport >= REPORT_MS) {    // 任务 2：报心跳\n    lastReport = now;\n    Serial.print(\"alive, loop 每秒跑了约 \");\n    Serial.print(loops / (REPORT_MS / 1000));\n    Serial.println(\" 圈\");\n    loops = 0;\n  }\n  // 这里还能再塞任务 3、4、5，谁也不会卡谁。以后按键、传感器都这么写\n}",
+      "lib_deps": [],
+      "explain": "delay(500) 的问题是这 500ms 里芯片除了数数什么都不干。改法是每个任务记住\"上次做的时刻\"，loop 每圈飞快转一遍，每个任务问一句\"现在减上次够不够间隔\"，够了就做并更新时刻。这样 loop 每秒能跑几十万圈，所有任务都感觉是\"同时\"进行。这是 Arduino 世界里最重要的一个模式，后面所有传感器、按键、状态机都建立在它上面。",
+      "pitfalls": [
+        "一定用 now - last >= 间隔 的减法写法，millis 溢出（49 天）也不会出错",
+        "loop 里一旦有一个 delay，所有任务都跟着卡，要全体戒掉",
+        "任务里做太重的事（比如 Serial 打印一大段）也会让别的任务变慢，串口 115200 每字符约 0.09ms"
+      ]
+    },
+    {
+      "id": "fsm-traffic-light",
+      "title": "状态机：红绿灯",
+      "topic": "状态机",
+      "when": "流程有\"先这样、再那样、然后回头\"的固定顺序，if 嵌套已经开始乱",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 三个 LED 各串 220Ω：红 PB0、黄 PB1、绿 PB10，另一端接 GND\nconst int RED = PB0, YELLOW = PB1, GREEN = PB10;\n\nenum State { S_RED, S_GREEN, S_YELLOW };   // 把\"现在处于哪个阶段\"起个名\nState state = S_RED;\nunsigned long enteredAt = 0;               // 进入当前状态的时刻\n\n// 每个状态各停多久（毫秒）\nunsigned long durationOf(State s) {\n  switch (s) {\n    case S_RED:    return 3000;\n    case S_GREEN:  return 3000;\n    case S_YELLOW: return 1000;\n  }\n  return 1000;\n}\n\nvoid showLights(State s) {\n  digitalWrite(RED,    s == S_RED);\n  digitalWrite(YELLOW, s == S_YELLOW);\n  digitalWrite(GREEN,  s == S_GREEN);\n}\n\nvoid setup() {\n  pinMode(RED, OUTPUT); pinMode(YELLOW, OUTPUT); pinMode(GREEN, OUTPUT);\n  showLights(state);\n  enteredAt = millis();\n}\n\nvoid loop() {\n  if (millis() - enteredAt >= durationOf(state)) {   // 当前状态时间到了\n    if (state == S_RED)         state = S_GREEN;      // 状态转移表\n    else if (state == S_GREEN)  state = S_YELLOW;\n    else                        state = S_RED;\n    enteredAt = millis();\n    showLights(state);\n  }\n  // loop 其余时间是空闲的，可以同时处理按键、串口\n}",
+      "lib_deps": [],
+      "explain": "状态机就是把程序拆成几个\"阶段\"，任何时刻只处于其中一个，加上\"什么条件下从哪个阶段跳到哪个阶段\"。这里三个阶段是红、绿、黄，条件是时间到。enum 给每个阶段起名字，state 变量记住当前阶段，enteredAt 记住什么时候进来的。loop 每圈只做一件事：检查是否该换阶段。比起 delay 写法，好处是随时能响应别的事（比如加一个行人按钮把红灯提前）。",
+      "pitfalls": [
+        "digitalWrite(pin, s == S_RED) 里比较结果是 true/false，正好对应 HIGH/LOW，这是个常用省写法",
+        "转移条件多了以后把它们集中在一处（switch），别散落在各个 if 里",
+        "新增一个状态时，enum、durationOf、showLights、转移三处都要加，漏一处就卡在某个灯上"
+      ]
+    },
+    {
+      "id": "exti-counter",
+      "title": "外部中断计数",
+      "topic": "中断",
+      "when": "信号很短很快（脉冲、编码器、霍尔），轮询读会漏掉",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 按键或脉冲信号接 PB12，另一端接 GND，内部上拉。每来一个下降沿就计数一次\nconst int PIN = PB12;\n\nvolatile uint32_t count = 0;   // volatile：告诉编译器这个变量会被中断\"偷偷\"改，别优化\n\nvoid onFalling() {             // 中断服务函数：越短越好，不要 Serial、不要 delay\n  count++;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PIN, INPUT_PULLUP);\n  // 把\"PB12 出现下降沿\"这件事和 onFalling 绑定。FALLING=高变低，RISING=低变高，CHANGE=都算\n  attachInterrupt(digitalPinToInterrupt(PIN), onFalling, FALLING);\n}\n\nvoid loop() {\n  static unsigned long last = 0;\n  if (millis() - last >= 1000) {\n    last = millis();\n    noInterrupts();            // 读多字节变量时先关中断，防止读到一半被改\n    uint32_t snapshot = count;\n    interrupts();\n    Serial.print(\"这一秒到现在总计: \");\n    Serial.println(snapshot);\n  }\n}\n// 用手按按键会发现一次按下计了好几下，那是抖动，见\"中断+millis 去抖\"那条",
+      "lib_deps": [],
+      "explain": "轮询是 loop 一圈一圈地问\"变了吗\"，信号比一圈还短就漏了。中断是反过来：硬件盯着那根脚，一有变化立刻暂停 loop 跳去执行 onFalling，跑完再回来。中断函数里只做最少的事（加一），重活留给 loop。volatile 是必须的，否则编译器可能把 count 缓存在寄存器里，loop 永远看到旧值。读 32 位变量时短暂关中断，避免读到一半被改。",
+      "pitfalls": [
+        "F103 每个编号只能有一个中断脚：PA0 和 PB0 共用 EXTI0，两个不能同时挂中断",
+        "中断里不要 Serial.print 和 delay，会死锁或崩",
+        "机械按键接中断会抖出很多次，得配合去抖",
+        "中断函数里用到的共享变量都加 volatile"
+      ]
+    },
+    {
+      "id": "hardware-timer",
+      "title": "硬件定时器回调（HardwareTimer）",
+      "topic": "定时",
+      "when": "需要精确到微秒的周期动作（采样、发脉冲），millis 的精度或抖动不够",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 硬件定时器：芯片里的独立计数器到点自动调回调，不占 loop，也不受 loop 快慢影响\n// F103 有 TIM1~TIM4。TIM1 高级、TIM2~4 通用，这里用 TIM2\nHardwareTimer timer(TIM2);\nvolatile uint32_t ticks = 0;\n\nvoid onTick() {                     // 回调跑在中断里：要短，别 Serial、别 delay\n  digitalWrite(PC13, !digitalRead(PC13));   // 翻转板载 LED\n  ticks++;\n}\n\nvoid setup() {\n  pinMode(PC13, OUTPUT);\n  Serial.begin(115200);\n\n  timer.setOverflow(2, HERTZ_FORMAT);   // 每秒溢出 2 次 = 每 500ms 调一次回调\n  // 也可以写 timer.setOverflow(500000, MICROSEC_FORMAT);  单位微秒\n  timer.attachInterrupt(onTick);\n  timer.resume();                       // 开始计时。pause() 可以暂停\n}\n\nvoid loop() {\n  static uint32_t last = 0;\n  if (millis() - last >= 1000) {\n    last = millis();\n    Serial.print(\"定时器已触发 \");\n    Serial.print(ticks);\n    Serial.println(\" 次\");\n  }\n  // loop 可以随便 delay，LED 照样准时闪，这就是硬件定时器的价值\n}",
+      "lib_deps": [],
+      "explain": "millis 方案的精度受 loop 影响：loop 里有件事花了 20ms，闪灯就晚 20ms。硬件定时器是芯片里独立的计数器，设好周期后由硬件触发中断调你的函数，和 loop 完全无关。setOverflow(2, HERTZ_FORMAT) 表示每秒两次，也可以用 MICROSEC_FORMAT 直接给微秒。HardwareTimer 是 STM32duino 特有的类，UNO 要操作寄存器或用 TimerOne 库，ESP32 用 timerBegin。",
+      "pitfalls": [
+        "TIM2 被用作定时器后，用到 TIM2 通道的 PWM 脚（PA0~PA3）的 analogWrite 会乱，选定时器时避开你要 PWM 的脚",
+        "蓝药丸变体里 Servo 库默认占 TIM2、tone() 默认占 TIM3。同一个程序里既用 HardwareTimer(TIM2) 又用 Servo 会打架，改用 TIM4（注意 TIM4 的 PWM 脚是 PB6~PB9）",
+        "回调里做的事超过周期本身，中断会堆积，程序看起来\"死了\""
+      ]
+    },
+    {
+      "id": "i2c-scanner",
+      "title": "I2C 扫描器：找出总线上的设备地址",
+      "topic": "I2C",
+      "when": "接了 OLED、RTC、传感器却没反应，先确认\"线接对了没、地址是多少\"",
+      "board": "any",
+      "code": "#include <Arduino.h>\n#include <Wire.h>\n// 蓝药丸默认 I2C1 是 SCL PB6 / SDA PB7；本课程用 PB8/PB9 时取消下面两行注释\n// Nucleo: SCL D15 / SDA D14；UNO: A5 / A4；ESP32: 22 / 21\n\nvoid setup() {\n  Serial.begin(115200);\n  // Wire.setSDA(PB9); Wire.setSCL(PB8);   // 仅 STM32duino 有这两个函数\n  Wire.begin();\n  delay(500);\n  Serial.println(\"开始扫描 I2C 总线...\");\n}\n\nvoid loop() {\n  int found = 0;\n  for (uint8_t addr = 1; addr < 127; addr++) {   // 7 位地址范围 0x01~0x7E\n    Wire.beginTransmission(addr);                // 敲一下这个地址\n    uint8_t err = Wire.endTransmission();        // 0 表示有人应答\n    if (err == 0) {\n      Serial.print(\"  发现设备: 0x\");\n      if (addr < 16) Serial.print(\"0\");\n      Serial.println(addr, HEX);\n      found++;\n    }\n  }\n  if (found == 0) Serial.println(\"  一个都没找到：检查 SDA/SCL 有没有接反、有没有共地、模块有没有上电\");\n  Serial.println(\"5 秒后再扫一次\");\n  delay(5000);\n}\n// 常见地址：OLED SSD1306 0x3C / 0x3D，DS3231 0x68，AT24C32 0x57，MPU6050 0x68，BMP280 0x76",
+      "lib_deps": [],
+      "explain": "I2C 总线上每个设备有一个 7 位地址。扫描器就是从 1 到 126 挨个\"喊名字\"：beginTransmission 发地址，endTransmission 看有没有人回应，返回 0 就是有。接线只有四根：SDA、SCL、VCC、GND。这是排查 I2C 外设最有用的工具，扫到了说明线路和供电都对，问题在代码；扫不到说明先别改代码，去查线。",
+      "pitfalls": [
+        "SDA/SCL 接反是最常见原因，模块丝印和板子丝印一一对应",
+        "I2C 需要上拉电阻，多数模块自带；自己焊的芯片没有上拉就永远扫不到",
+        "扫到 0x68 可能是 DS3231 也可能是 MPU6050，地址会撞车，同类型两个设备要改地址跳线",
+        "蓝药丸想用 PB8/PB9 要在 Wire.begin() 之前 setSDA/setSCL"
+      ]
+    },
+    {
+      "id": "oled-u8g2",
+      "title": "OLED SSD1306 用 U8g2 显示文字",
+      "topic": "I2C",
+      "when": "想在小屏幕上显示数值或状态，不再依赖串口",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Wire.h>\n#include <U8g2lib.h>\n// 0.96 寸 OLED（SSD1306，I2C 地址 0x3C）：VCC→3.3V，GND→GND，SCL→PB8，SDA→PB9\n// 类名的意思：驱动 SSD1306，128x64，无名牌子，F=全缓冲，HW_I2C=硬件 I2C\nU8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);\n\nint counter = 0;\n\nvoid setup() {\n  Wire.setSDA(PB9);           // 蓝药丸默认 I2C 在 PB6/PB7，这里改到 PB8/PB9\n  Wire.setSCL(PB8);\n  u8g2.begin();               // 内部会调 Wire.begin()\n}\n\nvoid loop() {\n  u8g2.clearBuffer();                          // 先清内存里的画布\n  u8g2.setFont(u8g2_font_ncenB10_tr);          // 选字体（英文数字）\n  u8g2.drawStr(0, 14, \"Hello STM32\");          // (x, y) 是文字基线左下角\n  u8g2.setFont(u8g2_font_6x12_tr);\n  u8g2.setCursor(0, 32);\n  u8g2.print(\"count = \");\n  u8g2.print(counter);\n  u8g2.drawFrame(0, 40, 128, 12);              // 画一个空心框\n  u8g2.drawBox(2, 42, map(counter % 100, 0, 99, 0, 124), 8);   // 进度条\n  u8g2.sendBuffer();                           // 一次性把画布推到屏幕\n  counter++;\n  delay(100);\n}\n// 显示中文：setFont(u8g2_font_wqy12_t_gb2312) + drawUTF8()，但字库约 100KB+，F103C8 放不下",
+      "lib_deps": [
+        "olikraus/U8g2"
+      ],
+      "explain": "U8g2 的用法是\"画在内存里的画布上，画完一次性推到屏幕\"：clearBuffer 清画布，drawStr/print/drawBox 往上画，sendBuffer 推送。F（全缓冲）模式最简单，128x64 的画布占 1KB 内存，蓝药丸 20KB 完全够。坐标 (0,0) 在左上角，drawStr 的 y 是文字底边而不是顶边。构造函数那个长名字是从 U8g2 的列表里按屏幕型号挑的，换屏幕只改这一行。",
+      "pitfalls": [
+        "屏幕不亮先跑 I2C 扫描器，地址应该是 0x3C，扫不到就是线的问题",
+        "有的 OLED 模块 VCC 标 5V 实际是 3.3V 逻辑，蓝药丸接 3.3V 最稳",
+        "中文字库很大，F103C8 编译会提示 Flash 溢出，换 F411 或只嵌入需要的几个字",
+        "setSDA/setSCL 必须在 u8g2.begin() 之前"
+      ]
+    },
+    {
+      "id": "dht11",
+      "title": "DHT11 读温湿度",
+      "topic": "单总线",
+      "when": "想知道环境温湿度，做温控风扇、天气小站",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <DHT.h>\n// DHT11 三线模块：VCC→3.3V（或 5V），GND→GND，DATA→PB5\n// 裸的四脚 DHT11 要在 DATA 和 VCC 之间加 10kΩ 上拉，模块一般自带\n#define DHT_PIN  PB5\n#define DHT_TYPE DHT11        // DHT22 更精确，改这里即可\n\nDHT dht(DHT_PIN, DHT_TYPE);\n\nvoid setup() {\n  Serial.begin(115200);\n  dht.begin();\n  Serial.println(\"DHT11 需要上电后等 1~2 秒才能读\");\n}\n\nvoid loop() {\n  delay(2000);                              // DHT11 每次读之间至少隔 1 秒\n  float h = dht.readHumidity();\n  float t = dht.readTemperature();          // 摄氏度\n\n  if (isnan(h) || isnan(t)) {               // 读失败会返回 NaN（不是数字）\n    Serial.println(\"读取失败：检查接线、上拉电阻，或者刚上电还没准备好\");\n    return;\n  }\n  Serial.print(\"温度 \");\n  Serial.print(t, 1);\n  Serial.print(\" C   湿度 \");\n  Serial.print(h, 0);\n  Serial.println(\" %\");\n}",
+      "lib_deps": [
+        "adafruit/DHT sensor library",
+        "adafruit/Adafruit Unified Sensor"
+      ],
+      "explain": "DHT11 只用一根数据线和芯片说话，时序很苛刻，所以交给库来做。readTemperature 和 readHumidity 各自去问一次传感器，失败时返回 NaN，一定要用 isnan 检查再用，否则会打印出一堆 nan。DHT11 的精度是 ±2°C、±5%，刷新慢，读得太勤反而失败率高。想要更准换 DHT22，代码只改一个宏。",
+      "pitfalls": [
+        "两次读取间隔小于 1 秒会返回 NaN",
+        "数据线太长（超过 1 米）需要更小的上拉电阻（4.7kΩ）",
+        "库需要 Adafruit Unified Sensor 作依赖，lib_deps 两个都要写",
+        "DHT11 的温度分辨率只有 1°C，看到 25.0 一直不变不是坏了"
+      ]
+    },
+    {
+      "id": "ds18b20",
+      "title": "DS18B20 读温度",
+      "topic": "单总线",
+      "when": "要测水温、机箱温度，或者需要防水探头、多个探头共用一根线",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <OneWire.h>\n#include <DallasTemperature.h>\n// DS18B20：VDD→3.3V，GND→GND，DQ→PA1，并且 DQ 和 3.3V 之间接 4.7kΩ 上拉（必须！）\n// 防水探头三根线：红 VDD，黑 GND，黄 DQ\nconst int ONE_WIRE_PIN = PA1;\n\nOneWire oneWire(ONE_WIRE_PIN);\nDallasTemperature sensors(&oneWire);\n\nvoid setup() {\n  Serial.begin(115200);\n  sensors.begin();\n  Serial.print(\"总线上找到 \");\n  Serial.print(sensors.getDeviceCount());\n  Serial.println(\" 个 DS18B20\");\n  sensors.setResolution(12);              // 9~12 位，12 位 0.0625°C，转换要 750ms\n}\n\nvoid loop() {\n  sensors.requestTemperatures();          // 让所有探头开始转换（会阻塞约 750ms）\n  float t = sensors.getTempCByIndex(0);   // 取第 0 个探头的摄氏度\n\n  if (t == DEVICE_DISCONNECTED_C) {       // -127 表示没读到\n    Serial.println(\"没找到探头：查上拉电阻和接线\");\n  } else {\n    Serial.print(\"温度: \");\n    Serial.print(t, 2);\n    Serial.println(\" C\");\n  }\n  delay(1000);\n}\n// 多个探头：getTempCByIndex(1)、(2)...；正式项目用 getAddress 记住每个探头的 64 位序列号",
+      "lib_deps": [
+        "paulstoffregen/OneWire",
+        "milesburton/DallasTemperature"
+      ],
+      "explain": "DS18B20 是数字温度计，一根数据线上可以挂很多个，每个有唯一序列号。OneWire 库负责底层通信，DallasTemperature 库在上面封装成\"请求转换、读结果\"两步。requestTemperatures 发出命令后探头需要最长 750ms 完成转换，库默认会等。读到 -127 就是没连上，几乎都是上拉电阻没接。精度 ±0.5°C，比 DHT11 准得多。",
+      "pitfalls": [
+        "4.7kΩ 上拉电阻不是可选项，没有它读数就是 -127 或 85",
+        "读到 85.00 通常是刚上电还没转换过就读了",
+        "requestTemperatures 默认阻塞 750ms，需要非阻塞时 setWaitForConversion(false) 然后自己用 millis 等",
+        "线长超过几米时要考虑寄生供电模式和更强的上拉"
+      ]
+    },
+    {
+      "id": "servo-basic",
+      "title": "舵机控制（Servo 库）",
+      "topic": "舵机",
+      "when": "要让东西转到指定角度：机械臂、投食口、指针",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Servo.h>\n// SG90 舵机：棕线→GND，红线→5V（板子的 5V 排针或独立电源），橙线→PA8\n// 舵机的 GND 必须和板子共地\nServo myServo;\nconst int SERVO_PIN = PA8;\n\nvoid setup() {\n  Serial.begin(115200);\n  myServo.attach(SERVO_PIN);   // 绑定引脚，库会用一个定时器产生 50Hz 的脉冲\n  myServo.write(90);           // 先回中间\n  delay(500);\n}\n\nvoid loop() {\n  myServo.write(0);            // 转到 0 度\n  Serial.println(\"0\");\n  delay(1000);                 // 给它时间转过去，SG90 转 180 度约 0.5 秒\n\n  myServo.write(90);\n  Serial.println(\"90\");\n  delay(1000);\n\n  myServo.write(180);\n  Serial.println(\"180\");\n  delay(1000);\n}\n// 角度不对时可以校准脉宽：myServo.attach(SERVO_PIN, 500, 2500);  // 最小/最大微秒\n// 不用时 myServo.detach() 可以让它松开、不再抖动发热",
+      "lib_deps": [],
+      "explain": "舵机认的是脉冲宽度：每 20ms 来一个 0.5~2.5ms 的高电平，宽度对应角度。Servo 库把这件事藏起来，你只管 write(角度)。attach 时库会占用一个硬件定时器持续发脉冲。SG90 这种小舵机可以从板子 5V 排针供电，但转动瞬间电流可到几百毫安，电压一抖板子就复位，所以稍大的舵机一定独立供电、只共地。STM32duino 和 AVR 都自带 Servo 库，不用装。",
+      "pitfalls": [
+        "舵机供电从蓝药丸的 3.3V 拿是不行的，用 5V 排针或外部电源",
+        "舵机一动板子就复位 = 电源撑不住，换独立供电或加大电容",
+        "ESP32 要用 madhephaestus/ESP32Servo 库，自带 Servo.h 不支持",
+        "便宜舵机的 0 度和 180 度往往到不了，用 attach(pin, min, max) 微调"
+      ]
+    },
+    {
+      "id": "ultrasonic-hcsr04",
+      "title": "超声波测距 HC-SR04",
+      "topic": "定时",
+      "when": "测距离、做避障、判断有没有东西靠近",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// HC-SR04：VCC→5V，GND→GND，TRIG→PB10，ECHO→PB11\n// ECHO 输出 5V 高电平，PB10/PB11 是 5V 耐受脚所以能直接接；别接 PA0~PA7\nconst int TRIG = PB10;\nconst int ECHO = PB11;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(TRIG, OUTPUT);\n  pinMode(ECHO, INPUT);\n  digitalWrite(TRIG, LOW);\n}\n\nfloat readDistanceCm() {\n  digitalWrite(TRIG, HIGH);                   // 给 10 微秒的触发脉冲\n  delayMicroseconds(10);\n  digitalWrite(TRIG, LOW);\n\n  // 等 ECHO 变高并测量它保持高的时间（微秒），超过 30ms 没回来就放弃\n  unsigned long us = pulseIn(ECHO, HIGH, 30000);\n  if (us == 0) return -1;                     // 超时：太远或没接好\n\n  // 声速约 343m/s = 0.0343cm/us，来回走了两趟所以除 2\n  return us * 0.0343f / 2.0f;\n}\n\nvoid loop() {\n  float d = readDistanceCm();\n  if (d < 0) Serial.println(\"超出量程（>4m）或没接好\");\n  else {\n    Serial.print(\"距离: \");\n    Serial.print(d, 1);\n    Serial.println(\" cm\");\n  }\n  delay(100);                                 // 两次测量至少隔 60ms，避免回波串扰\n}",
+      "lib_deps": [],
+      "explain": "超声波模块的工作方式是：你给 TRIG 一个 10 微秒的脉冲，它发出一串超声波，然后把 ECHO 拉高，等回波回来再拉低。ECHO 高电平的时长就是声音来回的时间。pulseIn 帮你测这个时长，乘以声速再除以 2 就是距离。有效范围大约 2cm~4m，角度 15 度。读到 0 或 -1 说明没有回波（太远、表面太斜吸音、或者线没接对）。",
+      "pitfalls": [
+        "HC-SR04 要 5V 供电才可靠，3.3V 供电的很多批次读数乱跳",
+        "ECHO 是 5V 信号，一定接 5V 耐受脚（PB10~PB15 等），或者串 1kΩ+2kΩ 分压",
+        "pulseIn 是阻塞的，最长等 30ms，需要非阻塞时改用外部中断测时",
+        "布料、斜面、太近（<2cm）都测不准"
+      ]
+    },
+    {
+      "id": "buzzer-tone",
+      "title": "蜂鸣器 tone：发声与简单旋律",
+      "topic": "PWM",
+      "when": "要提示音、报警声，或者想玩几个音符",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 无源蜂鸣器：正极（长脚或标 +）→PA8，负极→GND\n// 有源蜂鸣器只会一个音，直接 digitalWrite 高低就响/停，不用 tone\nconst int BUZZER = PA8;\n\n// 音符频率（Hz）：do re mi fa so la si do\nconst int NOTES[] = {262, 294, 330, 349, 392, 440, 494, 523};\n\nvoid setup() {\n  pinMode(BUZZER, OUTPUT);\n}\n\nvoid loop() {\n  for (int i = 0; i < 8; i++) {\n    tone(BUZZER, NOTES[i], 200);   // 引脚, 频率, 持续毫秒（不阻塞）\n    delay(250);                    // 音符之间留 50ms 空隙，听起来才分得开\n  }\n  noTone(BUZZER);                  // 停\n  delay(500);\n\n  // 报警声：两个频率来回切\n  for (int i = 0; i < 3; i++) {\n    tone(BUZZER, 800);  delay(150);\n    tone(BUZZER, 1200); delay(150);\n  }\n  noTone(BUZZER);\n  delay(2000);\n}",
+      "lib_deps": [],
+      "explain": "无源蜂鸣器本质是个小喇叭，给它多少赫兹的方波就响多高的音。tone(pin, 频率, 时长) 让库用一个定时器持续产生这个频率的方波，时长到了自动停，期间程序可以干别的。noTone 立即停。262Hz 是中央 C，每升八度频率翻倍。有源蜂鸣器内部自带振荡器，接电就响固定的一个音，用 tone 反而会怪。",
+      "pitfalls": [
+        "分清有源/无源：有源的背面有黑胶封住、通电直接响；无源的能看到里面的线圈",
+        "tone 在蓝药丸变体里占 TIM3，会让 TIM3 的 PWM 脚（PA6、PA7、PB0、PB1）analogWrite 失效；Servo 占 TIM2（PA0~PA3）。同时用时错开引脚",
+        "蜂鸣器电流不大（<30mA）可以直驱，但更响的喇叭要加三极管",
+        "tone 的第三个参数不阻塞，紧接着的 delay 才是真正的节奏"
+      ]
+    },
+    {
+      "id": "relay-mosfet",
+      "title": "继电器 / MOS 管开关大电流负载",
+      "topic": "GPIO",
+      "when": "要控制灯泡、风扇、水泵、电磁阀这些 IO 直接带不动的东西",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 继电器模块：VCC→5V，GND→GND，IN→PB12。负载接在 COM 和 NO（常开）上\n// MOS 管模块：VCC/GND 同上，SIG→PB12，负载接 V+ / V-。二者代码一样\nconst int SWITCH_PIN = PB12;\n\n// 很多继电器模块是\"低电平触发\"（IN 为低时吸合）。先按模块丝印改这个\nconst bool ACTIVE_LOW = true;\n\nvoid turnOn()  { digitalWrite(SWITCH_PIN, ACTIVE_LOW ? LOW : HIGH); }\nvoid turnOff() { digitalWrite(SWITCH_PIN, ACTIVE_LOW ? HIGH : LOW); }\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(SWITCH_PIN, OUTPUT);\n  turnOff();                    // 上电第一件事：确保负载是关的\n  Serial.println(\"每 3 秒切换一次，听继电器咔哒声\");\n}\n\nvoid loop() {\n  turnOn();\n  Serial.println(\"ON\");\n  delay(3000);\n\n  turnOff();\n  Serial.println(\"OFF\");\n  delay(3000);\n}\n// 继电器可以控制 220V 交流，但接市电前请先只用低压负载练手，并让懂电的人检查",
+      "lib_deps": [],
+      "explain": "IO 脚只能给几毫安、3.3V，带不动电机灯泡。继电器是\"用小电控制大电\"的开关：IO 给一个信号，模块里的线圈把触点吸合，负载电路就通了，和 IO 完全隔离。MOS 管模块原理不同（半导体开关，没有触点、能高速 PWM）但用法一样。代码上唯一的坑是很多模块是低电平触发，所以先封装 turnOn/turnOff，把极性的事情集中在一处。上电先关，防止负载在你没准备好时就动。",
+      "pitfalls": [
+        "继电器模块 VCC 一般要 5V，接 3.3V 吸不上",
+        "低电平触发的模块，板子上电瞬间 IO 悬空可能让它抖一下，正式项目加下拉电阻",
+        "电机、电磁阀是感性负载，断电时会反冲，模块上要有续流二极管（多数自带）",
+        "市电很危险，没有经验不要碰"
+      ]
+    },
+    {
+      "id": "ws2812-fastled",
+      "title": "WS2812 灯带 FastLED",
+      "topic": "GPIO",
+      "when": "想要彩色氛围灯、进度指示、一根线控制几十个 LED",
+      "board": "any",
+      "code": "#include <Arduino.h>\n#include <FastLED.h>\n// WS2812B 灯带三根线：5V→外部 5V 电源，GND→共地，DIN→DATA_PIN（串 330Ω 电阻更稳）\n// 蓝药丸把 DATA_PIN 改成 PA7，UNO 用 6，ESP32 用 13。8 颗灯可以从板子 5V 供，再多要独立供电\n#define DATA_PIN  6\n#define NUM_LEDS  8\n\nCRGB leds[NUM_LEDS];              // 内存里的颜色数组，一个元素一颗灯\n\nvoid setup() {\n  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);  // GRB 是 WS2812B 的颜色顺序\n  FastLED.setBrightness(40);      // 0~255，先调低，全亮很刺眼也很耗电\n}\n\nvoid loop() {\n  // 效果 1：彩虹流动\n  static uint8_t hue = 0;\n  for (int i = 0; i < NUM_LEDS; i++) {\n    leds[i] = CHSV(hue + i * 32, 255, 255);   // 色相、饱和度、亮度\n  }\n  FastLED.show();                             // 改完数组后必须 show 才会发到灯带\n  hue += 2;\n  delay(20);\n}\n// 效果 2：单个红点 leds[3] = CRGB::Red;  清空 FastLED.clear();  都要跟 FastLED.show()",
+      "lib_deps": [
+        "fastled/FastLED"
+      ],
+      "explain": "WS2812 每颗灯里有个小芯片，收到自己的颜色后把剩下的数据传给下一颗，所以一根线能串很多颗。FastLED 把苛刻的时序封装成一个数组：你改 leds[i] 的颜色，然后 FastLED.show() 一次性发出去。CHSV 用色相（0~255 转一圈）表示颜色，做彩虹和渐变比 RGB 方便得多。setBrightness 全局限亮，新手务必先调低。",
+      "pitfalls": [
+        "每颗灯全白最大 60mA，30 颗就是 1.8A，板子 USB 根本供不起，要独立 5V 电源并共地",
+        "蓝药丸 3.3V 信号驱动 5V 灯带有时第一颗灯不认，加一个电平转换或把第一颗灯供 4.3V",
+        "FastLED.show() 期间会关中断，串口可能丢字，灯多时更明显",
+        "蓝药丸 STM32duino 核心的支持不如 UNO 成熟，编译报错时可换 adafruit/Adafruit NeoPixel 库"
+      ]
+    },
+    {
+      "id": "ds3231-alarm",
+      "title": "DS3231 读时间与定时触发",
+      "topic": "I2C",
+      "when": "要\"每天早上 7:30 做一件事\"，或者断电后还知道现在几点",
+      "board": "any",
+      "code": "#include <Arduino.h>\n#include <Wire.h>\n#include <RTClib.h>\n// DS3231 模块：VCC→3.3V，GND→GND，SCL/SDA→板子的 I2C 脚（蓝药丸 PB8/PB9 需 setSCL/setSDA）\nRTC_DS3231 rtc;\n\nconst int ALARM_HOUR = 7, ALARM_MINUTE = 30;   // 每天触发的时刻\nbool firedToday = false;                        // 防止同一分钟里反复触发\n\nvoid setup() {\n  Serial.begin(115200);\n  if (!rtc.begin()) { Serial.println(\"找不到 DS3231，查 I2C 接线\"); while (1) delay(10); }\n  if (rtc.lostPower()) {                        // 电池没电或第一次用：用编译时间校准\n    Serial.println(\"RTC 时间丢失，用编译时间设置\");\n    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  }\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n  char buf[20];\n  snprintf(buf, sizeof(buf), \"%04d-%02d-%02d %02d:%02d:%02d\",\n           now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());\n  Serial.println(buf);\n\n  bool isAlarmTime = (now.hour() == ALARM_HOUR && now.minute() == ALARM_MINUTE);\n  if (isAlarmTime && !firedToday) {\n    firedToday = true;\n    Serial.println(\">>> 到点了！这里放要做的事（喂食、开灯）\");\n  }\n  if (!isAlarmTime) firedToday = false;         // 过了那一分钟就复位，明天还能触发\n\n  Serial.print(\"模块温度 \"); Serial.println(rtc.getTemperature());\n  delay(1000);\n}",
+      "lib_deps": [
+        "adafruit/RTClib",
+        "adafruit/Adafruit BusIO"
+      ],
+      "explain": "DS3231 是一块带纽扣电池的时钟芯片，板子断电它照样走，误差每年几分钟。rtc.now() 返回一个 DateTime，可以取年月日时分秒。lostPower 判断电池是否没电过，是的话用 __DATE__/__TIME__（编译那一刻的时间）校一次。定时触发就是每秒比一下时分，加一个 firedToday 标志保证那一分钟里只做一次。",
+      "pitfalls": [
+        "编译时间校准会慢几十秒（编译+烧录耗时），精确要求高就用串口设置",
+        "模块自带纽扣电池座，别装不可充电的 CR2032 到带充电电路的老版模块上（会鼓包）",
+        "判断\"到点\"要用标志位，否则那一分钟里 loop 转多少圈就触发多少次",
+        "RTClib 依赖 Adafruit BusIO，lib_deps 两个都写"
+      ]
+    },
+    {
+      "id": "pot-brightness",
+      "title": "电位器调 LED 亮度",
+      "topic": "ADC",
+      "when": "第一次把\"输入\"和\"输出\"连起来：拧一下旋钮灯就变",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 电位器：两端接 3.3V 和 GND，中间脚接 PA0\n// LED：PA8 → 220Ω → LED → GND\nconst int POT = PA0;\nconst int LED = PA8;\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);     // 读 0~4095\n  analogWriteResolution(8);     // 写 0~255\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int raw = analogRead(POT);                 // 0~4095\n\n  // 简单平滑：新值只占 1/4，旧值占 3/4，去掉旋钮抖动\n  static int smooth = 0;\n  smooth = (smooth * 3 + raw) / 4;\n\n  int duty = map(smooth, 0, 4095, 0, 255);   // 换算到 PWM 范围\n  duty = (duty * duty) / 255;                // 平方曲线，让暗部变化更明显\n  analogWrite(LED, duty);\n\n  Serial.print(raw);\n  Serial.print(\" -> \");\n  Serial.println(duty);\n  delay(20);\n}",
+      "lib_deps": [],
+      "explain": "这是 ADC 和 PWM 的合体：读旋钮位置（0~4095），换算成占空比（0~255），写给 LED。中间加了一个\"低通滤波\"：新读数只占四分之一权重，这样旋钮的电噪声不会让灯闪。再用平方曲线让旋钮前半段也有明显变化，因为人眼对亮度是对数感知的。串口同时打印原始值和输出值，方便你看两者的对应关系。",
+      "pitfalls": [
+        "旋钮拧到底灯还微亮，是 ADC 读不到 0（有几格偏差），可以用 constrain 把 <30 当作 0",
+        "LED 在 PC13 上做不了，PC13 没定时器",
+        "电位器三个脚：两边是 3.3V 和 GND，中间是输出，接错中间脚读数不变"
+      ]
+    },
+    {
+      "id": "ldr-divider",
+      "title": "光敏电阻分压读数",
+      "topic": "ADC",
+      "when": "想做\"天黑自动开灯\"、检测有没有人遮挡",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 光敏电阻分压：3.3V → 光敏电阻 → PA1（同时）→ 10kΩ 电阻 → GND\n// 亮的时候光敏电阻变小，PA1 电压升高；暗的时候电阻变大，PA1 电压降低\nconst int LDR = PA1;\nconst int LED = PC13;\nconst int DARK_THRESHOLD = 1200;   // 低于它算天黑。先跑一遍看串口，按你环境改\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  long sum = 0;\n  for (int i = 0; i < 16; i++) sum += analogRead(LDR);   // 采 16 次取平均，抗噪\n  int light = sum / 16;\n\n  // 加一点\"回差\"：低于 1200 算暗，要高于 1400 才算重新亮，避免在临界值附近闪\n  static bool dark = false;\n  if (!dark && light < DARK_THRESHOLD)        dark = true;\n  else if (dark && light > DARK_THRESHOLD + 200) dark = false;\n\n  digitalWrite(LED, dark ? LOW : HIGH);       // PC13 低电平亮：天黑开灯\n  Serial.print(\"light=\");\n  Serial.print(light);\n  Serial.println(dark ? \"  暗\" : \"  亮\");\n  delay(200);\n}",
+      "lib_deps": [],
+      "explain": "光敏电阻本身只是个随光线变化的电阻，芯片读不了电阻，只能读电压，所以和一个固定电阻串起来\"分压\"：两个电阻中间那一点的电压随光线变。哪个在上哪个在下决定了亮时读数是高还是低，这里亮=高。16 次平均消除噪声。阈值判断加了回差（迟滞），不然在黄昏那种临界亮度灯会一直闪。",
+      "pitfalls": [
+        "阈值没有标准答案，不同光敏电阻、不同环境差很多，先看串口再定",
+        "固定电阻 10kΩ 是常用值，用 4.7k~47k 都行，只是量程不同",
+        "不加回差的话临界点附近会抖，这是所有阈值判断都该有的东西"
+      ]
+    },
+    {
+      "id": "watchdog",
+      "title": "看门狗：程序卡死自动复位",
+      "topic": "电源",
+      "when": "设备要长期无人值守，卡死了得自己活过来",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <IWatchdog.h>\n// 独立看门狗（IWDG）：一个倒计时器，你必须定期\"喂狗\"把它重置，\n// 忘了喂（说明程序卡住了）它就把芯片复位。一旦启动就关不掉，直到断电\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PC13, OUTPUT);\n  delay(200);\n  if (IWatchdog.isReset()) {           // 判断这次上电是不是被狗咬的\n    Serial.println(\"!!! 上次是看门狗复位，说明程序卡死过\");\n    IWatchdog.clearReset();\n  } else {\n    Serial.println(\"正常上电\");\n  }\n  IWatchdog.begin(2000000);            // 单位微秒：2 秒内不喂就复位（最长约 32 秒）\n}\n\nvoid loop() {\n  static unsigned long bootMs = millis();\n  digitalWrite(PC13, !digitalRead(PC13));\n  Serial.print(\"运行 \");\n  Serial.print((millis() - bootMs) / 1000);\n  Serial.println(\" 秒\");\n  delay(500);\n  IWatchdog.reload();                  // 喂狗：告诉它\"我还活着\"\n\n  // 演示：运行 10 秒后故意死循环，不再喂狗，2 秒后你会看到板子自己重启\n  if (millis() - bootMs > 10000) {\n    Serial.println(\"模拟卡死...\");\n    while (1) { }\n  }\n}",
+      "lib_deps": [],
+      "explain": "看门狗是一只需要定期喂的狗：begin 设定多久不喂就咬，loop 里每圈 reload 喂一次。程序正常时永远来得及喂；程序因为 bug 卡在某个地方，喂不到，狗就复位芯片，设备自己恢复。isReset 能在重启后知道\"我是被狗咬醒的\"，可以记日志。IWatchdog 是 STM32duino 自带的类，AVR 用 avr/wdt.h，ESP32 用 esp_task_wdt。",
+      "pitfalls": [
+        "看门狗一旦启动不能关，烧录时如果狗一直咬会影响调试，开发阶段先注释掉",
+        "超时时间要大于 loop 里最长的一次阻塞（比如 DS18B20 的 750ms），否则正常运行也会被咬",
+        "别在中断里喂狗——中断还活着不代表主程序没卡",
+        "F103 的 IWDG 用内部 40kHz 低速时钟，精度差，实际超时可能有 ±30% 偏差"
+      ]
+    },
+    {
+      "id": "low-power-sleep",
+      "title": "低功耗睡眠（简单版）",
+      "topic": "电源",
+      "when": "电池供电，大部分时间没事干，想省电",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <STM32LowPower.h>\n// 每 5 秒醒一次：闪一下灯、打印一句，然后深睡。深睡时 F103 电流从约 30mA 降到 1mA 以下\n// 需要 STM32duino Low Power 和 STM32duino RTC 两个库（睡眠靠 RTC 定时唤醒）\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PC13, OUTPUT);\n  digitalWrite(PC13, HIGH);          // 灭\n  LowPower.begin();                  // 初始化低功耗子系统（内部会启动 RTC）\n  Serial.println(\"开始：工作 200ms，睡 5 秒，循环\");\n}\n\nvoid loop() {\n  digitalWrite(PC13, LOW);           // 醒着：亮灯 200ms\n  Serial.print(\"醒了，millis=\");\n  Serial.println(millis());\n  Serial.flush();                    // 等串口把字发完再睡，否则半句话就断了\n  delay(200);\n  digitalWrite(PC13, HIGH);\n\n  LowPower.deepSleep(5000);          // 深睡 5000ms，RTC 到点自动唤醒，从这一行继续往下跑\n  // 还有 LowPower.sleep(ms)：睡得浅、醒得快、省得少\n  // LowPower.shutdown(ms)：睡得最深，但醒来等于复位，从 setup 重新开始\n}\n// 按键唤醒：LowPower.attachInterruptWakeup(PA0, callback, FALLING);  然后 deepSleep() 不带参数",
+      "lib_deps": [
+        "stm32duino/STM32duino Low Power",
+        "stm32duino/STM32duino RTC"
+      ],
+      "explain": "芯片跑着的时候几十毫安，睡着只有零点几毫安，电池项目的续航差几十倍。deepSleep(ms) 让芯片停下主时钟，由 RTC 数时间，到点唤醒后从下一行继续跑，就像 delay 但不耗电。睡前 Serial.flush() 是必须的，串口发送是异步的，不等它发完就睡会丢字。sleep 比 deepSleep 浅，唤醒更快但省得少；shutdown 最省但醒来等于重启。",
+      "pitfalls": [
+        "蓝药丸板上的电源指示灯和 LDO 本身就耗几毫安，真要省电得把电源 LED 拆掉",
+        "深睡时 millis 不走，醒来后 millis 只加了很少，定时逻辑要用 RTC",
+        "睡眠中 ST-Link 连不上芯片，烧录时先按住复位再点上传，或者在 setup 里 delay 几秒留窗口",
+        "ESP32 用 esp_deep_sleep_start()，UNO 用 LowPower 库（rocketscream），API 完全不同"
+      ]
+    },
+    {
+      "id": "eeprom-store",
+      "title": "EEPROM/Flash 存一个值：断电不丢",
+      "topic": "存储",
+      "when": "要记住设置、计数、校准值，重启后还在",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <EEPROM.h>\n// STM32 没有真正的 EEPROM，STM32duino 用 Flash 最后一页模拟。API 和 UNO 的 EEPROM 一样\n// 这里记录\"板子一共上电了几次\"\n\nstruct Settings {\n  uint32_t magic;        // 固定标记，用来判断存过没有（第一次用时 Flash 里是垃圾）\n  uint32_t bootCount;\n  float    calibration;  // 顺便示范存个浮点\n};\nconst uint32_t MAGIC = 0xA5A5C001;\nconst int ADDR = 0;      // 存放地址\n\nvoid setup() {\n  Serial.begin(115200);\n  delay(300);\n\n  Settings s;\n  EEPROM.get(ADDR, s);                 // 把 ADDR 开始的一段字节读进结构体\n  if (s.magic != MAGIC) {              // 第一次：初始化\n    Serial.println(\"没有存过，初始化\");\n    s.magic = MAGIC;\n    s.bootCount = 0;\n    s.calibration = 1.0f;\n  }\n  s.bootCount++;\n  EEPROM.put(ADDR, s);                 // 写回。STM32 上这一步会擦写一整页 Flash，约几十毫秒\n\n  Serial.print(\"这是第 \");\n  Serial.print(s.bootCount);\n  Serial.println(\" 次上电\");\n  Serial.print(\"校准值 \");\n  Serial.println(s.calibration);\n}\n\nvoid loop() {\n  // 按复位键，看计数一直加。改 calibration 也一样 put 一下\n}",
+      "lib_deps": [],
+      "explain": "EEPROM.put/get 把一个变量或结构体整块写进/读出非易失存储。用 magic 标记解决\"第一次运行时里面是随机值\"的问题：读出来的 magic 不对就当成没存过。STM32 用 Flash 模拟，每次 put 会擦掉整页再写，所以别在 loop 里频繁写。Flash 寿命约 1 万次擦写，一秒写一次两小时就报废；正确做法是值变了才写，或者攒一批再写。",
+      "pitfalls": [
+        "Flash 擦写寿命有限（F103 约 1 万次），绝不能每圈 loop 都 put",
+        "EEPROM.put 在 STM32 上会短暂停止执行（擦页期间），实时性要求高的地方注意",
+        "用 ST-Link 全片擦除烧录时模拟 EEPROM 那一页也会被清掉，计数归零是正常的",
+        "结构体加字段后布局变了，旧数据读出来就乱，改结构体时把 MAGIC 换个数强制重新初始化"
+      ]
+    },
+    {
+      "id": "serial-plotter",
+      "title": "串口绘图仪输出格式",
+      "topic": "调试",
+      "when": "看数值变化的趋势（传感器波形、PID 曲线），一堆数字看不出来",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// 串口绘图仪（Arduino IDE 的 Serial Plotter，或 VS Code 的 Teleplot 插件）\n// 规则很简单：每行几个数字用逗号或空格分开，一行一个采样点，回车结尾\n// 蓝药丸把 A0 换成 PA0\n\nvoid setup() {\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  static float phase = 0;\n  int raw = analogRead(A0);                    // 真实的传感器值\n  float sine = 512 + 400 * sin(phase);         // 一条参考正弦，看看绘图仪长什么样\n  phase += 0.1f;\n\n  // 格式 1：纯数字，逗号分隔（Arduino Serial Plotter）\n  Serial.print(raw);\n  Serial.print(\",\");\n  Serial.println(sine);\n\n  // 格式 2：带图例名（新版 Arduino IDE 2.x 支持）\n  // Serial.print(\"raw:\"); Serial.print(raw); Serial.print(\",sine:\"); Serial.println(sine);\n\n  // 格式 3：Teleplot 格式（VS Code 插件）\n  // Serial.print(\">raw:\"); Serial.println(raw);\n  // Serial.print(\">sine:\"); Serial.println(sine);\n\n  delay(20);                                   // 50Hz 采样，绘图仪看着流畅\n}",
+      "lib_deps": [],
+      "explain": "绘图仪只是把每行的数字画成曲线，第一列一条线、第二列一条线。所以只要保证一行只有数字和分隔符、别混进\"温度：\"这种文字，就能画。多条曲线用逗号隔开。PlatformIO 自带的 monitor 不画图，可以用 Arduino IDE 的串口绘图仪（波特率对上即可）或 VS Code 的 Teleplot 插件（格式 3）。调 PID、看按键抖动、看 ADC 噪声，画出来一眼就明白。",
+      "pitfalls": [
+        "绘图期间不能再打印别的文字，否则曲线会跳",
+        "采样太快（<5ms）串口跟不上会卡顿，115200 每行几十字节就是极限",
+        "Serial Plotter 默认只显示最近 500 个点，慢变化的信号看不出趋势"
+      ]
+    },
+    {
+      "id": "isr-debounce-millis",
+      "title": "中断 + millis 软件去抖",
+      "topic": "中断",
+      "when": "用中断读按键但一按跳好几次；或者不想让按键占 loop 的时间",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 按键 PB12 接 GND，内部上拉。用中断捕获下降沿，在中断里用时间戳过滤抖动\nconst int BTN = PB12;\nconst unsigned long DEBOUNCE_MS = 50;\n\nvolatile uint32_t presses = 0;\nvolatile unsigned long lastIsrMs = 0;\n\nvoid onPress() {\n  unsigned long now = millis();       // millis 在中断里可以读（它只是读一个计数器）\n  if (now - lastIsrMs < DEBOUNCE_MS) return;   // 距离上次太近，是抖动，忽略\n  lastIsrMs = now;\n  presses++;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(BTN, INPUT_PULLUP);\n  pinMode(PC13, OUTPUT);\n  attachInterrupt(digitalPinToInterrupt(BTN), onPress, FALLING);\n}\n\nvoid loop() {\n  static uint32_t shown = 0;\n  if (presses != shown) {             // 计数变了才打印，loop 里不做别的\n    shown = presses;\n    Serial.print(\"按键次数: \");\n    Serial.println(shown);\n    digitalWrite(PC13, !digitalRead(PC13));\n  }\n  delay(100);                         // 故意放个 delay 证明按键不受 loop 影响\n}",
+      "lib_deps": [],
+      "explain": "纯轮询去抖要 loop 一直转，纯中断又会被抖动触发好几次。折中办法是中断里记时间：这次触发离上次不到 50ms，就当作抖动忽略。因为只是比较两个数字，中断里做完全没问题。loop 里放了个 delay(100) 故意拖慢，你会发现按键依然一次不漏，这就是中断的价值。注意它只滤\"按下\"那一瞬间的抖动，松开的抖动我们不关心，因为只挂了 FALLING。",
+      "pitfalls": [
+        "millis 在中断里能读但不会更新（它自己也靠中断），所以中断里不能用 millis 做延时",
+        "50ms 内的两次真实按下会被当成一次，快速连击场景把它调小",
+        "共享变量 presses 和 lastIsrMs 都要 volatile",
+        "蓝药丸同一个编号只能挂一个中断（PA12 和 PB12 冲突）"
+      ]
+    },
+    {
+      "id": "keypad-matrix",
+      "title": "4x4 矩阵键盘",
+      "topic": "GPIO",
+      "when": "要输入密码、菜单选择，按键多到 IO 不够用",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Keypad.h>\n// 4x4 薄膜键盘 8 根线：左 4 根是行（R1~R4），右 4 根是列（C1~C4）。不确定就用万用表测\n// 16 个键只用 8 根 IO：轮流让一行输出低，看哪一列变低，就知道按的是哪个\nconst byte ROWS = 4, COLS = 4;\nchar keys[ROWS][COLS] = {\n  {'1', '2', '3', 'A'},\n  {'4', '5', '6', 'B'},\n  {'7', '8', '9', 'C'},\n  {'*', '0', '#', 'D'}\n};\nbyte rowPins[ROWS] = {PB12, PB13, PB14, PB15};   // 行接这里\nbyte colPins[COLS] = {PB5, PB6, PB7, PA8};       // 列接这里\n\nKeypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);\nString input = \"\";\n\nvoid setup() {\n  Serial.begin(115200);\n  Serial.println(\"按键盘，# 结束输入，* 清空\");\n}\n\nvoid loop() {\n  char k = keypad.getKey();          // 没按返回 0（NO_KEY），库内部已做去抖\n  if (!k) return;\n\n  if (k == '#') {\n    Serial.print(\"输入完成: \");\n    Serial.println(input);\n    if (input == \"1234\") Serial.println(\"密码正确\");\n    input = \"\";\n  } else if (k == '*') {\n    input = \"\";\n    Serial.println(\"已清空\");\n  } else {\n    input += k;\n    Serial.print(\"当前: \");\n    Serial.println(input);\n  }\n}",
+      "lib_deps": [
+        "chris--a/Keypad"
+      ],
+      "explain": "16 个按键如果每个占一根 IO 要 16 根，矩阵接法把它们排成 4 行 4 列，只用 8 根。原理是\"扫描\"：依次把某一行拉低，其它行拉高，然后读四列，哪一列是低就说明这一行这一列交叉处的键被按了。Keypad 库把扫描和去抖都做了，你只要 getKey()。keys 数组就是键盘丝印的布局，行列接线顺序对不上时打出来的字符会错位，调换 rowPins/colPins 里的顺序即可。",
+      "pitfalls": [
+        "薄膜键盘的排线左边 4 根是行还是列，不同厂家不一样，按错了就按出的键跟丝印对不上，调 rowPins/colPins 顺序",
+        "同时按两个键可能误判第三个键（鬼键），需要每个键串二极管才能解决",
+        "PB5~PB7、PA8 是随手选的，换成任何普通 GPIO 都行，避开 PA9/PA10 串口脚"
+      ]
+    },
+    {
+      "id": "pid-temp-demo",
+      "title": "简单 PID 温控示意",
+      "topic": "ADC",
+      "when": "要让温度/转速/位置稳在目标值，开关式控制抖得厉害",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// 示意：PA1 读温度传感器（这里假设 LM35 类线性传感器，10mV/°C），PA8 PWM 控制加热片（经 MOS 管）\n// 换成 DS18B20 只需替换 readTemp()。目标 40°C\nconst int TEMP_PIN = PA1;\nconst int HEAT_PIN = PA8;\nconst float TARGET = 40.0f;\n\n// 三个系数：先只调 Kp（大了振荡、小了到不了），再加一点 Ki 消除稳态误差，Kd 最后加\nfloat Kp = 20.0f, Ki = 0.5f, Kd = 5.0f;\nfloat integral = 0, lastError = 0;\n\nfloat readTemp() {\n  int raw = analogRead(TEMP_PIN);            // 12 位\n  return raw * 3.3f / 4095.0f * 100.0f;      // LM35: 0.01V/°C\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);\n  pinMode(HEAT_PIN, OUTPUT);\n}\n\nvoid loop() {\n  static unsigned long last = 0;\n  const float DT = 0.5f;                     // 控制周期 0.5 秒\n  if (millis() - last < DT * 1000) return;\n  last = millis();\n\n  float temp = readTemp();\n  float error = TARGET - temp;               // 差多少\n  integral += error * DT;                    // 累积误差（消除长期偏差）\n  integral = constrain(integral, -50, 50);   // 抗饱和：别让积分无限涨\n  float derivative = (error - lastError) / DT;   // 变化趋势（提前刹车）\n  lastError = error;\n\n  float output = Kp * error + Ki * integral + Kd * derivative;\n  int duty = constrain((int)output, 0, 255); // 加热只能 0~255，不能\"负加热\"\n  analogWrite(HEAT_PIN, duty);\n\n  Serial.print(temp); Serial.print(\",\"); Serial.print(TARGET); Serial.print(\",\"); Serial.println(duty);\n}",
+      "lib_deps": [],
+      "explain": "开关控制（到了就关、低了就开）总是在目标附近来回冲。PID 是按\"差多少\"给力：P 项差得多给得多；I 项把长期的小偏差累积起来慢慢补掉，解决\"永远差一点\"的问题；D 项看变化趋势，快到了就提前收力防冲过头。三个系数没有公式，靠试：先只开 P，调到微微振荡，再加 I 消除稳态误差，最后加一点 D 压振荡。每 0.5 秒算一次，输出限幅在 0~255 交给 PWM。串口输出用了绘图仪格式，画出来调参直观。",
+      "pitfalls": [
+        "积分一定要限幅，否则加热慢的时候积分涨到天上，到温度后还继续猛加热很久",
+        "控制周期要稳定（用 millis 保证），周期变了系数就得重调",
+        "温度系统很慢（分钟级），调参要有耐心；风扇转速是秒级，同一套代码换系数就行",
+        "真正的加热片电流大，必须经 MOS 管或继电器，IO 直接带会烧"
+      ]
+    },
+    {
+      "id": "servo-sweep",
+      "title": "舵机扫动（非阻塞）",
+      "topic": "舵机",
+      "when": "要舵机来回慢慢转（雷达扫描、摇头），同时还得处理别的事",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Servo.h>\n// SG90：棕→GND，红→5V，橙→PA8\nServo sweeper;\nconst int SERVO_PIN = PA8;\nconst int STEP_MS = 15;         // 每步等 15ms，一次 0→180 约 2.7 秒\n\nint angle = 0;\nint direction = 1;              // +1 往 180 走，-1 往 0 走\nunsigned long lastStep = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  sweeper.attach(SERVO_PIN);\n  sweeper.write(angle);\n}\n\nvoid loop() {\n  if (millis() - lastStep >= STEP_MS) {   // 每 15ms 挪一度，不用 delay\n    lastStep = millis();\n    angle += direction;\n    if (angle >= 180) { angle = 180; direction = -1; }   // 到头就掉头\n    if (angle <= 0)   { angle = 0;   direction = 1;  }\n    sweeper.write(angle);\n  }\n\n  // 这里可以同时读超声波、按键、串口。比如按键让它停在当前角度：\n  // if (digitalRead(PB12) == LOW) direction = 0;\n  static unsigned long lastPrint = 0;\n  if (millis() - lastPrint >= 500) {\n    lastPrint = millis();\n    Serial.print(\"角度 \");\n    Serial.println(angle);\n  }\n}",
+      "lib_deps": [],
+      "explain": "舵机 write(180) 会全速冲过去，要慢慢转就得一度一度地写，每次隔一小段时间。用 delay 也能做但 loop 就被占死了；这里用 millis 的节奏：每 15ms 加或减一度，到 0 或 180 就把方向翻过来。direction 变量既是方向也是速度，设成 0 就停、设成 2 就快一倍。串口每半秒报一次角度，和扫动互不干扰。",
+      "pitfalls": [
+        "STEP_MS 小于 10 舵机跟不上，看起来抖",
+        "舵机不动先查供电（5V）和共地，再查橙线接的是不是 PA8",
+        "扫到端点时便宜舵机会顶住发出嗡嗡声，把范围改成 10~170 更安全"
+      ]
+    },
+    {
+      "id": "stepper-28byj",
+      "title": "步进电机 28BYJ-48 + ULN2003",
+      "topic": "GPIO",
+      "when": "要精确转固定角度、慢速大扭矩：旋钮、转盘、投食阀门",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Stepper.h>\n// 28BYJ-48 五线步进电机 + ULN2003 驱动板\n// 驱动板 IN1→PB12，IN2→PB13，IN3→PB14，IN4→PB15；驱动板 +/- 接 5V/GND（和板子共地）\n// 电机的白色插头直接插驱动板\nconst int STEPS_PER_REV = 2048;   // 全步模式：32 步 × 64 减速比 = 2048 步一圈\n\n// 注意参数顺序是 IN1, IN3, IN2, IN4（不是 1234），这是 28BYJ 的线序特点\nStepper motor(STEPS_PER_REV, PB12, PB14, PB13, PB15);\n\nvoid setup() {\n  Serial.begin(115200);\n  motor.setSpeed(12);             // 转速 RPM，这电机最高大约 15，再高会丢步\n}\n\nvoid loop() {\n  Serial.println(\"正转一圈\");\n  motor.step(STEPS_PER_REV);      // 正数正转，阻塞直到转完（约 5 秒）\n  delay(500);\n\n  Serial.println(\"反转半圈\");\n  motor.step(-STEPS_PER_REV / 2);\n  delay(500);\n\n  Serial.println(\"转 90 度\");\n  motor.step(STEPS_PER_REV / 4);\n  delay(2000);\n}\n// 停下来不需要保持力矩时，把四个 IN 都写 LOW 可以省电、不发热",
+      "lib_deps": [
+        "arduino-libraries/Stepper"
+      ],
+      "explain": "步进电机不像直流电机那样通电就转，而是每收到一个脉冲序列转一小步，所以能精确控制角度。28BYJ-48 内部有 64:1 减速，一圈 2048 步。ULN2003 驱动板负责把 IO 的小电流放大给线圈。Stepper 库按顺序给四个线圈通电，step(n) 走 n 步。线序 IN1、IN3、IN2、IN4 是这款电机的特殊之处，接成 1234 电机会抖不转。",
+      "pitfalls": [
+        "构造函数线序 1-3-2-4，接错电机只抖不转",
+        "转速超过 15 RPM 会丢步或不转，它是慢速电机",
+        "step() 是阻塞的，转一圈期间什么都干不了，需要非阻塞用 AccelStepper 库",
+        "电机停着但线圈通电会发热，长时间保持要把 IN 全部拉低"
+      ]
+    },
+    {
+      "id": "hc05-bluetooth",
+      "title": "蓝牙 HC-05 串口收命令",
+      "topic": "UART",
+      "when": "想用手机 App 发命令控制板子，不想拉线",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// HC-05/HC-06 蓝牙串口模块：VCC→5V，GND→GND，TXD→PA3（板子 RX），RXD→PA2（板子 TX）\n// 模块 RXD 是 3.3V 逻辑，蓝药丸 TX 是 3.3V 正好；UNO 的 5V TX 要串分压\n// 手机装\"Serial Bluetooth Terminal\"，配对密码 1234 或 0000，发 1 开灯，0 关灯\n// 用 USART2 当蓝牙口：RX=PA3，TX=PA2。Serial 仍是 PA9/PA10 给电脑看\n#if defined(ARDUINO_API_VERSION)  // STM32duino 3.x 起串口类改名叫 Uart\nUart BT(PA3, PA2);\n#else                             // STM32duino 2.x 叫 HardwareSerial\nHardwareSerial BT(PA3, PA2);\n#endif\n\nvoid setup() {\n  Serial.begin(115200);           // 电脑\n  BT.begin(9600);                 // 蓝牙模块默认 9600（HC-05 有的是 38400，看模块说明）\n  pinMode(PC13, OUTPUT);\n  digitalWrite(PC13, HIGH);\n  Serial.println(\"等待蓝牙命令...\");\n}\n\nvoid loop() {\n  if (BT.available()) {\n    char c = BT.read();\n    Serial.print(\"收到: \");\n    Serial.println(c);\n    if (c == '1') {\n      digitalWrite(PC13, LOW);    // 亮\n      BT.println(\"LED ON\");       // 回复给手机\n    } else if (c == '0') {\n      digitalWrite(PC13, HIGH);\n      BT.println(\"LED OFF\");\n    }\n  }\n  // 电脑串口输入的东西转发给手机，方便调试\n  if (Serial.available()) BT.write(Serial.read());\n}",
+      "lib_deps": [],
+      "explain": "HC-05 对板子来说就是一个串口：手机发的字节从模块 TXD 出来进板子的 RX，板子往 TX 写的字节经模块蓝牙飞到手机。所以代码和读电脑串口一模一样，只是换了一个串口对象。蓝药丸用 USART2（PA2/PA3）当蓝牙口，USART1 留给电脑看日志。HardwareSerial BT(PA3, PA2) 就是在 STM32duino 里新建一个串口对象，参数是 RX、TX。",
+      "pitfalls": [
+        "TX 接 RX、RX 接 TX，交叉！接成 TX 对 TX 永远收不到",
+        "模块 RXD 引脚只认 3.3V，UNO 要分压；蓝药丸不用",
+        "波特率不对会收到乱码，HC-05 出厂 9600 或 38400，AT 模式 38400",
+        "手机端要用\"串口蓝牙终端\"类 App，iPhone 不支持 HC-05 这种经典蓝牙，要换 BLE 模块"
+      ]
+    },
+    {
+      "id": "esp32-wifi",
+      "title": "ESP32 连 WiFi 并打印 IP",
+      "topic": "调试",
+      "when": "第一次让 ESP32 联网，为后面 HTTP/MQTT 做准备",
+      "board": "esp32",
+      "code": "#include <Arduino.h>\n#include <WiFi.h>\n// ESP32 自带 WiFi，不需要任何库。改下面两行为你家路由器的名字和密码（只支持 2.4GHz）\nconst char* WIFI_SSID = \"你的WiFi名\";\nconst char* WIFI_PASS = \"你的WiFi密码\";\n\nvoid connectWiFi() {\n  Serial.print(\"连接 \");\n  Serial.println(WIFI_SSID);\n  WiFi.mode(WIFI_STA);                     // 作为客户端连路由器（不是自己开热点）\n  WiFi.begin(WIFI_SSID, WIFI_PASS);\n\n  unsigned long start = millis();\n  while (WiFi.status() != WL_CONNECTED) {  // 等连上，最多等 15 秒\n    delay(500);\n    Serial.print(\".\");\n    if (millis() - start > 15000) {\n      Serial.println(\"\\n连不上：检查名字密码，路由器是不是 5GHz 专用\");\n      return;\n    }\n  }\n  Serial.println();\n  Serial.print(\"已连接，IP: \");\n  Serial.println(WiFi.localIP());          // 之后做网页服务器就访问这个地址\n  Serial.print(\"信号强度 RSSI: \");\n  Serial.println(WiFi.RSSI());             // -50 很好，-80 很差\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  delay(500);\n  connectWiFi();\n}\n\nvoid loop() {\n  if (WiFi.status() != WL_CONNECTED) {     // 掉线自动重连\n    Serial.println(\"WiFi 掉了，重连\");\n    connectWiFi();\n  }\n  delay(5000);\n}",
+      "lib_deps": [],
+      "explain": "ESP32 的 WiFi 功能在芯片里，WiFi.h 随框架自带。流程是：设成 STA 模式（当客户端），begin 给出名字密码，然后轮询 status 直到 WL_CONNECTED。连上后 localIP 就是路由器分给它的地址，手机浏览器访问这个地址就能到达它（后面做网页控制的基础）。loop 里定期检查状态，掉线就重连，这是所有联网设备都该有的。",
+      "pitfalls": [
+        "ESP32 只支持 2.4GHz WiFi，连不上 5GHz 网络，路由器双频合一的要拆开",
+        "WiFi 名密码写在代码里会随代码泄露，正式项目放到单独文件并 .gitignore",
+        "连 WiFi 瞬间电流冲到 500mA，USB 线差或电脑口供电弱会导致重启",
+        "WiFi 打开后 ADC2 那组脚（GPIO0、2、4、12~15、25~27）读不了模拟量"
+      ]
+    },
+    {
+      "id": "selftest",
+      "title": "自检程序：上电闪灯 + 串口 hello",
+      "topic": "调试",
+      "when": "换了板子/线/环境后，第一时间确认一切正常；也可作为每个项目的模板开头",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// 上电自检：快闪 3 下（说明程序跑起来了），串口报一句 hello 和基本信息，然后每秒心跳\n// 任何项目出问题时，先烧这个：它能跑说明板子、线、工具链都没问题，问题在你的代码\n\nvoid blinkFast(int times) {\n  for (int i = 0; i < times; i++) {\n    digitalWrite(LED_BUILTIN, HIGH); delay(100);\n    digitalWrite(LED_BUILTIN, LOW);  delay(100);\n  }\n}\n\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  blinkFast(3);                    // 不依赖串口，灯闪就说明程序在跑\n\n  Serial.begin(115200);\n  delay(300);                      // 给 USB 串口一点时间\n  Serial.println();\n  Serial.println(\"==== hello, 自检开始 ====\");\n  Serial.print(\"编译时间: \"); Serial.print(__DATE__); Serial.print(\" \"); Serial.println(__TIME__);\n  Serial.print(\"主频: \"); Serial.print(F_CPU / 1000000); Serial.println(\" MHz\");\n  Serial.print(\"板载 LED 引脚编号: \"); Serial.println(LED_BUILTIN);\n#ifdef ARDUINO_ARCH_STM32\n  Serial.println(\"架构: STM32duino\");\n#elif defined(ESP32)\n  Serial.println(\"架构: ESP32\");\n#else\n  Serial.println(\"架构: AVR 或其它\");\n#endif\n  Serial.println(\"==== 自检通过，开始心跳 ====\");\n}\n\nvoid loop() {\n  static unsigned long n = 0;\n  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));\n  Serial.print(\"心跳 \"); Serial.println(++n);\n  delay(1000);\n}",
+      "lib_deps": [],
+      "explain": "自检程序做两件互不依赖的事：先用灯闪 3 下证明程序跑起来了（不需要串口），再用串口打印编译时间等信息证明串口通了、烧的是最新的程序（看编译时间对不对）。之后每秒一个心跳，灯翻转、串口计数。它的价值在于隔离问题：新板子先烧它，通过了再上你的代码；代码出问题时回退到它，就知道问题在硬件还是软件。",
+      "pitfalls": [
+        "编译时间不对说明烧进去的是旧固件，可能 upload 失败了但你没注意看",
+        "灯闪但串口没字：波特率、TX/RX 交叉、共地，三个逐一查",
+        "灯不闪：烧录压根没成功，看终端有没有 SUCCESS"
+      ]
+    },
+    {
+      "id": "spi-loopback",
+      "title": "SPI 自环测试：MOSI 接 MISO",
+      "topic": "SPI",
+      "when": "第一次用 SPI，或者 SPI 外设不响应时，先确认总线本身能收发",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <SPI.h>\n// 用一根杜邦线把 PA7(MOSI) 和 PA6(MISO) 短接。发出去的字节应该原样收回来\n// SPI1: SCK PA5 / MISO PA6 / MOSI PA7，片选随便挑一根普通 GPIO\nconst int CS_PIN = PA4;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(CS_PIN, OUTPUT);\n  digitalWrite(CS_PIN, HIGH);        // 片选高=不选中，低=选中\n  SPI.begin();                       // 初始化 SPI1，默认 PA5/PA6/PA7\n}\n\nvoid loop() {\n  // 把速度、位序、模式打包：1MHz，高位先发，模式 0（大多数芯片是模式 0）\n  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));\n  digitalWrite(CS_PIN, LOW);         // 选中\"设备\"（这里没设备，但流程照走）\n\n  uint8_t sent[] = {0x55, 0xAA, 0x12, 0x34};\n  int ok = 0;\n  for (int i = 0; i < 4; i++) {\n    uint8_t got = SPI.transfer(sent[i]);   // SPI 是全双工：发一个字节同时收一个字节\n    Serial.print(\"发 0x\"); Serial.print(sent[i], HEX);\n    Serial.print(\" 收 0x\"); Serial.print(got, HEX);\n    Serial.println(got == sent[i] ? \"  OK\" : \"  不一致\");\n    if (got == sent[i]) ok++;\n  }\n\n  digitalWrite(CS_PIN, HIGH);        // 释放\n  SPI.endTransaction();\n  Serial.println(ok == 4 ? \"SPI 自环通过\" : \"自环失败：检查 PA6-PA7 短接线\");\n  delay(2000);\n}\n// 接真设备时：把短接线拆掉，MOSI→设备 DI/SDI，MISO→设备 DO/SDO，SCK→CLK，CS→CS/SS",
+      "lib_deps": [],
+      "explain": "SPI 有四根线：SCK 时钟、MOSI 主发从收、MISO 从发主收、CS 片选。它是全双工的，transfer 一个字节的同时收回一个字节。把 MOSI 和 MISO 短接，发什么就收什么，用来验证芯片的 SPI 外设和引脚配置没问题。beginTransaction 里的三个参数决定速度、位序和模式（时钟极性/相位），接真设备时要按它的手册改，模式错了会收到全 0 或全 FF。",
+      "pitfalls": [
+        "自环通过但接设备不通，九成是 SPI_MODE 不对或 CS 没拉低",
+        "PA5 在 Nucleo 上是板载 LED，用 SPI 时灯会闪，正常",
+        "SPI 速度别一上来就 18MHz，杜邦线和面包板超过 4MHz 就开始不稳",
+        "多个 SPI 设备共用三根线，各自一根 CS，同一时刻只能有一个 CS 为低"
+      ]
+    }
+  ]
+}

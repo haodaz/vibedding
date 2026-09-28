@@ -1,0 +1,80 @@
+{
+  "id": "esp32_devkit",
+  "name": "ESP32 DevKit 开发板（ESP32-WROOM-32，30 针）",
+  "mcu": "ESP32-D0WDQ6（ESP32-WROOM-32 模组）",
+  "core": "双核 Xtensa LX6 240MHz + WiFi + 蓝牙",
+  "flash": "4MB（模组内置 SPI Flash）",
+  "ram": "520KB SRAM（程序实际可用约 320KB）",
+  "pio": {
+    "board": "esp32dev",
+    "platform": "espressif32",
+    "framework": "arduino",
+    "upload_protocol": "esptool"
+  },
+  "led": {
+    "pin": "2",
+    "active": "high"
+  },
+  "button": {
+    "pin": "0",
+    "note": "BOOT 键接 GPIO0，按下为低。开机后可以当普通按键用（pinMode(0, INPUT_PULLUP)）。另一个 EN 键是复位"
+  },
+  "buses": {
+    "i2c": "默认 SDA GPIO21 / SCL GPIO22（Wire.begin() 不带参数就是这组；也可以 Wire.begin(sda, scl) 任选）",
+    "spi": "VSPI（SPI 默认）: SCK 18 / MISO 19 / MOSI 23 / CS 5；HSPI: SCK 14 / MISO 12 / MOSI 13 / CS 15",
+    "uart": "Serial（UART0）: TX GPIO1 / RX GPIO3，接板载 USB 转串口芯片，插 USB 就能看打印；Serial2（UART2）: TX 17 / RX 16 给外接模块用；Serial1 引脚默认被 Flash 占用，要用得 Serial1.begin(115200, SERIAL_8N1, rx, tx) 自己指定"
+  },
+  "adc_pins": ["32", "33", "34", "35", "36 (VP)", "39 (VN)", "0", "2", "4", "12", "13", "14", "15", "25", "26", "27"],
+  "pwm_pins": ["任意可输出的 GPIO 都能 analogWrite（内部 LEDC 有 16 路）", "34、35、36、39 是仅输入脚，不能 PWM"],
+  "power": "3.3V 逻辑，IO 不耐 5V！5V 传感器的信号线要分压或用电平转换。VIN 排针是 USB 5V 直入（也可以从这里给板子供 5V），3V3 排针由板载 AMS1117 降压提供，对外大约能给 300~500mA（核对）。WiFi 发射瞬间电流可到 500mA，用劣质 USB 线容易莫名复位",
+  "flash_how": "板子自带 USB 转串口芯片（CP2102 或 CH340），micro-USB 线直接插电脑，pio run -t upload 即可，会自动进入下载模式。Windows/老版 macOS 可能要装 CP210x 或 CH340 驱动。如果卡在 Connecting........_____ 不动，在它打点的时候按住 BOOT 键 2 秒再松开（有些板子每次都得这样，可以在 EN 和 GND 之间加 10uF 电容解决）。platformio.ini 里加 upload_speed = 921600 烧得快很多。串口 pio device monitor，波特率 115200",
+  "gotchas": [
+    "IO 不耐 5V。这是从 UNO 转过来最常踩的坑：5V 模块的输出信号不能直接接 ESP32",
+    "板子版本多（30 针 DOIT V1、38 针 DevKitC 等），排针位置略有不同，但 GPIO 编号是通用的，看板子丝印上的数字（核对你手上那块的丝印）",
+    "GPIO34、35、36、39 只能输入，没有内部上拉，接按键要外加上拉电阻",
+    "ADC2 通道（GPIO0、2、4、12~15、25~27）在 WiFi 开着的时候读不到值。要 WiFi + 模拟量，用 ADC1 那几根：32、33、34、35、36、39",
+    "ADC 12 位（0~4095）但非线性且顶部截断，3.3V 附近读不准，精度要求高的场景别指望它",
+    "启动关键脚：GPIO0（按 BOOT 时为低进下载模式）、GPIO2、GPIO5、GPIO12、GPIO15。上电时这些脚被外设拉到错误电平会启动失败，GPIO12 尤其不能上电时为高",
+    "GPIO6~11 接的是内置 Flash，30 针板子干脆没引出来；38 针板子引出了也绝对不要用",
+    "analogWrite 在 ESP32 Arduino 2.x/3.x 可以直接用；老教程里的 ledcSetup/ledcAttachPin 是底层写法，3.x 换成了 ledcAttach",
+    "Serial 是 UART0，走 USB。GPIO1/GPIO3 别当普通 IO，否则串口打印会坏",
+    "板载 LED 多数版本在 GPIO2，但有些板子没有板载 LED（除电源灯外），别以为程序没跑",
+    "HardwareTimer、IWatchdog 这些是 STM32duino 专有 API，ESP32 上没有；ESP32 用自己的 timerBegin / esp_task_wdt",
+    "板子比较宽，插面包板会把两侧孔位全占掉，买一块大面包板或两块拼起来"
+  ],
+  "left": [
+    { "name": "EN", "funcs": ["复位"], "note": "拉低复位，和 EN 键并联" },
+    { "name": "VP / GPIO36", "funcs": ["GPIO", "ADC1_0", "仅输入"], "note": "只能输入，无上拉。WiFi 开着也能读 ADC", "danger": true },
+    { "name": "VN / GPIO39", "funcs": ["GPIO", "ADC1_3", "仅输入"], "note": "只能输入，无上拉", "danger": true },
+    { "name": "D34 / GPIO34", "funcs": ["GPIO", "ADC1_6", "仅输入"], "note": "只能输入，无上拉", "danger": true },
+    { "name": "D35 / GPIO35", "funcs": ["GPIO", "ADC1_7", "仅输入"], "note": "只能输入，无上拉", "danger": true },
+    { "name": "D32 / GPIO32", "funcs": ["GPIO", "ADC1_4", "PWM", "TOUCH9"], "note": "读电位器首选这根（WiFi 不影响）" },
+    { "name": "D33 / GPIO33", "funcs": ["GPIO", "ADC1_5", "PWM", "TOUCH8"] },
+    { "name": "D25 / GPIO25", "funcs": ["GPIO", "ADC2_8", "PWM", "DAC1"], "note": "真正的模拟输出（DAC），可以出声音" },
+    { "name": "D26 / GPIO26", "funcs": ["GPIO", "ADC2_9", "PWM", "DAC2"] },
+    { "name": "D27 / GPIO27", "funcs": ["GPIO", "ADC2_7", "PWM", "TOUCH7"] },
+    { "name": "D14 / GPIO14", "funcs": ["GPIO", "ADC2_6", "PWM", "SPI_HSCK", "TOUCH6"], "note": "上电时会输出一小段 PWM 脉冲" },
+    { "name": "D12 / GPIO12", "funcs": ["GPIO", "ADC2_5", "PWM", "SPI_HMISO", "TOUCH5"], "note": "启动脚：上电时必须为低，否则启动失败。别接上拉", "danger": true },
+    { "name": "D13 / GPIO13", "funcs": ["GPIO", "ADC2_4", "PWM", "SPI_HMOSI", "TOUCH4"] },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "VIN", "funcs": ["电源"], "note": "USB 5V 直出；也可以从这里给板子供 5V。5V 模块从这拿电" }
+  ],
+  "right": [
+    { "name": "D23 / GPIO23", "funcs": ["GPIO", "PWM", "SPI_MOSI"], "note": "默认 SPI 的 MOSI" },
+    { "name": "D22 / GPIO22", "funcs": ["GPIO", "PWM", "I2C_SCL"], "note": "默认 I2C 的 SCL，OLED 接这" },
+    { "name": "TX0 / GPIO1", "funcs": ["GPIO", "UART0_TX"], "note": "接 USB 转串口，别当 IO 用", "danger": true },
+    { "name": "RX0 / GPIO3", "funcs": ["GPIO", "UART0_RX"], "note": "接 USB 转串口，别当 IO 用", "danger": true },
+    { "name": "D21 / GPIO21", "funcs": ["GPIO", "PWM", "I2C_SDA"], "note": "默认 I2C 的 SDA，OLED 接这" },
+    { "name": "D19 / GPIO19", "funcs": ["GPIO", "PWM", "SPI_MISO"], "note": "默认 SPI 的 MISO" },
+    { "name": "D18 / GPIO18", "funcs": ["GPIO", "PWM", "SPI_SCK"], "note": "默认 SPI 的时钟" },
+    { "name": "D5 / GPIO5", "funcs": ["GPIO", "PWM", "SPI_CS"], "note": "默认 SPI 片选。启动脚，上电时会输出一小段 PWM 脉冲" },
+    { "name": "TX2 / GPIO17", "funcs": ["GPIO", "PWM", "UART2_TX"], "note": "Serial2，接蓝牙/GPS 模块的 RX" },
+    { "name": "RX2 / GPIO16", "funcs": ["GPIO", "PWM", "UART2_RX"], "note": "Serial2，接模块的 TX" },
+    { "name": "D4 / GPIO4", "funcs": ["GPIO", "ADC2_0", "PWM", "TOUCH0"] },
+    { "name": "D2 / GPIO2", "funcs": ["GPIO", "ADC2_2", "PWM", "LED", "TOUCH2"], "note": "板载蓝色 LED，高电平亮。也是启动脚，下载时必须为低或悬空" },
+    { "name": "D15 / GPIO15", "funcs": ["GPIO", "ADC2_3", "PWM", "SPI_HCS", "TOUCH3"], "note": "启动脚：上电为低会关掉开机日志" },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "3V3", "funcs": ["电源"], "note": "板载 LDO 输出，给传感器和 OLED 供电" }
+  ],
+  "bottom": []
+}

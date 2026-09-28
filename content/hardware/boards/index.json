@@ -1,0 +1,45 @@
+{
+  "note": "开发板一览。每块板的详细档案在同目录 <id>.json，字段同蓝药丸引脚表。price 为常见国内电商价格区间，仅供参考",
+  "boards": [
+    {
+      "id": "bluepill",
+      "name": "蓝药丸 STM32F103C8T6",
+      "mcu": "STM32F103C8T6",
+      "level": "入门",
+      "price": "10~25 元（板）+ 20 元 ST-Link + 10 元 USB-TTL",
+      "why": "预算最低、想直接学 STM32 本尊的人；坑最多（假芯片、串口要另接），适合有平台或有人带着踩"
+    },
+    {
+      "id": "nucleo_f103rb",
+      "name": "Nucleo-F103RB 官方开发板",
+      "mcu": "STM32F103RBT6",
+      "level": "入门",
+      "price": "80~120 元",
+      "why": "想学 STM32 又不想在烧录和串口上耗时间的人：自带烧录器和 USB 串口，插上就能用，芯片和蓝药丸同一家族"
+    },
+    {
+      "id": "nucleo_f411re",
+      "name": "Nucleo-F411RE 官方开发板",
+      "mcu": "STM32F411RET6",
+      "level": "进阶",
+      "price": "90~130 元",
+      "why": "想要更快的芯片、大得多的 Flash/RAM 和硬件浮点，做屏幕、音频、控制算法类项目的人"
+    },
+    {
+      "id": "esp32_devkit",
+      "name": "ESP32 DevKit 开发板",
+      "mcu": "ESP32-WROOM-32",
+      "level": "入门",
+      "price": "20~40 元",
+      "why": "想联网、蓝牙、做物联网小玩意的人；性能强价格低，但不耐 5V、启动脚讲究多"
+    },
+    {
+      "id": "arduino_uno",
+      "name": "Arduino UNO R3",
+      "mcu": "ATmega328P",
+      "level": "入门",
+      "price": "30 元（国产）~ 200 元（正版）",
+      "why": "完全零基础、资料最多、5V 外设直接接的人；但性能和内存最弱，学完迟早要换"
+    }
+  ]
+}

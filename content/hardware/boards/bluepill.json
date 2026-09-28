@@ -1,0 +1,413 @@
+{
+  "id": "bluepill",
+  "name": "蓝药丸 STM32F103C8T6",
+  "mcu": "STM32F103C8T6",
+  "core": "Cortex-M3 72MHz",
+  "flash": "64KB（多数板子的芯片实际有 128KB，但别指望，按 64KB 规划）",
+  "ram": "20KB",
+  "pio": {
+    "board": "bluepill_f103c8",
+    "platform": "ststm32",
+    "framework": "arduino",
+    "upload_protocol": "stlink"
+  },
+  "led": {
+    "pin": "PC13",
+    "active": "low"
+  },
+  "button": null,
+  "buses": {
+    "i2c": "I2C1: SCL PB6 / SDA PB7（默认）；SCL PB8 / SDA PB9（重映射，本课程 OLED 用这组，代码里 Wire.setSDA(PB9); Wire.setSCL(PB8);）；I2C2: SCL PB10 / SDA PB11",
+    "spi": "SPI1: SCK PA5 / MISO PA6 / MOSI PA7 / NSS PA4；SPI2: SCK PB13 / MISO PB14 / MOSI PB15 / NSS PB12",
+    "uart": "UART1: TX PA9 / RX PA10（Serial 默认走这组，要接 USB-TTL 模块）；UART2: TX PA2 / RX PA3；UART3: TX PB10 / RX PB11"
+  },
+  "adc_pins": [
+    "PA0",
+    "PA1",
+    "PA2",
+    "PA3",
+    "PA4",
+    "PA5",
+    "PA6",
+    "PA7",
+    "PB0",
+    "PB1"
+  ],
+  "pwm_pins": [
+    "PA0",
+    "PA1",
+    "PA2",
+    "PA3",
+    "PA6",
+    "PA7",
+    "PA8",
+    "PA9",
+    "PA10",
+    "PB0",
+    "PB1",
+    "PB6",
+    "PB7",
+    "PB8",
+    "PB9"
+  ],
+  "power": "3.3V 逻辑。5V 耐受(FT)引脚：PA8~PA15、PB2~PB15、PC13~PC15；不耐 5V：PA0~PA7、PB0、PB1（凡是带 ADC 功能的都不行）。5V 排针是 USB 直出；3.3V 由板载小 LDO 降压得到，给外设的余量只有大约 100~150mA，OLED、传感器可以，舵机、灯带不行",
+  "flash_how": "板子自己没有烧录器，要买一个 ST-Link V2（U 盘形状的那种，约 20 元）。用 4 根杜邦线把 ST-Link 的 3.3V、SWDIO、SWCLK、GND 接到板子底部那 4 根排针（丝印 3.3 / SWIO / SWCLK / GND），ST-Link 插电脑 USB，然后 pio run -t upload。板子上两个黄色跳线（BOOT0/BOOT1）保持默认都在 0 位即可，用 ST-Link 烧录不需要动它们。板子上的 micro-USB 口默认只能供电，不能烧录也不能当串口（除非另外配置 USB CDC）。串口打印要另买一个 USB-TTL 模块接 PA9/PA10",
+  "gotchas": [
+    "PC13 板载 LED 是低电平点亮：digitalWrite(PC13, LOW) 才亮，和 UNO 反着来",
+    "PC13 驱动能力很弱（约 3mA），只能点自己那个 LED，别拿它去驱动别的东西",
+    "很多便宜板子上的芯片不是 ST 原厂而是 CKS32/GD32 兼容片。ST-Link 报 UNEXPECTED idcode 或 unknown device 时，多半是这个原因，可以在 platformio.ini 加 upload_flags = -c set CPUTAPID 0x2ba01477",
+    "Serial 默认走 PA9/PA10 硬件串口，不是 USB。板子的 USB 口插电脑不会出现串口设备，要另外接 USB-TTL 模块（TX 接 RX，RX 接 TX，交叉！）",
+    "如果想用 USB 口当串口，要在 platformio.ini 加 build_flags = -D PIO_FRAMEWORK_ARDUINO_ENABLE_CDC -D USBCON，并且很多板子的 USB D+ 上拉电阻（R10）焊错成 10kΩ，电脑识别不了，需要换成 1.5kΩ",
+    "PA0~PA7、PB0、PB1 不耐 5V。5V 传感器的输出信号不要直接接这些脚，接 PB10~PB15 这类 FT 脚，或者加分压",
+    "PB3、PB4、PA15 默认被 JTAG 占用，STM32duino 用 pinMode 时会自动释放，但如果某个脚怪怪的，先怀疑它",
+    "PA11、PA12 是 USB D-/D+，板上带了上拉电阻，尽量不要当普通 GPIO 用",
+    "板子供电只走 USB 5V 或 3.3 排针，不要把 5V 排针接到 3.3V 电源、也不要同时从两处供电",
+    "Flash 标称 64KB，U8g2 加中文字库很容易撑爆，编译时看 Flash 占用百分比"
+  ],
+  "left": [
+    {
+      "name": "VBAT",
+      "funcs": [
+        "电源"
+      ],
+      "note": "RTC 备用电池，暂时用不上"
+    },
+    {
+      "name": "PC13",
+      "funcs": [
+        "GPIO",
+        "LED"
+      ],
+      "note": "板载 LED 接在这里。低电平点亮。驱动能力弱，别接大负载",
+      "verified": false
+    },
+    {
+      "name": "PC14",
+      "funcs": [
+        "GPIO",
+        "OSC32"
+      ],
+      "note": "外接 32.768kHz 晶振用，一般不当 GPIO 用"
+    },
+    {
+      "name": "PC15",
+      "funcs": [
+        "GPIO",
+        "OSC32"
+      ],
+      "note": "同上"
+    },
+    {
+      "name": "PA0",
+      "funcs": [
+        "GPIO",
+        "ADC0",
+        "PWM",
+        "WKUP"
+      ],
+      "note": "任务 3-1 读电位器就用它"
+    },
+    {
+      "name": "PA1",
+      "funcs": [
+        "GPIO",
+        "ADC1",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PA2",
+      "funcs": [
+        "GPIO",
+        "ADC2",
+        "PWM",
+        "UART2_TX"
+      ]
+    },
+    {
+      "name": "PA3",
+      "funcs": [
+        "GPIO",
+        "ADC3",
+        "PWM",
+        "UART2_RX"
+      ]
+    },
+    {
+      "name": "PA4",
+      "funcs": [
+        "GPIO",
+        "ADC4",
+        "SPI1_NSS"
+      ]
+    },
+    {
+      "name": "PA5",
+      "funcs": [
+        "GPIO",
+        "ADC5",
+        "SPI1_SCK"
+      ]
+    },
+    {
+      "name": "PA6",
+      "funcs": [
+        "GPIO",
+        "ADC6",
+        "PWM",
+        "SPI1_MISO"
+      ]
+    },
+    {
+      "name": "PA7",
+      "funcs": [
+        "GPIO",
+        "ADC7",
+        "PWM",
+        "SPI1_MOSI"
+      ]
+    },
+    {
+      "name": "PB0",
+      "funcs": [
+        "GPIO",
+        "ADC8",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PB1",
+      "funcs": [
+        "GPIO",
+        "ADC9",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PB10",
+      "funcs": [
+        "GPIO",
+        "I2C2_SCL",
+        "UART3_TX"
+      ]
+    },
+    {
+      "name": "PB11",
+      "funcs": [
+        "GPIO",
+        "I2C2_SDA",
+        "UART3_RX"
+      ]
+    },
+    {
+      "name": "R",
+      "funcs": [
+        "复位"
+      ],
+      "note": "接地就复位，等于按 RESET 键"
+    },
+    {
+      "name": "3.3",
+      "funcs": [
+        "电源"
+      ],
+      "note": "芯片供电。给传感器供电也从这拿"
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源"
+      ],
+      "note": "所有东西的\"地\"要接在一起。忘记共地是新手第二大坑"
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源"
+      ]
+    }
+  ],
+  "right": [
+    {
+      "name": "3.3",
+      "funcs": [
+        "电源"
+      ]
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源"
+      ]
+    },
+    {
+      "name": "5V",
+      "funcs": [
+        "电源"
+      ],
+      "note": "USB 的 5V 直出。5V 模块从这供电"
+    },
+    {
+      "name": "PB9",
+      "funcs": [
+        "GPIO",
+        "PWM",
+        "I2C1_SDA"
+      ],
+      "note": "任务 3-3 OLED 的 SDA"
+    },
+    {
+      "name": "PB8",
+      "funcs": [
+        "GPIO",
+        "PWM",
+        "I2C1_SCL"
+      ],
+      "note": "任务 3-3 OLED 的 SCL"
+    },
+    {
+      "name": "PB7",
+      "funcs": [
+        "GPIO",
+        "I2C1_SDA"
+      ]
+    },
+    {
+      "name": "PB6",
+      "funcs": [
+        "GPIO",
+        "PWM",
+        "I2C1_SCL"
+      ]
+    },
+    {
+      "name": "PB5",
+      "funcs": [
+        "GPIO"
+      ]
+    },
+    {
+      "name": "PB4",
+      "funcs": [
+        "GPIO",
+        "JTAG"
+      ],
+      "note": "默认被 JTAG 占用，当 GPIO 要先释放"
+    },
+    {
+      "name": "PB3",
+      "funcs": [
+        "GPIO",
+        "JTAG"
+      ],
+      "note": "同上"
+    },
+    {
+      "name": "PA15",
+      "funcs": [
+        "GPIO",
+        "JTAG"
+      ],
+      "note": "同上"
+    },
+    {
+      "name": "PA12",
+      "funcs": [
+        "GPIO",
+        "USB_D+"
+      ],
+      "note": "USB 数据线。用 USB 串口时别动它"
+    },
+    {
+      "name": "PA11",
+      "funcs": [
+        "GPIO",
+        "USB_D-"
+      ],
+      "note": "同上"
+    },
+    {
+      "name": "PA10",
+      "funcs": [
+        "GPIO",
+        "UART1_RX"
+      ],
+      "note": "任务 2-1：接串口模块的 TX"
+    },
+    {
+      "name": "PA9",
+      "funcs": [
+        "GPIO",
+        "UART1_TX"
+      ],
+      "note": "任务 2-1：接串口模块的 RX。TX 接 RX，交叉！"
+    },
+    {
+      "name": "PA8",
+      "funcs": [
+        "GPIO",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PB15",
+      "funcs": [
+        "GPIO",
+        "SPI2_MOSI"
+      ]
+    },
+    {
+      "name": "PB14",
+      "funcs": [
+        "GPIO",
+        "SPI2_MISO"
+      ]
+    },
+    {
+      "name": "PB13",
+      "funcs": [
+        "GPIO",
+        "SPI2_SCK"
+      ]
+    },
+    {
+      "name": "PB12",
+      "funcs": [
+        "GPIO",
+        "SPI2_NSS"
+      ]
+    }
+  ],
+  "bottom": [
+    {
+      "name": "3.3",
+      "funcs": [
+        "电源",
+        "SWD"
+      ],
+      "note": "ST-Link 的 3.3V"
+    },
+    {
+      "name": "SWIO",
+      "funcs": [
+        "SWD"
+      ],
+      "note": "ST-Link 的 SWDIO。烧录数据线"
+    },
+    {
+      "name": "SWCLK",
+      "funcs": [
+        "SWD"
+      ],
+      "note": "ST-Link 的 SWCLK。烧录时钟线"
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源",
+        "SWD"
+      ],
+      "note": "ST-Link 的 GND"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "id": "nucleo_f411re",
+  "name": "Nucleo-F411RE 官方开发板",
+  "mcu": "STM32F411RET6",
+  "core": "Cortex-M4F 100MHz（带硬件浮点）",
+  "flash": "512KB",
+  "ram": "128KB",
+  "pio": {
+    "board": "nucleo_f411re",
+    "platform": "ststm32",
+    "framework": "arduino",
+    "upload_protocol": "stlink"
+  },
+  "led": {
+    "pin": "PA5",
+    "active": "high"
+  },
+  "button": {
+    "pin": "PC13",
+    "note": "蓝色 USER 键 B1，板上带上拉，按下为低电平。黑色的是 RESET 键"
+  },
+  "buses": {
+    "i2c": "I2C1: SCL PB8 (D15) / SDA PB9 (D14)，Arduino 座右上角那两根",
+    "spi": "SPI1: SCK PA5 (D13) / MISO PA6 (D12) / MOSI PA7 (D11) / CS 常用 PB6 (D10)。注意 SCK 和板载 LED 是同一根 PA5",
+    "uart": "Serial（USART2）: TX PA2 / RX PA3，直通板载 ST-Link 的 USB 虚拟串口；USART1: TX PA9 (D8) / RX PA10 (D2)；USART6: TX PC6 (Morpho) / RX PC7 (D9)"
+  },
+  "adc_pins": ["PA0 (A0)", "PA1 (A1)", "PA4 (A2)", "PB0 (A3)", "PC1 (A4)", "PC0 (A5)"],
+  "pwm_pins": ["PA0 (A0)", "PA1 (A1)", "PB0 (A3)", "PA10 (D2)", "PB3 (D3)", "PB5 (D4)", "PB4 (D5)", "PB10 (D6)", "PA8 (D7)", "PA9 (D8)", "PC7 (D9)", "PB6 (D10)", "PA7 (D11)", "PA6 (D12)", "PA5 (D13)", "PB9 (D14)", "PB8 (D15)"],
+  "power": "3.3V 逻辑。F4 系列绝大多数 IO 在数字模式下是 5V 耐受(FT)的，但配置成 ADC 模拟输入时上限仍是 3.3V（核对）。板子由 USB 供电，5V 排针约 300mA，3V3 排针约 300mA。也可以从 VIN 接 7~12V",
+  "flash_how": "和 F103RB 一模一样：板子上半部分自带 ST-Link V2-1，一根 mini-B USB 线插电脑就搞定烧录、供电、串口，不用买任何东西。pio run -t upload 直接烧，烧录时 LD1 红绿交替闪。电脑上会多出一个 NODE_F411RE 的 U 盘，拖 .bin 进去也能烧。pio device monitor 看串口",
+  "gotchas": [
+    "板载 LED LD2 在 PA5（D13），高电平亮。PA5 同时是 SPI1 SCK，用 SPI 时 LED 会跟着闪，正常",
+    "和 F103 不同，F411 的 PA5 有定时器通道（TIM2_CH1），analogWrite(PA5) 可以出 PWM，板载灯能做呼吸灯",
+    "D0/D1（PA3/PA2）默认断开（SB62/SB63 没焊），因为 USART2 连去了 ST-Link 虚拟串口。Serial 打印走 USB 没问题，但 D0/D1 排针上没信号（核对）",
+    "USER 键 PC13 按下为低电平，pinMode(PC13, INPUT) 即可",
+    "F411 没有 DAC，也没有以太网/USB 主机之类的外设，别被 F4 三个字误导；它的强项是主频高、RAM 大、有 FPU",
+    "ADC 只有一个 ADC1，12 位，采样也够快；但 Arduino 座上只有 A0~A5 六个通道，更多在 Morpho 排针上（PC2、PC3、PC4、PC5、PB1）",
+    "A4/A5（PC1/PC0）不是 I2C 脚，I2C 用 D14/D15",
+    "PC14/PC15 被 32.768kHz 晶振占用，PC13 是按键，这三根别当普通 IO",
+    "USB 是 mini-B 口，和手机线不通用",
+    "Flash 512KB、RAM 128KB 很富裕，U8g2 全缓冲 + 中文字库随便放，是这块板比 F103 系列舒服的地方"
+  ],
+  "left": [
+    { "name": "NC", "funcs": ["空"], "note": "没接东西" },
+    { "name": "IOREF", "funcs": ["电源"], "note": "接的是 3.3V，告诉扩展板本板逻辑电平" },
+    { "name": "RESET", "funcs": ["复位"], "note": "接地就复位" },
+    { "name": "3V3", "funcs": ["电源"], "note": "给传感器供电，约 300mA" },
+    { "name": "5V", "funcs": ["电源"], "note": "USB 5V 直出" },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "VIN", "funcs": ["电源"], "note": "外部 7~12V 供电输入" },
+    { "name": "A0 / PA0", "funcs": ["GPIO", "ADC0", "PWM", "WKUP"], "note": "读电位器就用它", "danger": true },
+    { "name": "A1 / PA1", "funcs": ["GPIO", "ADC1", "PWM"], "danger": true },
+    { "name": "A2 / PA4", "funcs": ["GPIO", "ADC4", "SPI1_NSS"], "note": "没有 PWM", "danger": true },
+    { "name": "A3 / PB0", "funcs": ["GPIO", "ADC8", "PWM"], "danger": true },
+    { "name": "A4 / PC1", "funcs": ["GPIO", "ADC11"], "note": "不是 I2C 脚", "danger": true },
+    { "name": "A5 / PC0", "funcs": ["GPIO", "ADC10"], "note": "不是 I2C 脚", "danger": true }
+  ],
+  "right": [
+    { "name": "D15 / PB8", "funcs": ["GPIO", "PWM", "I2C1_SCL"], "note": "OLED 的 SCL" },
+    { "name": "D14 / PB9", "funcs": ["GPIO", "PWM", "I2C1_SDA"], "note": "OLED 的 SDA" },
+    { "name": "AREF", "funcs": ["电源"], "note": "ADC 参考电压，一般不动" },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "D13 / PA5", "funcs": ["GPIO", "LED", "PWM", "SPI1_SCK", "ADC5"], "note": "板载 LED LD2，高电平亮，F411 上可以 PWM 呼吸。也是 SPI 时钟" },
+    { "name": "D12 / PA6", "funcs": ["GPIO", "PWM", "SPI1_MISO", "ADC6"] },
+    { "name": "D11 / PA7", "funcs": ["GPIO", "PWM", "SPI1_MOSI", "ADC7"] },
+    { "name": "D10 / PB6", "funcs": ["GPIO", "PWM", "SPI_CS", "I2C1_SCL"], "note": "SPI 片选常用这根" },
+    { "name": "D9 / PC7", "funcs": ["GPIO", "PWM", "UART6_RX"] },
+    { "name": "D8 / PA9", "funcs": ["GPIO", "PWM", "UART1_TX"], "note": "接外接串口模块的 RX" },
+    { "name": "D7 / PA8", "funcs": ["GPIO", "PWM", "I2C3_SCL"] },
+    { "name": "D6 / PB10", "funcs": ["GPIO", "PWM", "I2C2_SCL", "SPI2_SCK"] },
+    { "name": "D5 / PB4", "funcs": ["GPIO", "PWM", "JTAG"], "note": "F4 上 JTAG 默认就没启用，放心用" },
+    { "name": "D4 / PB5", "funcs": ["GPIO", "PWM"] },
+    { "name": "D3 / PB3", "funcs": ["GPIO", "PWM", "JTAG", "I2C2_SDA"] },
+    { "name": "D2 / PA10", "funcs": ["GPIO", "PWM", "UART1_RX"], "note": "接外接串口模块的 TX" },
+    { "name": "D1 / PA2", "funcs": ["GPIO", "UART2_TX", "ADC2"], "note": "被 ST-Link 虚拟串口占用，排针上默认没信号（核对）" },
+    { "name": "D0 / PA3", "funcs": ["GPIO", "UART2_RX", "ADC3"], "note": "同上" }
+  ],
+  "bottom": [
+    { "name": "PC13", "funcs": ["GPIO", "按键"], "note": "蓝色 USER 键，按下为低。在 Morpho 排针 CN7 上" },
+    { "name": "PC14", "funcs": ["GPIO", "OSC32"], "note": "32.768kHz 晶振占用" },
+    { "name": "PC15", "funcs": ["GPIO", "OSC32"], "note": "同上" },
+    { "name": "PB12", "funcs": ["GPIO", "SPI2_NSS"], "note": "Morpho 独有，接按键、继电器合适" },
+    { "name": "PB13", "funcs": ["GPIO", "SPI2_SCK", "PWM"] },
+    { "name": "PB14", "funcs": ["GPIO", "SPI2_MISO", "PWM"] },
+    { "name": "PB15", "funcs": ["GPIO", "SPI2_MOSI", "PWM"] },
+    { "name": "PB1", "funcs": ["GPIO", "ADC9", "PWM"] },
+    { "name": "PC2", "funcs": ["GPIO", "ADC12", "SPI2_MISO"] },
+    { "name": "PC3", "funcs": ["GPIO", "ADC13", "SPI2_MOSI"] },
+    { "name": "PC6", "funcs": ["GPIO", "PWM", "UART6_TX"] },
+    { "name": "PC10", "funcs": ["GPIO", "SPI3_SCK"] },
+    { "name": "PA13", "funcs": ["SWD"], "note": "SWDIO，接着板载 ST-Link，别动" },
+    { "name": "PA14", "funcs": ["SWD"], "note": "SWCLK，同上" }
+  ]
+}
