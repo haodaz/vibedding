@@ -8,6 +8,8 @@ import path from 'node:path'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
+import { runTool } from './tools.mjs'
+import { step, agentModel } from './agent.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const envFile = path.join(here, '..', '.env')
@@ -94,6 +96,20 @@ http.createServer(async (req, res) => {
   }
   try {
     if (req.url === '/api/status' && req.method === 'GET') return json(res, 200, status())
+    if (req.url === '/api/agent/step' && req.method === 'POST') {
+      let raw = ''
+      for await (const chunk of req) raw += chunk
+      const body = JSON.parse(raw)
+      const mock = !hasCredentials() || body.mock
+      return json(res, 200, { ...(await step({ messages: body.messages, mock })), mock, agentModel: mock ? 'mock' : agentModel() })
+    }
+    if (req.url === '/api/tool' && req.method === 'POST') {
+      let raw = ''
+      for await (const chunk of req) raw += chunk
+      const { name, input } = JSON.parse(raw)
+      try { return json(res, 200, { result: await runTool(name, input) }) }
+      catch (e) { return json(res, 200, { result: '工具执行失败：' + e.message, is_error: true }) }
+    }
     if (req.url === '/api/review' && req.method === 'POST') {
       if (!hasCredentials()) return json(res, 200, { error: 'no-credentials' })
       let raw = ''

@@ -15,6 +15,12 @@
 - `board` 的 goals 检查器在 `canvases/board/goals.ts`；模拟器只支持 Arduino 教学子集，见 `transpile.ts` 顶部注释
 - 新加 canvas：写组件 + 在 index.tsx 注册 + CANVAS_META 加一行
 
+## 直接做（agent）
+- 入口 `#/make`，代码在 `platform/src/workshop/`。循环在浏览器里跑：`/api/agent/step` 调一次模型，服务端工具走 `/api/tool`，`sim_run` 和 `ask_human` 在浏览器执行
+- 工具定义在 `platform/server/tools.mjs`，系统提示在 `agent.mjs`。写文件只允许 firmware/、content/journal、content/hardware
+- 没配 ANTHROPIC_API_KEY 时自动用 `mock.mjs` 的"要有光"剧本演示；`AGENT_MOCK=1` 强制演示
+- 引脚数据的唯一来源是 `content/hardware/bluepill-pins.json`（平台引脚图和 read_pinout 工具共用）
+
 ## 约定
 - 教学口吻：讲人话，先比喻再术语，每个新概念都写"常见坑"
 - 给出引脚号、库名、寄存器名时，提醒用户核对，不要装作确定

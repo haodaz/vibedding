@@ -6,8 +6,10 @@ import { StatusBar } from './components/StatusBar'
 import { Boot } from './components/Boot'
 import { Canvas, CANVAS_META, DEFAULT_CODE } from './canvases'
 import { Scene } from './components/Scene'
+import { Workshop } from './workshop/Workshop'
 
 const NAV = [
+  { path: '/make', key: '00', label: '直接做', hint: 'MAKE' },
   { path: '/', key: '01', label: '学习路径', hint: 'PATH' },
   { path: '/lab', key: '02', label: '实验台', hint: 'LAB' },
   { path: '/journal', key: '03', label: '学习日志', hint: 'LOG' },
@@ -64,6 +66,7 @@ function isActive(route: string, path: string) {
 
 function Page({ route }: { route: string }) {
   if (route === '/') return <Curriculum />
+  if (route === '/make') return <Workshop />
   if (route === '/lab') return <Lab />
   if (route === '/journal') return <Journal />
   if (route === '/prompts') return <List title="提示词库" subtitle="怎么向 AI 问硬件问题，才能少踩坑。每张卡都是踩过坑后总结的。" items={prompts} art="prompts_ai" />
@@ -214,6 +217,7 @@ function DocPage({ path }: { path: string }) {
       <Markdown text={doc.body} />
       {doc.kind === 'curriculum' && doc.slug !== 'index' && (
         <div className="doc-foot">
+          <p className="muted">不想自己写？<a className="chip ai" href={href('/make')}>✦ 让 AI 来做：{doc.fm.goal ?? doc.fm.title}</a></p>
           <p className="muted">做完了？把 <code>content/{doc.path}</code> 里的 <code>status</code> 改成 <code>done</code>，然后写一篇日志。或者直接跟 AI 说"这个任务完成了"。</p>
         </div>
       )}

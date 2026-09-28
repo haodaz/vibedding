@@ -8,58 +8,11 @@ export interface PinInfo {
   verified?: boolean
 }
 
-export const LEFT: PinInfo[] = [
-  { name: 'VBAT', funcs: ['电源'], note: 'RTC 备用电池，暂时用不上' },
-  { name: 'PC13', funcs: ['GPIO', 'LED'], note: '板载 LED 接在这里。低电平点亮。驱动能力弱，别接大负载', verified: false },
-  { name: 'PC14', funcs: ['GPIO', 'OSC32'], note: '外接 32.768kHz 晶振用，一般不当 GPIO 用' },
-  { name: 'PC15', funcs: ['GPIO', 'OSC32'], note: '同上' },
-  { name: 'PA0', funcs: ['GPIO', 'ADC0', 'PWM', 'WKUP'], note: '任务 3-1 读电位器就用它' },
-  { name: 'PA1', funcs: ['GPIO', 'ADC1', 'PWM'] },
-  { name: 'PA2', funcs: ['GPIO', 'ADC2', 'PWM', 'UART2_TX'] },
-  { name: 'PA3', funcs: ['GPIO', 'ADC3', 'PWM', 'UART2_RX'] },
-  { name: 'PA4', funcs: ['GPIO', 'ADC4', 'SPI1_NSS'] },
-  { name: 'PA5', funcs: ['GPIO', 'ADC5', 'SPI1_SCK'] },
-  { name: 'PA6', funcs: ['GPIO', 'ADC6', 'PWM', 'SPI1_MISO'] },
-  { name: 'PA7', funcs: ['GPIO', 'ADC7', 'PWM', 'SPI1_MOSI'] },
-  { name: 'PB0', funcs: ['GPIO', 'ADC8', 'PWM'] },
-  { name: 'PB1', funcs: ['GPIO', 'ADC9', 'PWM'] },
-  { name: 'PB10', funcs: ['GPIO', 'I2C2_SCL', 'UART3_TX'] },
-  { name: 'PB11', funcs: ['GPIO', 'I2C2_SDA', 'UART3_RX'] },
-  { name: 'R', funcs: ['复位'], note: '接地就复位，等于按 RESET 键' },
-  { name: '3.3', funcs: ['电源'], note: '芯片供电。给传感器供电也从这拿' },
-  { name: 'GND', funcs: ['电源'], note: '所有东西的"地"要接在一起。忘记共地是新手第二大坑' },
-  { name: 'GND', funcs: ['电源'] },
-]
-
-export const RIGHT: PinInfo[] = [
-  { name: '3.3', funcs: ['电源'] },
-  { name: 'GND', funcs: ['电源'] },
-  { name: '5V', funcs: ['电源'], note: 'USB 的 5V 直出。5V 模块从这供电' },
-  { name: 'PB9', funcs: ['GPIO', 'PWM', 'I2C1_SDA'], note: '任务 3-3 OLED 的 SDA' },
-  { name: 'PB8', funcs: ['GPIO', 'PWM', 'I2C1_SCL'], note: '任务 3-3 OLED 的 SCL' },
-  { name: 'PB7', funcs: ['GPIO', 'I2C1_SDA'] },
-  { name: 'PB6', funcs: ['GPIO', 'PWM', 'I2C1_SCL'] },
-  { name: 'PB5', funcs: ['GPIO'] },
-  { name: 'PB4', funcs: ['GPIO', 'JTAG'], note: '默认被 JTAG 占用，当 GPIO 要先释放' },
-  { name: 'PB3', funcs: ['GPIO', 'JTAG'], note: '同上' },
-  { name: 'PA15', funcs: ['GPIO', 'JTAG'], note: '同上' },
-  { name: 'PA12', funcs: ['GPIO', 'USB_D+'], note: 'USB 数据线。用 USB 串口时别动它' },
-  { name: 'PA11', funcs: ['GPIO', 'USB_D-'], note: '同上' },
-  { name: 'PA10', funcs: ['GPIO', 'UART1_RX'], note: '任务 2-1：接串口模块的 TX' },
-  { name: 'PA9', funcs: ['GPIO', 'UART1_TX'], note: '任务 2-1：接串口模块的 RX。TX 接 RX，交叉！' },
-  { name: 'PA8', funcs: ['GPIO', 'PWM'] },
-  { name: 'PB15', funcs: ['GPIO', 'SPI2_MOSI'] },
-  { name: 'PB14', funcs: ['GPIO', 'SPI2_MISO'] },
-  { name: 'PB13', funcs: ['GPIO', 'SPI2_SCK'] },
-  { name: 'PB12', funcs: ['GPIO', 'SPI2_NSS'] },
-]
-
-export const BOTTOM: PinInfo[] = [
-  { name: '3.3', funcs: ['电源', 'SWD'], note: 'ST-Link 的 3.3V' },
-  { name: 'SWIO', funcs: ['SWD'], note: 'ST-Link 的 SWDIO。烧录数据线' },
-  { name: 'SWCLK', funcs: ['SWD'], note: 'ST-Link 的 SWCLK。烧录时钟线' },
-  { name: 'GND', funcs: ['电源', 'SWD'], note: 'ST-Link 的 GND' },
-]
+import pins from '../../../../content/hardware/bluepill-pins.json'
+// 引脚数据在 content/hardware/bluepill-pins.json，平台和本地服务（AI 工具）共用一份
+export const LEFT: PinInfo[] = pins.left
+export const RIGHT: PinInfo[] = pins.right
+export const BOTTOM: PinInfo[] = pins.bottom
 
 export const FUNC_COLORS: Record<string, string> = {
   GPIO: '#8b93a7', PWM: '#c792ea', ADC: '#ffb454', UART: '#39c5ff', I2C: '#3ddc84', SPI: '#ff6b81',
