@@ -1,0 +1,1275 @@
+{
+  "note": "给完全零基础的人的嵌入式词典。每个词四层：生活比喻、准确定义、常见误解、在蓝药丸（STM32F103C8T6）上的具体例子。例子里提到的引脚和函数以 Arduino 框架 + PlatformIO 为准。术语的 related 字段是本文件里其他词的 id，方便前端做跳转。",
+  "terms": [
+    {
+      "id": "voltage",
+      "term": "电压（Voltage, V）",
+      "category": "电学基础",
+      "metaphor": "水塔的高度。水塔越高，水往下冲的劲越大。电压就是电的「高低差」，差得越多，推电子的劲越大。",
+      "definition": "两点之间的电势差，单位伏特（V）。电压是相对量，总是「A 点相对 B 点」多少伏，说单点电压时默认是相对 GND。",
+      "misconception": "很多人以为电压高就一定危险或者一定「电多」。其实电压只是推力，没有电流流动就什么都没发生。一节 9V 电池摸着没事，是因为你身体电阻太大，流不过多少电流。",
+      "example": "蓝药丸的芯片工作在 3.3V，板子上的稳压器把 USB 的 5V 降成 3.3V。引脚输出高电平时相对 GND 是 3.3V，低电平是 0V。",
+      "related": ["current", "ground", "ohms_law", "logic_level"]
+    },
+    {
+      "id": "current",
+      "term": "电流（Current, A / mA）",
+      "category": "电学基础",
+      "metaphor": "水管里每秒流过的水量。管子粗、落差大，流得就多。",
+      "definition": "单位时间流过导体截面的电荷量，单位安培（A），嵌入式里常用毫安（mA，千分之一安）。",
+      "misconception": "以为电流是「被推出来」的固定量。其实电流是结果，由电压和电阻共同决定（欧姆定律），电源只是提供了电压，能流多少看负载。",
+      "example": "蓝药丸一个 GPIO 引脚最多能安全输出大约 20mA，整个芯片所有引脚加起来有上限。一个 LED 一般给它 5～10mA 就够亮了，所以要串一个限流电阻。",
+      "related": ["voltage", "resistance", "current_limiting", "ohms_law"]
+    },
+    {
+      "id": "resistance",
+      "term": "电阻（Resistance, Ω）",
+      "category": "电学基础",
+      "metaphor": "水管的粗细和内壁的粗糙程度。管子越细越糙，水越难流过去。",
+      "definition": "导体对电流的阻碍作用，单位欧姆（Ω）。「电阻」也指那种两头带脚、身上有色环的元件，专门用来提供确定的阻值。",
+      "misconception": "以为电阻越大越「安全」。电阻太大会让电流小到 LED 不亮、传感器读不准。电阻是用来「算好」的，不是越大越好。",
+      "example": "给 LED 串一个 220Ω～1kΩ 的电阻是最常见的用法。3.3V 减去 LED 自身约 2V，剩 1.3V 除以 330Ω 约等于 4mA，够亮又安全。",
+      "related": ["ohms_law", "current_limiting", "voltage_divider", "pull_up_pull_down"]
+    },
+    {
+      "id": "ohms_law",
+      "term": "欧姆定律（Ohm's Law）",
+      "category": "电学基础",
+      "metaphor": "水塔高度、管子粗细、流量三者之间的固定关系：落差越大流量越大，管子越细流量越小。",
+      "definition": "电压 = 电流 × 电阻，即 U = I × R。已知任意两个量就能算第三个，是嵌入式里几乎唯一必须会算的公式。",
+      "misconception": "背了公式但不知道用在哪。其实每次接 LED、接传感器、判断引脚会不会烧，都在用它：先想要多少电流，再算该配多大电阻。",
+      "example": "PC13 板载 LED 是低电平点亮。板子上已经给它串了电阻，所以你直接 digitalWrite(PC13, LOW) 就能亮，不用自己算。但外接 LED 就得自己用 U = I × R 选电阻。",
+      "related": ["voltage", "current", "resistance", "current_limiting"]
+    },
+    {
+      "id": "series_parallel",
+      "term": "串联与并联（Series / Parallel）",
+      "category": "电学基础",
+      "metaphor": "串联像一队人排成一列过独木桥，谁掉队全队停。并联像开了几条并排的桥，一条断了别的还能走。",
+      "definition": "串联：元件首尾相接，电流相同、电压分摊。并联：元件两端分别接在一起，电压相同、电流分摊。",
+      "misconception": "以为多个 LED 直接并联在一个引脚上就行。并联 LED 会因为个体差异一个特别亮一个特别暗，而且总电流叠加可能超过引脚上限。每个 LED 要有自己的限流电阻。",
+      "example": "外接 LED 时，LED 和限流电阻是串联的，电流一样大。而多个传感器共用板子的 3.3V 和 GND，就是并联在电源上。",
+      "related": ["voltage_divider", "resistance", "current", "common_ground"]
+    },
+    {
+      "id": "voltage_divider",
+      "term": "分压（Voltage Divider）",
+      "category": "电学基础",
+      "metaphor": "一根总长固定的楼梯，中间搭一块板，板的高度取决于上下两段楼梯的比例。",
+      "definition": "两个电阻串联后，中间点的电压按电阻比例分配：Vout = Vin × R2 / (R1 + R2)。用来把高电压「缩」成低电压，或者把电阻变化变成电压变化。",
+      "misconception": "以为分压可以当电源用。分压电路只能提供很小的电流，接个负载电压就塌了，只适合给 ADC 这种几乎不吃电流的输入做测量。",
+      "example": "电位器本质就是一个可调的分压器。把它两端接 3.3V 和 GND，中间抽头接 PA0，analogRead(PA0) 读到的数就随旋钮变化。",
+      "related": ["resistance", "series_parallel", "adc", "potentiometer"]
+    },
+    {
+      "id": "pull_up_pull_down",
+      "term": "上拉与下拉（Pull-up / Pull-down）",
+      "category": "电学基础",
+      "metaphor": "一扇门默认要么靠弹簧关着、要么靠弹簧开着。没人推它时，它有一个确定的状态，而不是半开半关地晃。",
+      "definition": "通过电阻把引脚默认接到高电平（上拉）或低电平（下拉），使引脚在没有外部驱动时有确定的逻辑状态。电阻一般 4.7kΩ～10kΩ。",
+      "misconception": "以为不接按键的引脚读到的就是 0。悬空引脚会随环境电磁干扰乱跳，读到的是随机数。这是新手「按键抽风」最常见的原因。",
+      "example": "接按键时用 pinMode(PB12, INPUT_PULLUP)，芯片内部会自动上拉。按键一端接 PB12，另一端接 GND：不按读 HIGH，按下读 LOW。I2C 总线的 SCL/SDA 也必须有上拉电阻。",
+      "related": ["gpio", "button", "floating", "i2c"]
+    },
+    {
+      "id": "floating",
+      "term": "悬空（Floating）",
+      "category": "电学基础",
+      "metaphor": "一片羽毛飘在空中，风往哪吹它往哪去，没有确定的位置。",
+      "definition": "引脚或导线没有连接到任何确定电平的状态。悬空的输入引脚会随干扰随机呈现高或低电平。",
+      "misconception": "以为「没接东西」等于「读到低电平」。恰恰相反，没接东西等于读到噪声，需要上拉或下拉给它一个默认值。",
+      "example": "把一个引脚设成 INPUT（不带 PULLUP）然后什么都不接，用 Serial 循环打印 digitalRead，你会看到 0 和 1 乱跳，用手靠近还会变。这就是悬空。",
+      "related": ["pull_up_pull_down", "gpio", "noise"]
+    },
+    {
+      "id": "common_ground",
+      "term": "共地（Common Ground）",
+      "category": "电学基础",
+      "metaphor": "两个人比身高，得站在同一块地板上。一个站地上一个站台阶上，比出来的数没有意义。",
+      "definition": "让互相通信或供电的多个电路模块的 GND 连接在一起，使它们对电压有共同的参考零点。",
+      "misconception": "以为只要信号线接上就能通信。UART 只接 TX、RX 两根线不接 GND，两边对「0V」的定义可能不一样，数据就是乱码或根本收不到。",
+      "example": "用 USB 转串口模块看蓝药丸的输出，要接三根线：模块 RX 接板子 PA9（TX），模块 TX 接 PA10（RX），模块 GND 接板子 GND。第三根不能少。",
+      "related": ["ground", "uart", "voltage", "wiring"]
+    },
+    {
+      "id": "ground",
+      "term": "地（GND, Ground）",
+      "category": "电学基础",
+      "metaphor": "海平面。说山有多高，都是相对海平面说的。电路里说多少伏，都是相对 GND 说的。",
+      "definition": "电路中约定的电压参考零点，通常是电源的负极。板子上标 GND 或 G 的引脚都内部连通。",
+      "misconception": "以为 GND 是「没有电的地方」或者「电流的终点」。实际上电流从电源正极流出，经过负载回到 GND，GND 是回路的一部分，电流照样流过。",
+      "example": "蓝药丸两侧各有几个 G 引脚，随便接哪个都一样。接 ST-Link 时的 GND 线，就是让烧录器和板子共地。",
+      "related": ["common_ground", "voltage", "power_supply"]
+    },
+    {
+      "id": "short_circuit",
+      "term": "短路（Short Circuit）",
+      "category": "电学基础",
+      "metaphor": "水管中间被人直接接了根粗管子把水塔和地面连起来，水全从那儿冲出去，别处一滴不剩，管子还可能爆。",
+      "definition": "电源正负极之间（或两个不同电压的点之间）出现极低阻值的通路，导致电流极大。会烧毁电源、稳压器、导线或芯片。",
+      "misconception": "以为短路一定冒烟才叫短路。3.3V 和 GND 短路时，USB 供电会限流保护，现象可能只是板子不亮、电脑弹「USB 设备耗电过大」。杜邦线插错一格是最常见的原因。",
+      "example": "上电前用万用表蜂鸣档量一下板子的 3.3V 和 GND 之间：响了就是短路，先别插 USB。这个习惯能救很多板子。",
+      "related": ["current", "multimeter", "power_supply", "current_limiting"]
+    },
+    {
+      "id": "current_limiting",
+      "term": "限流（Current Limiting）",
+      "category": "电学基础",
+      "metaphor": "给水龙头加一个流量阀，保证水再急也不会把杯子冲飞。",
+      "definition": "通过串联电阻或专门的电路，把流过负载的电流限制在安全范围内。",
+      "misconception": "以为 LED 接在 3.3V 上「电压不高」不用限流。LED 不是电阻，它的电压一旦过了导通值，电流会急剧上升，不限流很容易烧 LED 或引脚。",
+      "example": "外接 LED 到 PA1：PA1 → 330Ω 电阻 → LED 长脚（正极）→ LED 短脚 → GND。板载 PC13 的 LED 已经有限流电阻了。",
+      "related": ["resistance", "ohms_law", "led", "current"]
+    },
+    {
+      "id": "duty_cycle",
+      "term": "占空比（Duty Cycle）",
+      "category": "电学基础",
+      "metaphor": "一分钟里灯亮多少秒。亮 30 秒灭 30 秒是 50%，亮 54 秒灭 6 秒是 90%。切换得足够快，眼睛就觉得是「不同亮度」。",
+      "definition": "一个周期内高电平时间占整个周期的百分比。PWM 通过改变占空比来控制平均功率。",
+      "misconception": "以为占空比改变的是电压。实际上每一瞬间要么是 3.3V 要么是 0V，只是「平均值」变了。对 LED 和电机效果像调电压，但对需要真正模拟电压的电路不行。",
+      "example": "analogWrite(PA8, 64) 大概是 25% 占空比（0～255 范围），LED 就是四分之一亮度。舵机的角度也是靠特定占空比的 PWM 告诉它的。",
+      "related": ["pwm", "timer", "servo", "dac"]
+    },
+    {
+      "id": "capacitor",
+      "term": "电容（Capacitor）",
+      "category": "电学基础",
+      "metaphor": "接在水管上的一个小水桶。水压突然掉一下，桶里的水补上去；水压突然冲一下，桶先吸掉一部分。让水流更平稳。",
+      "definition": "能储存电荷的元件，单位法拉（F），常用微法（μF）和纳法（nF）。在直流电路中主要用于滤波、稳压和去耦。",
+      "misconception": "以为电容像电池能长时间供电。普通电容存的电量很小，一瞬间就放完，作用是「平滑」而不是「供电」。",
+      "example": "蓝药丸芯片每个电源引脚旁边都有一颗 100nF 的小电容（去耦电容），芯片瞬间用电多时它先顶上。自己接舵机时在电源上并一个 100μF 电容能减少复位问题。",
+      "related": ["power_supply", "noise", "pcb", "voltage"]
+    },
+    {
+      "id": "diode",
+      "term": "二极管（Diode）",
+      "category": "电学基础",
+      "metaphor": "单向门。只能从这边推开进去，从那边推不动。",
+      "definition": "只允许电流单方向通过的半导体元件。正向导通约 0.7V（硅）压降，反向截止。LED 是会发光的二极管。",
+      "misconception": "以为二极管接反了会烧。普通信号二极管接反只是不导通，没事；LED 接反了不亮也一般不会坏。真正会烧的是把它当导线正向直接接电源不限流。",
+      "example": "继电器和电机线圈两端反并一个二极管（续流二极管），断电瞬间线圈产生的反向高压有地方泻放，不会把引脚打坏。",
+      "related": ["led", "relay", "current_limiting", "transistor"]
+    },
+    {
+      "id": "led",
+      "term": "发光二极管（LED）",
+      "category": "电学基础",
+      "metaphor": "一个只认方向的小灯泡：正极接高、负极接低就亮，反过来就装死。",
+      "definition": "Light Emitting Diode，通电后发光的二极管。长脚是正极（阳极），短脚是负极（阴极）。正向导通电压约 1.8～3.3V 取决于颜色。",
+      "misconception": "以为 LED 和普通灯泡一样接多少伏都能亮、越亮越好。LED 电流必须限，不限流几乎必烧；亮度也不是电压决定的，是电流决定的。",
+      "example": "蓝药丸的 PC13 板载 LED 一端接 3.3V，另一端经电阻接 PC13。所以 PC13 输出 LOW 时 LED 才亮，HIGH 时灭。第一课「点灯」很多人以为程序反了，其实是电路这样设计的。",
+      "related": ["diode", "current_limiting", "gpio", "pwm"]
+    },
+    {
+      "id": "transistor",
+      "term": "三极管（Transistor, BJT）",
+      "category": "电学基础",
+      "metaphor": "水管上的一个阀门，阀门把手很轻，用很小的力就能控制很大的水流。",
+      "definition": "三个引脚（基极 B、集电极 C、发射极 E）的半导体元件，用基极的小电流控制集电极到发射极的大电流，可做开关或放大。",
+      "misconception": "以为 MCU 引脚能直接驱动电机、继电器。引脚最多 20mA，电机动辄几百 mA，直接接会烧引脚或者带不动。三极管或 MOS 管就是「中间人」。",
+      "example": "用 PB0 → 1kΩ 电阻 → 三极管基极，发射极接 GND，集电极接继电器线圈。PB0 输出 HIGH，三极管导通，继电器吸合。",
+      "related": ["mosfet", "relay", "current", "driver"]
+    },
+    {
+      "id": "mosfet",
+      "term": "MOS 管（MOSFET）",
+      "category": "电学基础",
+      "metaphor": "电控阀门的升级版：只用「压力」而不用「流量」就能开关，控制端几乎不耗力气，而且能过更大的水。",
+      "definition": "金属氧化物半导体场效应管，用栅极（G）电压控制漏极（D）到源极（S）的导通，几乎不消耗控制电流，适合开关大电流。",
+      "misconception": "以为任何 MOS 管 3.3V 都能驱动。很多 MOS 管需要 10V 栅压才能完全导通，3.3V 只能半开，会发热甚至烧掉。要选「逻辑电平 MOS」（如 AO3400、IRLZ44N）。",
+      "example": "给狗粮机的电机供电时，用一个逻辑电平 N-MOS：PA8 接 G，电机一端接 D，S 接 GND，电机另一端接电源正极。PA8 输出 PWM 还能调速。",
+      "related": ["transistor", "driver", "dc_motor", "pwm"]
+    },
+    {
+      "id": "pcb",
+      "term": "PCB（印刷电路板）",
+      "category": "电学基础",
+      "metaphor": "把一堆乱麻似的电线压平印在一块板子上，每根「线」变成板上的一条铜箔，元件焊在固定位置。",
+      "definition": "Printed Circuit Board，用绝缘基板加铜箔走线来固定和连接电子元件的板子。蓝药丸本身就是一块 PCB。",
+      "misconception": "以为 PCB 是「芯片」。PCB 只是承载和连线的板子，上面黑色的方块才是芯片。「画板子」指的是设计 PCB 的走线，不是设计芯片。",
+      "example": "蓝药丸是双层 PCB，正面有 STM32 芯片、晶振、复位按键，背面有丝印标注引脚名。自己做项目一开始用面包板，成熟了再画 PCB 打样。",
+      "related": ["breadboard", "silkscreen", "schematic", "soldering_iron"]
+    },
+    {
+      "id": "breadboard",
+      "term": "面包板（Breadboard）",
+      "category": "电学基础",
+      "metaphor": "乐高底板。元件往孔里一插就连上，拔下来就断开，不用胶水不用焊。",
+      "definition": "一种免焊接的实验板，内部有金属条把特定的孔连在一起：中间区域每 5 个孔一竖列相通，两侧的长条（电源轨）一整行相通。",
+      "misconception": "不知道孔的连接规律，随手插。最常见的错误是把元件的两个脚插在同一列（相当于自己短接了），或者以为电源轨中间不断开（有些面包板中间是断开的）。",
+      "example": "把蓝药丸插在面包板中间的凹槽两侧，两排引脚各占一边。3.3V 和 G 用杜邦线引到两侧电源轨，之后传感器就从电源轨取电。",
+      "related": ["dupont_wire", "pcb", "wiring", "short_circuit"]
+    },
+    {
+      "id": "logic_level",
+      "term": "逻辑电平（Logic Level, 3.3V / 5V）",
+      "category": "电学基础",
+      "metaphor": "两个国家对「大声」的标准不一样。一边觉得 3 分贝就算喊，另一边觉得得 5 分贝。互相说话时一方可能听不见，或者被震到耳朵疼。",
+      "definition": "数字电路用来表示 0 和 1 的电压范围。STM32 用 3.3V 逻辑，Arduino UNO 等用 5V 逻辑。两者互连时要看引脚是否「5V 容忍」。",
+      "misconception": "以为 3.3V 和 5V 的设备随便接。5V 信号进 3.3V 引脚可能烧芯片；3.3V 信号进 5V 设备可能被当成 0。要么用电平转换模块，要么选兼容的引脚。",
+      "example": "蓝药丸大部分数字引脚是 5V 容忍的（数据手册标 FT），但 ADC 引脚（PA0～PA7 等）绝对不能进 5V。买传感器时优先选支持 3.3V 的。",
+      "related": ["voltage", "gpio", "datasheet", "voltage_divider"]
+    },
+    {
+      "id": "power_supply",
+      "term": "供电与稳压（Power Supply / Regulator）",
+      "category": "电学基础",
+      "metaphor": "自来水厂和小区的减压阀。市政水压很高，减压阀把它降到家里水龙头受得了的程度。",
+      "definition": "给电路提供稳定电压的部分。稳压器（如 LDO）把较高的输入电压转换成固定的较低输出电压，例如 5V 转 3.3V。",
+      "misconception": "以为板子上的 3.3V 引脚能随便带东西。蓝药丸的板载稳压器很小，能给外部提供的电流大约只有 100～200mA，带舵机、电机会直接复位或烫手。大负载要单独供电。",
+      "example": "蓝药丸的 5V 引脚直通 USB 的 5V，3.3V 引脚是稳压器输出。接舵机时用 5V 引脚供电或外接电源，信号线才接 GPIO，且共地。",
+      "related": ["voltage", "ground", "capacitor", "servo"]
+    },
+    {
+      "id": "mcu",
+      "term": "微控制器（MCU, Microcontroller）",
+      "category": "芯片与板子",
+      "metaphor": "一台只有拇指大、不装屏幕、专门干一件事的微型电脑。电饭锅、遥控器、电动牙刷里都有一颗。",
+      "definition": "把处理器内核、Flash、RAM 和各种外设集成在一颗芯片里的计算机。和电脑 CPU 不同，它自带存储和 IO，不需要外挂内存和硬盘就能工作。",
+      "misconception": "以为 MCU 是「弱版电脑」，能跑 Windows 或 Python。MCU 一般没有操作系统，一次只跑一个你写死进去的程序，资源是 KB 级别的，和电脑是完全不同的设计目标。",
+      "example": "蓝药丸上那颗黑色的芯片 STM32F103C8T6 就是 MCU。它有 64KB Flash、20KB RAM、72MHz 主频，比第一代 iPhone 弱得多，但控制一个狗粮机绰绰有余。",
+      "related": ["microcontroller_cn", "cortex_m", "flash", "ram"]
+    },
+    {
+      "id": "microcontroller_cn",
+      "term": "单片机",
+      "category": "芯片与板子",
+      "metaphor": "「单片机」就是 MCU 的中文叫法，意思是「一片芯片就是一台机器」。国内教材和论坛都这么叫。",
+      "definition": "MCU 的中文习惯称呼，全称「单片微型计算机」。「学单片机」「玩单片机」和「学嵌入式」在入门阶段基本是同一件事。",
+      "misconception": "以为「单片机」和「嵌入式」是两个领域。单片机是嵌入式最底层最常见的载体，嵌入式范围更广（还包括嵌入式 Linux、FPGA 等）。",
+      "example": "搜资料时「STM32 单片机」「51 单片机」「单片机点灯」都是关键词。本平台说的「板子」「芯片」「MCU」「单片机」指的是同一个东西。",
+      "related": ["mcu", "embedded_engineer", "development_board"]
+    },
+    {
+      "id": "development_board",
+      "term": "开发板 / 蓝药丸（Dev Board / Blue Pill）",
+      "category": "芯片与板子",
+      "metaphor": "芯片是发动机，开发板是把发动机装上轮子、油箱、方向盘的测试车。让你不用自己造车就能开起来。",
+      "definition": "把 MCU 芯片和它工作所需的最少外围（稳压、晶振、复位、引脚插针、下载口）做在一块 PCB 上，方便学习和原型开发的板子。蓝药丸是最便宜流行的 STM32 开发板之一。",
+      "misconception": "以为开发板就是最终产品。开发板为了通用会多留很多东西，真正做产品时会重新画一块只有必要部分的 PCB。",
+      "example": "蓝药丸：STM32F103C8T6 + 8MHz 晶振 + 32.768kHz 晶振 + 3.3V 稳压 + 复位键 + 两个 BOOT 跳线 + micro-USB + 40 个插针。十几块钱。",
+      "related": ["mcu", "pcb", "pin", "boot"]
+    },
+    {
+      "id": "cortex_m",
+      "term": "内核 Cortex-M（ARM Cortex-M Core）",
+      "category": "芯片与板子",
+      "metaphor": "发动机的设计图。ARM 公司画图，ST、NXP 等公司拿图去造自己的芯片，各家外设不同，但发动机是同一款。",
+      "definition": "ARM 公司设计并授权的一系列 32 位处理器内核，专门面向 MCU。M0/M0+ 最简单省电，M3 是经典，M4 加了浮点和 DSP，M7 最强。",
+      "misconception": "以为「ARM」是一家芯片厂。ARM 不生产芯片，只卖设计。所以你会看到 STM32、nRF52、RP2040 都说自己是 ARM Cortex-M。",
+      "example": "STM32F103 用的是 Cortex-M3 内核。同为 Cortex-M3 的其他厂家芯片，汇编指令一样，但寄存器和外设完全不同，所以代码不能直接搬。",
+      "related": ["mcu", "register", "clock_frequency", "peripheral"]
+    },
+    {
+      "id": "clock_frequency",
+      "term": "主频（Clock Frequency）",
+      "category": "芯片与板子",
+      "metaphor": "乐队指挥挥棒的速度。每挥一下大家走一步，挥得越快整体节奏越快。",
+      "definition": "处理器内核的工作时钟频率，单位 Hz。每个时钟周期执行大约一条简单指令。STM32F103 最高 72MHz，即每秒 7200 万个节拍。",
+      "misconception": "以为主频越高一定越好。主频高更耗电、更发热，而且很多任务（读按键、发串口）根本用不到。低功耗产品常故意跑低主频。",
+      "example": "PlatformIO 用 bluepill_f103c8 时，Arduino 框架默认把主频配到 72MHz：外部 8MHz 晶振经 PLL 乘 9 倍。delay(1000) 底层就是数够 7200 万个节拍。",
+      "related": ["clock", "crystal", "cortex_m", "delay_millis"]
+    },
+    {
+      "id": "flash",
+      "term": "Flash（闪存）",
+      "category": "芯片与板子",
+      "metaphor": "刻在石板上的字。断电了字还在，但要改得费点劲（整块擦掉重刻）。",
+      "definition": "非易失性存储器，断电后内容保留。MCU 的程序（固件）存在这里。写入次数有限（约一万次）、写入慢，但读取快。",
+      "misconception": "以为 Flash 越大程序跑得越快。Flash 只决定「能装多大的程序」，速度由主频决定。64KB 的 Flash 装一个点灯程序用不到十分之一。",
+      "example": "STM32F103C8 的 C8 表示 64KB Flash（很多板子实际是 128KB 但官方不保证）。烧录时终端打印的 Flash: [==  ] 12.3% 就是程序占了多少 Flash。",
+      "related": ["ram", "firmware", "flashing", "mcu"]
+    },
+    {
+      "id": "ram",
+      "term": "RAM（内存）",
+      "category": "芯片与板子",
+      "metaphor": "桌面。干活时把东西摊在上面很方便，但下班关灯（断电）桌面就被清空。",
+      "definition": "随机存取存储器，易失性，断电即丢。程序运行时的变量、数组、函数调用栈都放在这里。",
+      "misconception": "以为 20KB RAM 「一个字符串都放不下」。20KB 是 20480 字节，一个 int 4 字节，能放五千个。真正吃 RAM 的是大数组、图片缓存、字符串拼接，日常小项目很少爆。",
+      "example": "STM32F103C8T6 有 20KB RAM。编译完 PlatformIO 会打印 RAM: [=  ] 9.6% (used 1968 bytes)，超过 100% 就编不过或者运行时莫名重启。",
+      "related": ["flash", "variable", "mcu", "stack_overflow"]
+    },
+    {
+      "id": "register",
+      "term": "寄存器（Register）",
+      "category": "芯片与板子",
+      "metaphor": "一排贴了标签的开关面板。每个开关控制芯片里某个功能：这个是「PA0 输出高」，那个是「打开定时器」。写程序本质上是在拨这些开关。",
+      "definition": "MCU 内部有固定地址的特殊存储单元，每一位对应一个硬件功能的配置或状态。所有外设最终都靠读写寄存器来控制。",
+      "misconception": "以为必须懂寄存器才算会嵌入式。Arduino / HAL 库把寄存器操作包装成了函数，入门阶段完全不用碰。寄存器是「想知道 digitalWrite 底下发生了什么」时才需要看的东西。",
+      "example": "digitalWrite(PC13, LOW) 最终就是往 GPIOC 的 BSRR 寄存器（地址 0x40011010）的第 29 位写 1。参考手册 RM0008 有 1000 多页，主要就是在讲每个寄存器每一位的含义。",
+      "related": ["peripheral", "reference_manual", "hal", "gpio"]
+    },
+    {
+      "id": "peripheral",
+      "term": "外设（Peripheral）",
+      "category": "芯片与板子",
+      "metaphor": "一个人的各种感官和手脚。大脑（内核）负责想，眼睛（ADC）负责看，嘴（UART）负责说，手（GPIO）负责动。",
+      "definition": "MCU 内核之外、集成在同一芯片内的功能模块，如 GPIO、UART、SPI、I2C、ADC、定时器、DMA。它们各自独立工作，内核通过寄存器指挥它们。",
+      "misconception": "以为「外设」是接在板子外面的传感器、屏幕。在 MCU 语境里外设指芯片内部的功能模块；外面接的东西叫「外部设备」或「模块」。",
+      "example": "STM32F103C8T6 的外设清单：37 个 GPIO、3 个 UART、2 个 I2C、2 个 SPI、1 个 CAN、1 个 USB、2 个 12 位 ADC、4 个定时器、7 通道 DMA。买芯片就是在买这张清单。",
+      "related": ["register", "gpio", "uart", "timer"]
+    },
+    {
+      "id": "pin",
+      "term": "引脚（Pin）",
+      "category": "芯片与板子",
+      "metaphor": "芯片伸出来的小脚，是它和外界唯一的接触点。想跟它说话、让它干活，都得通过这些脚。",
+      "definition": "芯片或模块上用于电气连接的金属端子。每个引脚有名字（如 PA0）和一个或多个功能（GPIO、ADC、UART……），功能由软件配置。",
+      "misconception": "以为一个引脚只能干一件事。STM32 大部分引脚是「复用」的，PA9 既可以当普通 GPIO，也可以当 UART1 的 TX，看你怎么配。但同一时刻只能是一个功能。",
+      "example": "蓝药丸 PA 开头的引脚在 GPIOA 组，PB 在 GPIOB 组。PA13/PA14 默认是 SWD 下载口（板上丝印 SWIO/SWCLK），尽量不要拿来当 GPIO 用，否则烧录会变麻烦。",
+      "related": ["gpio", "silkscreen", "peripheral", "pinout"]
+    },
+    {
+      "id": "pinout",
+      "term": "引脚图（Pinout）",
+      "category": "芯片与板子",
+      "metaphor": "一张标着门牌号和住户的小区地图。没它你不知道哪个脚是电源哪个脚是 LED。",
+      "definition": "标注板子或芯片每个引脚的名称、编号和可用功能的图或表。接线前必看。",
+      "misconception": "以为引脚图上标的所有功能都能同时用。同一引脚的多个功能是备选项，比如 PA2 标了 ADC2 / PWM / UART2_TX，一次只能选一个。",
+      "example": "本平台的 content/hardware/bluepill-pins.json 就是蓝药丸的引脚图数据，课程页面里的 pinout 画布用的是它。查 PA0 会看到 GPIO / ADC0 / PWM / WKUP 四个功能。",
+      "related": ["pin", "gpio", "silkscreen", "datasheet"]
+    },
+    {
+      "id": "gpio",
+      "term": "GPIO（通用输入输出）",
+      "category": "芯片与板子",
+      "metaphor": "一个可以设定成「喊话筒」或「耳朵」的口。设成输出就往外喊高低电平，设成输入就听外面是高还是低。",
+      "definition": "General Purpose Input/Output，MCU 最基础的引脚功能。软件可以把它配成输出（驱动高/低电平）或输入（读取高/低电平），可选上拉、下拉、开漏等模式。",
+      "misconception": "以为 GPIO 能输出「中间电压」。GPIO 只有 0 和 1 两种，想要 1.5V 得用 DAC 或 PWM 加滤波。也别以为它能供电，它只能输出几十 mA。",
+      "example": "pinMode(PC13, OUTPUT); digitalWrite(PC13, LOW); 这两行就是把 PC13 设成输出并拉低，板载 LED 亮。pinMode(PB12, INPUT_PULLUP) 则是配成带上拉的输入读按键。",
+      "related": ["pin", "pull_up_pull_down", "led", "button"]
+    },
+    {
+      "id": "reset",
+      "term": "复位（Reset）",
+      "category": "芯片与板子",
+      "metaphor": "把电脑重启。所有正在做的事作废，从头再来一遍。",
+      "definition": "让 MCU 回到初始状态并从程序起点重新执行。可由复位按键、上电、看门狗、软件指令或调试器触发。复位不会清除 Flash，程序还在。",
+      "misconception": "以为复位会「清空程序」或者「恢复出厂」。复位只是重跑一遍你烧进去的程序，Flash 里的东西一点不变。变量会重新初始化是因为它们在 RAM 里。",
+      "example": "蓝药丸上那颗小按键就是复位键，旁边丝印 RESET 或 R。烧录后 PlatformIO 会自动复位让新程序跑起来。程序里让 setup() 打印一行「boot」，每次按复位都能在串口看到。",
+      "related": ["boot", "watchdog", "flash", "setup_loop"]
+    },
+    {
+      "id": "boot",
+      "term": "BOOT 引脚（BOOT0 / BOOT1）",
+      "category": "芯片与板子",
+      "metaphor": "开机时的一道选择题：从「主硬盘」启动，还是从「救援盘」启动。上电那一瞬间看一眼开关的位置就决定了。",
+      "definition": "STM32 复位时通过 BOOT0（和 BOOT1）引脚电平决定从哪里开始执行：主 Flash（正常运行）、系统存储器（内置串口 bootloader）或 RAM。",
+      "misconception": "以为 BOOT 跳线要一直跳来跳去。用 ST-Link 通过 SWD 烧录时 BOOT0 保持 0 即可，从来不用动。只有用串口烧录（没有 ST-Link）时才需要临时把 BOOT0 跳到 1。",
+      "example": "蓝药丸上两个黄色跳线帽就是 BOOT0 和 BOOT1，正常两个都跳在 0 那一侧。如果板子上电后程序不跑、灯不亮，先看看跳线帽有没有被碰歪。",
+      "related": ["reset", "bootloader", "flashing", "st_link"]
+    },
+    {
+      "id": "clock",
+      "term": "时钟（Clock）",
+      "category": "芯片与板子",
+      "metaphor": "整个乐团共用的节拍器。所有人跟着它走，谁都不能自己乱来。不同乐器（外设）可以按节拍的整数倍或分数拍走。",
+      "definition": "MCU 内部所有数字电路同步工作所依赖的周期性方波信号。有多个时钟源（内部 RC、外部晶振），经 PLL 倍频、分频后分发给内核和各外设。",
+      "misconception": "以为「时钟」就是看时间的那种时钟（RTC）。MCU 里说「时钟」默认指节拍信号；能记年月日的那个叫 RTC（实时时钟），是个具体的外设。",
+      "example": "蓝药丸的 8MHz 晶振是 HSE（外部高速时钟），经 PLL ×9 得 72MHz 系统时钟。ADC 时钟不能超过 14MHz，所以框架自动给它分频。这些 Arduino 都帮你配好了。",
+      "related": ["crystal", "clock_frequency", "timer", "rtc"]
+    },
+    {
+      "id": "crystal",
+      "term": "晶振（Crystal Oscillator）",
+      "category": "芯片与板子",
+      "metaphor": "一个特别准的音叉。敲一下永远发同一个频率的音，芯片就拿它当节拍器的基准。",
+      "definition": "利用石英晶体压电效应产生精确固定频率的元件。MCU 用它作为时钟源，比芯片内部的 RC 振荡器精确几百倍。",
+      "misconception": "以为晶振「越大越好」或者随便换。晶振频率是设计时定死的，芯片配置的 PLL 倍数和它匹配。蓝药丸换成 12MHz 晶振而不改代码，串口波特率、delay 时间全会跑偏。",
+      "example": "蓝药丸有两个晶振：芯片旁边的银色扁盒是 8MHz（HSE，系统主时钟），细长圆柱形的是 32.768kHz（LSE，给 RTC 用的，一秒正好 2 的 15 次方个周期）。",
+      "related": ["clock", "clock_frequency", "rtc", "baud_rate"]
+    },
+    {
+      "id": "watchdog",
+      "term": "看门狗（Watchdog Timer, WDT）",
+      "category": "芯片与板子",
+      "metaphor": "一只每隔几秒就要你摸一下头的狗。你忙到忘了摸（程序卡死了），它就叫醒全家（复位芯片）。",
+      "definition": "一个独立的倒计时定时器，程序必须在超时前周期性地「喂狗」（重置计数）。如果程序死循环或跑飞没喂，看门狗会强制复位 MCU。",
+      "misconception": "以为看门狗能「修 bug」。它只是让卡死的设备自己重启，不解决卡死的原因。但对于放在野外没人管的设备，能自动重启就已经很有价值。",
+      "example": "STM32F103 有独立看门狗 IWDG。狗粮机放家里几个月不重启，可以在 loop() 里定期调用 IWatchdog.reload()，万一 RTC 读取卡住了，几秒后自动重启，不会让狗饿着。",
+      "related": ["reset", "timer", "blocking_nonblocking", "rtos"]
+    },
+    {
+      "id": "interrupt",
+      "term": "中断（Interrupt）",
+      "category": "芯片与板子",
+      "metaphor": "你在写作业，门铃响了。你放下笔去开门，处理完再回来接着写，不需要每隔一秒抬头看一眼门口。",
+      "definition": "硬件事件（引脚电平变化、定时器到时、串口收到数据）发生时，CPU 暂停当前程序，跳转执行对应的中断服务函数（ISR），完成后返回原处继续。",
+      "misconception": "以为中断里可以随便写代码。ISR 要尽量短，不能 delay、不能 Serial.print（可能死锁），一般只是设个标志位或存个值，主循环再处理。另一个误解是所有事都该用中断，其实大部分场景轮询就够了。",
+      "example": "attachInterrupt(digitalPinToInterrupt(PB12), onButton, FALLING) 让 PB12 从高变低时自动调用 onButton()。onButton 里只写 pressed = true; 主循环看到 pressed 再去干活。",
+      "related": ["volatile", "timer", "blocking_nonblocking", "button"]
+    },
+    {
+      "id": "timer",
+      "term": "定时器（Timer）",
+      "category": "芯片与板子",
+      "metaphor": "一个独立的秒表兼节拍器。你让它每 10 毫秒响一下、或者数到 1000 叫你，它自己数，不占你脑子。",
+      "definition": "MCU 内的硬件计数器外设，按时钟节拍计数，可以在计满时产生中断、输出 PWM 波形、测量输入信号的脉宽或频率。",
+      "misconception": "以为 delay() 就是定时器。delay 是让 CPU 原地空转数数，期间什么都不能干；硬件定时器是独立数数，CPU 该干嘛干嘛。",
+      "example": "STM32F103C8 有 TIM1～TIM4 四个定时器。analogWrite 输出 PWM 就是靠它们；millis() 计时靠的是内核自带的 SysTick 定时器每 1ms 中断一次。",
+      "related": ["pwm", "interrupt", "delay_millis", "clock"]
+    },
+    {
+      "id": "dma",
+      "term": "DMA（直接内存访问）",
+      "category": "芯片与板子",
+      "metaphor": "搬家公司。你不用自己一箱箱搬，告诉他们「从这搬到那，共 100 箱」，他们搬完喊你一声。",
+      "definition": "Direct Memory Access，一个专门在外设和内存之间搬运数据的硬件模块，不需要 CPU 参与每一个字节的传输。常配合 ADC、UART、SPI 使用。",
+      "misconception": "以为入门必须会 DMA。DMA 是性能优化手段，在数据量小（每秒几十字节串口）的项目里完全用不上。等你遇到「CPU 忙不过来」再学。",
+      "example": "如果要以 100kHz 连续采样 PA0 上的信号，逐次 analogRead 会让 CPU 累死，这时配 ADC + DMA 让数据自动填进数组。狗粮机项目用不到。",
+      "related": ["adc", "uart", "peripheral", "ram"]
+    },
+    {
+      "id": "adc",
+      "term": "ADC（模数转换器）",
+      "category": "芯片与板子",
+      "metaphor": "拿尺子量一根线的长度，报一个整数。线的长度是连续的（任意值），报出来的数是离散的（只能是刻度）。",
+      "definition": "Analog-to-Digital Converter，把连续的模拟电压转换成数字量。STM32F103 是 12 位 ADC，0～3.3V 映射到 0～4095。",
+      "misconception": "以为 analogRead 读到的数是电压。它读到的是 0～4095 的整数，要自己换算：电压 = 读数 × 3.3 / 4095。另一个坑是以为任何引脚都能 analogRead，只有标了 ADC 的引脚才行。",
+      "example": "电位器中间脚接 PA0，int raw = analogRead(PA0); float v = raw * 3.3 / 4095.0; 旋钮转一圈 raw 从 0 到约 4095。Arduino 框架默认 10 位（0～1023），要 analogReadResolution(12) 才是全精度。",
+      "related": ["analog_digital", "sampling", "voltage_divider", "dac"]
+    },
+    {
+      "id": "dac",
+      "term": "DAC（数模转换器）",
+      "category": "芯片与板子",
+      "metaphor": "ADC 的反向操作：给它一个数字，它输出对应高度的水位。",
+      "definition": "Digital-to-Analog Converter，把数字量转换成真正连续的模拟电压输出。用于音频、可调基准电压等。",
+      "misconception": "以为 analogWrite 输出的是 DAC 模拟电压。在 Arduino 上 analogWrite 输出的是 PWM 方波，不是真模拟量。STM32F103C8 根本没有 DAC 外设，需要真模拟输出得外接 DAC 芯片或用 PWM 加 RC 滤波。",
+      "example": "想让蓝药丸放一段音乐波形，F103C8 做不到（没 DAC），要么用 PWM 模拟，要么换 F4 系列或外接 MCP4725（I2C DAC 模块）。",
+      "related": ["adc", "pwm", "analog_digital", "duty_cycle"]
+    },
+    {
+      "id": "pwm",
+      "term": "PWM（脉冲宽度调制）",
+      "category": "芯片与板子",
+      "metaphor": "快速开关水龙头。开 1 秒关 1 秒，平均水量是一半；开 1.8 秒关 0.2 秒，平均是九成。开关得够快，杯子里的水位就看起来是平稳的。",
+      "definition": "Pulse Width Modulation，以固定频率输出方波，通过改变高电平占比（占空比）来控制平均功率或传递信息。由定时器硬件产生。",
+      "misconception": "以为 PWM 是模拟电压。示波器上看 PWM 永远只有 3.3V 和 0V 两个值。它能调 LED 亮度和电机速度是因为这些负载对平均值有反应；给需要真实电压的电路要加滤波。",
+      "example": "analogWrite(PA8, 128) 让 PA8 输出约 50% 占空比、约 1kHz 的 PWM。舵机需要 50Hz、脉宽 0.5～2.5ms 的特殊 PWM，Servo 库帮你算好了：servo.write(90)。",
+      "related": ["duty_cycle", "timer", "servo", "dc_motor"]
+    },
+    {
+      "id": "rtc",
+      "term": "RTC（实时时钟）",
+      "category": "芯片与板子",
+      "metaphor": "手表。哪怕主机关了，它靠一颗纽扣电池继续走，下次开机你还知道今天几号。",
+      "definition": "Real-Time Clock，专门记年月日时分秒的低功耗模块，通常有独立的 32.768kHz 晶振和备用电池。可以是 MCU 内置的，也可以是外接芯片（如 DS3231）。",
+      "misconception": "以为 millis() 能当时钟用。millis 记的是「开机后过了多少毫秒」，断电归零，还会漂移。要知道「现在是几点」得有 RTC，最好带电池。",
+      "example": "狗粮机项目用 DS3231 模块（I2C，SCL 接 PB6、SDA 接 PB7），lib_deps 里的 adafruit/RTClib 提供 rtc.now() 返回年月日时分秒。蓝药丸的 VBAT 引脚接 3V 电池也能让内置 RTC 断电续走。",
+      "related": ["crystal", "i2c", "delay_millis", "library"]
+    },
+    {
+      "id": "package",
+      "term": "封装（Package）",
+      "category": "芯片与板子",
+      "metaphor": "同一款巧克力可以做成条装、球装、袋装。里面的东西一样，外壳形状和大小不同，决定了它放在哪种货架上。",
+      "definition": "芯片外壳的物理形式，规定了尺寸、引脚数量和排列方式。如 LQFP48（48 脚方形贴片）、DIP（双列直插）、QFN（无引脚）。",
+      "misconception": "以为封装不同就是不同的芯片。STM32F103C8T6 的 T 表示 LQFP 封装，同一芯片可能有多种封装可选，内部功能一样，但引脚数可能不同，能用的外设也随之增减。",
+      "example": "蓝药丸的芯片是 LQFP48，四边各 12 个脚，脚间距 0.5mm。这种脚很难手焊，所以初学者买现成的板子而不是自己焊芯片。",
+      "related": ["pin", "pcb", "soldering_iron", "datasheet"]
+    },
+    {
+      "id": "uart",
+      "term": "UART / 串口（Serial Port）",
+      "category": "通信",
+      "metaphor": "两个人各拿一根传声筒，一根我说你听，一根你说我听。事先约好说话速度，不然听不清。",
+      "definition": "通用异步收发器，最简单的点对点串行通信：一根 TX 发、一根 RX 收、共地，双方约定相同波特率。没有时钟线，靠起始位和停止位对齐。",
+      "misconception": "以为把两块板子的 TX 接 TX、RX 接 RX 就行。UART 必须交叉接：我的 TX 接你的 RX。另一个误解是「串口」专指电脑的 COM 口，其实 MCU 之间、MCU 和模块之间也是串口。",
+      "example": "蓝药丸的 Serial 默认用 USART1：PA9 是 TX、PA10 是 RX。Serial.begin(115200); Serial.println(\"hello\"); 用 USB 转 TTL 模块接上，pio device monitor 就能看到。",
+      "related": ["baud_rate", "tx_rx", "common_ground", "serial_print"]
+    },
+    {
+      "id": "baud_rate",
+      "term": "波特率（Baud Rate）",
+      "category": "通信",
+      "metaphor": "两个人约定的说话速度，每秒说多少个字。一个人快一个人慢，听到的就是乱码。",
+      "definition": "串口每秒传输的符号数，UART 里近似等于每秒 bit 数。常用 9600、115200。收发双方必须一致。",
+      "misconception": "以为波特率随便设，越大越好。太高时线长、杜邦线质量差会出错。另一个坑是串口监视器和代码里的数不一致，看到一堆问号或方块。",
+      "example": "代码里 Serial.begin(115200)，platformio.ini 里 monitor_speed = 115200，两处必须一样。看到乱码第一反应就是查这两个数。",
+      "related": ["uart", "serial_print", "crystal", "platformio"]
+    },
+    {
+      "id": "tx_rx",
+      "term": "TX 与 RX（发送 / 接收）",
+      "category": "通信",
+      "metaphor": "嘴和耳朵。我的嘴要对着你的耳朵，我的耳朵要对着你的嘴。嘴对嘴谁也听不见。",
+      "definition": "TX（Transmit）是发送引脚，RX（Receive）是接收引脚。串口连接时必须交叉：A 的 TX 接 B 的 RX，A 的 RX 接 B 的 TX。",
+      "misconception": "看到模块上印着 TX 就接板子的 TX。模块上的标注是从模块自己的角度写的，所以要交叉。接反了没坏处，就是收不到，换一下就好。",
+      "example": "USB 转 TTL 模块：模块 TXD → 蓝药丸 PA10（RX1），模块 RXD → 蓝药丸 PA9（TX1），GND 接 GND。第一次接不通，先把两根线交换试试。",
+      "related": ["uart", "common_ground", "wiring", "baud_rate"]
+    },
+    {
+      "id": "i2c",
+      "term": "I2C（两线总线）",
+      "category": "通信",
+      "metaphor": "一个老师带一群学生，只用两条线：一条老师喊「现在轮到 3 号」，一条传内容。每个学生有编号，叫到谁谁回答。",
+      "definition": "Inter-Integrated Circuit，两线（SCL 时钟、SDA 数据）多设备总线。一个主机，多个从机，每个从机有 7 位地址。速度 100k/400kHz，需要上拉电阻。",
+      "misconception": "以为 I2C 不用上拉电阻。SDA/SCL 是开漏输出，没有上拉就一直是低电平，什么都读不到。很多模块自带了上拉，但不一定，扫不到设备先查上拉。",
+      "example": "蓝药丸 I2C1：PB6 是 SCL、PB7 是 SDA。Wire.begin(); 后用 Wire 扫描例程能列出总线上所有设备地址，DS3231 的地址是 0x68，很多 OLED 屏是 0x3C。",
+      "related": ["address", "pull_up_pull_down", "spi", "rtc"]
+    },
+    {
+      "id": "spi",
+      "term": "SPI（串行外设接口）",
+      "category": "通信",
+      "metaphor": "老师和每个学生之间都有单独的「你说话」按钮（CS），按下谁的按钮就和谁一对一说话，说话线大家共用，所以能说得很快。",
+      "definition": "Serial Peripheral Interface，四线全双工同步总线：SCK 时钟、MOSI 主出从入、MISO 主入从出、CS/SS 片选（每个从机一根）。速度可达几十 MHz。",
+      "misconception": "以为 SPI 和 I2C 是竞争关系，学一个就够。它们各有场景：I2C 线少、慢，适合传感器；SPI 线多、快，适合屏幕、SD 卡、Flash。很多项目两个都用。",
+      "example": "蓝药丸 SPI1：PA5 SCK、PA6 MISO、PA7 MOSI，CS 随便挑一个 GPIO 比如 PA4。接 SD 卡模块或 TFT 屏就是这几根线。SPI.begin() 后用 SPI.transfer(byte) 收发。",
+      "related": ["i2c", "master_slave", "duplex", "sd_card"]
+    },
+    {
+      "id": "one_wire",
+      "term": "单总线（1-Wire / 单线协议）",
+      "category": "通信",
+      "metaphor": "只用一根线既发话又听话，靠严格的时间节奏来区分「我在说」和「你在说」。",
+      "definition": "用一根数据线（加共地）完成双向通信的协议，靠精确的高低电平时序编码。DS18B20 温度传感器用 1-Wire，DHT11/DHT22 温湿度传感器用类似的单线时序协议。",
+      "misconception": "以为单总线「简单」所以自己写驱动。它的时序要求以微秒计，很容易写错。用现成的库（OneWire、DHT）几乎是唯一正确的选择。",
+      "example": "DHT22 数据脚接 PB1，加 4.7kΩ 上拉到 3.3V，lib_deps 加 adafruit/DHT sensor library，dht.readTemperature() 就出数。读数间隔至少 2 秒。",
+      "related": ["sensor", "pull_up_pull_down", "library", "protocol"]
+    },
+    {
+      "id": "can",
+      "term": "CAN 总线（Controller Area Network）",
+      "category": "通信",
+      "metaphor": "汽车里几十个部件共用的对讲频道。每条消息带优先级，撞车了让优先级高的先说，还自带纠错，特别皮实。",
+      "definition": "一种多主、差分信号、带优先级仲裁和错误检测的总线，专为噪声大的环境（汽车、工业）设计。两根线 CAN_H、CAN_L，需要收发器芯片。",
+      "misconception": "以为 MCU 的 CAN 引脚能直接和另一块板的 CAN 引脚对接。CAN 需要外接收发器（如 TJA1050），把逻辑电平转成差分信号，两端还要 120Ω 终端电阻。",
+      "example": "STM32F103 有一个 CAN 控制器（PA11/PA12 或 PB8/PB9）。它和 USB 共用一部分资源，在蓝药丸上不能同时用 USB 和 CAN。家里做项目一般用不到。",
+      "related": ["protocol", "checksum", "usb", "uart"]
+    },
+    {
+      "id": "usb",
+      "term": "USB",
+      "category": "通信",
+      "metaphor": "现代版万能插头。插上电脑，电脑问「你是谁」，你说「我是键盘」或「我是串口」，电脑就按那个身份对待你。",
+      "definition": "通用串行总线，电脑外设的标准接口。MCU 的 USB 外设可以让它模拟成串口（CDC）、键盘鼠标（HID）、U 盘（MSC）等设备。",
+      "misconception": "以为蓝药丸插上 USB 就能直接看串口打印。默认的 Arduino 配置下，USB 口只供电，不通信。要走 USB 通信得在 platformio.ini 加 USB CDC 相关 build_flags，而且很多克隆板 USB 电阻值不对。新手用 USB 转 TTL 模块接 PA9/PA10 更稳。",
+      "example": "蓝药丸 USB 数据线在 PA11（D-）和 PA12（D+）。开启 -D USBCON -D USBD_USE_CDC 后 Serial 会走 USB 而不是 PA9/PA10，电脑上会多出一个串口设备。",
+      "related": ["uart", "power_supply", "bootloader", "st_link"]
+    },
+    {
+      "id": "bluetooth",
+      "term": "蓝牙（Bluetooth）",
+      "category": "通信",
+      "metaphor": "十米内的无线对讲机，配对后两个设备就像用一根看不见的线连着。",
+      "definition": "短距离无线通信协议。经典蓝牙适合音频和串口透传，低功耗蓝牙（BLE）适合传感器偶尔发几个字节。MCU 一般通过外接模块使用。",
+      "misconception": "以为蓝药丸自带蓝牙。STM32F103 没有任何无线能力。最省事的办法是接一个 HC-05 / HC-06 模块，它对 MCU 来说就是一个串口：你往 Serial2 写，手机就收到。",
+      "example": "HC-06 模块 TXD 接蓝药丸 PA3（RX2）、RXD 接 PA2（TX2），Serial2.begin(9600)。手机装串口蓝牙 App，配对后输入 1 让 LED 亮、输入 0 让它灭。",
+      "related": ["uart", "wifi", "iot", "protocol"]
+    },
+    {
+      "id": "wifi",
+      "term": "WiFi",
+      "category": "通信",
+      "metaphor": "接入家里路由器，从此能上网，能被手机隔着半个地球远程控制。",
+      "definition": "无线局域网协议。让设备接入互联网，能做 HTTP 请求、MQTT 推送、网页控制。STM32F103 没有 WiFi，需要外接 ESP8266/ESP32 模块，或者直接换用 ESP32 作为主控。",
+      "misconception": "以为加 WiFi 只是接根线的事。上网意味着要处理连接失败、重连、断网、安全、服务器、时间同步一大堆事，复杂度是点灯的十倍。先把本地功能做稳再联网。",
+      "example": "狗粮机想远程看「今天喂了没」，可以接一个 ESP-01（ESP8266）模块走串口 AT 指令；更省事的是狗粮机主控直接换 ESP32，但那就不是 STM32 课程了。",
+      "related": ["iot", "bluetooth", "ota", "protocol"]
+    },
+    {
+      "id": "protocol",
+      "term": "协议（Protocol）",
+      "category": "通信",
+      "metaphor": "两个人说话的规矩：谁先说、用什么语言、一句话多长、说完怎么表示结束。没规矩就是各说各的。",
+      "definition": "通信双方约定的数据格式、时序和规则。分层次：底层物理协议（UART、I2C、SPI 规定电平和时序）、上层应用协议（HTTP、MQTT 或你自己定的「第一个字节是命令、第二个是参数」）。",
+      "misconception": "以为协议都是官方定的高深东西。你在两块板子之间约定「发 A 亮灯、发 B 灭灯」就已经是一个协议了。绝大多数项目的应用协议都是自己定的。",
+      "example": "狗粮机通过串口接收手机命令，可以定一个极简协议：一行文本，F 表示立刻喂一次，T08:30 表示设定喂食时间。Serial.readStringUntil('\\n') 读一行再解析。",
+      "related": ["uart", "i2c", "checksum", "address"]
+    },
+    {
+      "id": "address",
+      "term": "地址（Address，总线地址 / 内存地址）",
+      "category": "通信",
+      "metaphor": "门牌号。一条街上（总线上）好几户人家，喊门牌号才知道叫的是谁。",
+      "definition": "在通信语境下，总线上每个从设备的唯一编号（I2C 是 7 位地址，如 0x68）。在内存语境下，每个字节或寄存器在存储空间里的位置编号。",
+      "misconception": "以为同型号的两个模块能接在同一根 I2C 总线上。地址是芯片出厂固定的，两个 DS3231 都是 0x68 会冲突。有的芯片留了地址选择引脚，有的没有，买之前看手册。",
+      "example": "用 I2C 扫描程序在蓝药丸上扫总线，串口打出 Found device at 0x68（DS3231）和 0x3C（OLED）。库里 Wire.beginTransmission(0x68) 就是先喊门牌号。",
+      "related": ["i2c", "register", "protocol", "spi"]
+    },
+    {
+      "id": "checksum",
+      "term": "校验（Checksum / CRC）",
+      "category": "通信",
+      "metaphor": "寄包裹时在单子上写「共 5 件，总重 3.2kg」。收货人一称，数对不上就知道路上丢了东西。",
+      "definition": "在数据后附加一个由数据计算出来的短值（校验和、CRC、奇偶位），接收方重新计算并比对，用来发现传输错误。",
+      "misconception": "以为校验能「修好」错误数据。普通校验只能发现错、不能纠错，发现了一般是丢弃重发。另外校验也不是加密，任何人都能算。",
+      "example": "DHT22 传回 5 个字节，第 5 个是前四个之和的低 8 位；库里校验失败会返回 NaN。UART 也可以开奇偶校验位，Serial.begin(115200, SERIAL_8E1) 中的 E 就是偶校验。",
+      "related": ["protocol", "uart", "noise", "one_wire"]
+    },
+    {
+      "id": "master_slave",
+      "term": "主机与从机（Master / Slave）",
+      "category": "通信",
+      "metaphor": "点名的老师和被点名的学生。老师决定什么时候说话、叫谁说话，学生只能被叫到才答。",
+      "definition": "总线通信中的角色划分：主机发起并控制通信（产生时钟、选择对象），从机被动响应。I2C 和 SPI 都是主从结构。近年文档常改称 Controller / Peripheral 或 Host / Device。",
+      "misconception": "以为 MCU 一定是主机。MCU 也可以配成 I2C 从机让另一块 MCU 来读它，但初学阶段 MCU 基本都是主机，传感器和屏幕是从机。",
+      "example": "蓝药丸读 DS3231 时，蓝药丸是主机，在 PB6 上产生时钟并喊地址 0x68，DS3231 是从机，被喊到才把时间发到 PB7 上。",
+      "related": ["i2c", "spi", "address", "protocol"]
+    },
+    {
+      "id": "duplex",
+      "term": "全双工与半双工（Full / Half Duplex）",
+      "category": "通信",
+      "metaphor": "电话是全双工，两个人能同时说同时听。对讲机是半双工，一个人说的时候另一个只能听，说完要喊「完毕」。",
+      "definition": "全双工：双方能同时收发（UART 有独立的 TX/RX、SPI 有 MOSI/MISO）。半双工：同一时刻只能一方发（I2C、1-Wire、RS-485）。",
+      "misconception": "以为全双工总是更好。半双工省线，对传感器这种「问一句答一句」的场景完全够用，而且 I2C 靠半双工才做到两根线带一堆设备。",
+      "example": "SPI 每传一个字节，主机通过 MOSI 发出去的同时从机通过 MISO 也发回来一个字节，所以函数叫 SPI.transfer() 而不是 send()。",
+      "related": ["uart", "spi", "i2c", "tx_rx"]
+    },
+    {
+      "id": "firmware",
+      "term": "固件（Firmware）",
+      "category": "软件",
+      "metaphor": "刻进设备骨头里的程序。手机 App 可以随便删装，固件是设备一出生就带着、决定「我是什么」的那部分。",
+      "definition": "存储在设备非易失性存储器（Flash）中、直接控制硬件的软件。对 MCU 来说，你写的整个程序编译后烧进去就是它的固件。",
+      "misconception": "以为固件和软件是两种东西。固件就是软件，只是「和硬件绑得紧、放在 Flash 里、一般不由用户更换」。写单片机程序就是写固件。",
+      "example": "PlatformIO 编译完在 .pio/build/bluepill/ 下生成 firmware.bin 和 firmware.elf，前者是烧进 Flash 的原始字节，后者带调试信息。pio run -t upload 就是把 firmware.bin 写进蓝药丸。",
+      "related": ["flash", "compile", "flashing", "ota"]
+    },
+    {
+      "id": "compile",
+      "term": "编译（Compile）",
+      "category": "软件",
+      "metaphor": "把一本中文小说翻译成只有机器人能读的密码本。翻译时会挑出你的语法错误、拼错的词，全对了才出书。",
+      "definition": "把人写的高级语言源代码（C/C++）转换成处理器能直接执行的机器码的过程。编译器（如 arm-none-eabi-gcc）逐个文件编译成目标文件（.o）。",
+      "misconception": "以为编译通过就等于程序正确。编译只检查语法和类型，不检查逻辑。灯该亮却不亮、接线错了，编译器一个字都不会说。",
+      "example": "pio run 会调用 arm-none-eabi-g++ 编译 src/main.cpp。看到 error: 'digitalWrit' was not declared 就是编译错误：函数名拼错了。",
+      "related": ["link", "firmware", "toolchain", "compile_error"]
+    },
+    {
+      "id": "link",
+      "term": "链接（Link）",
+      "category": "软件",
+      "metaphor": "翻译完每一章后，把所有章节装订成一本书，页码连起来，目录里每个「见第 X 页」都填上真实页码。",
+      "definition": "把多个编译好的目标文件和库文件合并成一个完整可执行文件，解析函数和变量的最终地址，按链接脚本安排它们在 Flash 和 RAM 中的位置。",
+      "misconception": "看到 undefined reference to 报错以为是语法问题。这是链接错误：你调用了一个函数，编译器信了你的声明，但链接时找不到它的实现。通常是忘了加库或忘了写函数体。",
+      "example": "在 main.cpp 里用了 Servo 类但 lib_deps 没加 Servo 库，编译能过（因为有头文件声明）但链接报 undefined reference to Servo::attach。加上库就好。",
+      "related": ["compile", "library", "lib_deps", "flash"]
+    },
+    {
+      "id": "flashing",
+      "term": "烧录 / 下载（Flashing / Upload）",
+      "category": "软件",
+      "metaphor": "把光盘刻好。程序编译出来只是电脑上的一个文件，得「刻」进芯片的 Flash 里它才能自己跑。",
+      "definition": "把编译好的固件通过烧录器（ST-Link）或 bootloader 写入 MCU 的 Flash 存储器。中文也叫「下载」「刷机」「灌程序」。",
+      "misconception": "以为「下载」是从网上下东西。嵌入式圈说「下载程序」是指把程序传进芯片。另一个误解是烧录会把芯片「烧坏」，烧只是比喻，指用电写入，完全无损。",
+      "example": "pio run -t upload 通过 ST-Link 走 SWD 把 firmware.bin 写进蓝药丸。成功时终端显示 ** Programming Finished ** ** Verified OK **，然后板子自动复位跑新程序。",
+      "related": ["firmware", "st_link", "swd", "boot"]
+    },
+    {
+      "id": "bootloader",
+      "term": "引导程序（Bootloader）",
+      "category": "软件",
+      "metaphor": "开机后第一个跑的小管家。它先看一眼「有新程序要装吗」，有就装，没有就叫主程序起来干活。",
+      "definition": "MCU 上电后最先执行的一小段程序，负责检查是否需要更新固件并跳转到主程序。STM32 出厂在系统存储器里内置了一个串口 bootloader；也可以自己在 Flash 头部放一个。",
+      "misconception": "以为烧程序必须有 bootloader。用 ST-Link 走 SWD 烧录完全不需要 bootloader，是直接写 Flash。bootloader 是「没有烧录器时」或者「要 OTA 升级时」的方案。",
+      "example": "把蓝药丸 BOOT0 跳到 1 再复位，芯片会跑 ST 内置的串口 bootloader，这时用 stm32flash 工具通过 PA9/PA10 就能烧程序，不需要 ST-Link。烧完记得把 BOOT0 跳回 0。",
+      "related": ["boot", "flashing", "ota", "firmware"]
+    },
+    {
+      "id": "hal",
+      "term": "HAL（硬件抽象层）",
+      "category": "软件",
+      "metaphor": "开车不用管发动机每个零件怎么动，踩油门就走。HAL 就是「油门」：你说「PA0 输出高」，它帮你去拨那一堆寄存器。",
+      "definition": "Hardware Abstraction Layer，芯片厂商（ST）提供的一套 C 函数库，把寄存器操作封装成 HAL_GPIO_WritePin() 这样的函数，让代码能在同系列不同型号间迁移。",
+      "misconception": "以为 HAL 和 Arduino 框架是对立的。在 STM32 上，Arduino 框架底层就是调 HAL 实现的。Arduino 更简单，HAL 更贴近硬件、控制更细，可以混用。",
+      "example": "digitalWrite(PC13, LOW) 在 STM32duino 里最后会走到 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET)。用 STM32CubeIDE 开发就是直接写后面这种。",
+      "related": ["register", "arduino_framework", "library", "reference_manual"]
+    },
+    {
+      "id": "arduino_framework",
+      "term": "Arduino 框架（Arduino Framework）",
+      "category": "软件",
+      "metaphor": "一套所有品牌电器都通用的遥控器：不管底下是哪家的芯片，「开灯」按钮都叫 digitalWrite。",
+      "definition": "起源于 Arduino 板子的一套简化 C++ API 和编程模型（setup/loop、pinMode、digitalWrite、Serial……）。现在已被移植到 STM32、ESP32 等几乎所有主流 MCU 上。",
+      "misconception": "以为 Arduino 是一块板子、用 STM32 就不能用 Arduino。Arduino 首先是一套 API 和生态，STM32duino 项目让蓝药丸也能用它。「用 Arduino 不专业」也是偏见，很多产品原型都是这样起步的。",
+      "example": "platformio.ini 里 framework = arduino 就是选了它。你在 main.cpp 里写的 setup() 和 loop()、用的 Serial、Wire、SPI 对象，全来自这个框架。",
+      "related": ["setup_loop", "hal", "platformio", "library"]
+    },
+    {
+      "id": "library",
+      "term": "库（Library）",
+      "category": "软件",
+      "metaphor": "别人写好的菜谱合集。你不用从零研究「怎么和 DS3231 说话」，拿来照着做就行。",
+      "definition": "封装好的一组函数和类，解决一类具体问题（驱动某个传感器、实现某种算法）。通常由头文件（.h）和源文件（.cpp）组成。",
+      "misconception": "以为用库是「偷懒」「不算真会」。工程实践中几乎没人从零写 I2C 时序去驱动一个 RTC。会找库、会读库的示例、出问题时会看库的源码，才是真本事。",
+      "example": "adafruit/RTClib 这个库让你写 rtc.now().hour() 就能拿到小时数。它背后是几百行 I2C 读寄存器、BCD 码转换的代码，你不用管。",
+      "related": ["lib_deps", "arduino_framework", "link", "header_file"]
+    },
+    {
+      "id": "lib_deps",
+      "term": "lib_deps（库依赖声明）",
+      "category": "软件",
+      "metaphor": "购物清单。你把要用的菜谱名字写在清单上，PlatformIO 自动去超市买回来。",
+      "definition": "platformio.ini 中声明项目所依赖的库的字段。PlatformIO 会在编译前自动下载并放进 .pio/libdeps/。格式一般是「作者/库名」或「库名@版本」。",
+      "misconception": "以为 #include 了头文件就够。#include 只是告诉编译器「有这么个东西」，库文件本身得先下载到项目里，lib_deps 就是干这个的。忘了加会报 fatal error: RTClib.h: No such file。",
+      "example": "本项目 platformio.ini 里 lib_deps = adafruit/RTClib。想加舵机就多写一行 arduino-libraries/Servo，保存后 pio run 会自动下载。",
+      "related": ["library", "platformio", "link", "compile_error"]
+    },
+    {
+      "id": "platformio",
+      "term": "PlatformIO",
+      "category": "软件",
+      "metaphor": "一个帮你打理厨房的管家：买菜（下载库）、备工具（安装编译器）、做菜（编译）、端上桌（烧录）、听食客反馈（串口监视器），你只管写菜谱。",
+      "definition": "一个跨平台的嵌入式开发工具链管理器和构建系统，通过 platformio.ini 声明板子、框架、库、烧录方式，命令行 pio run 编译、pio run -t upload 烧录、pio device monitor 看串口。",
+      "misconception": "以为 PlatformIO 是编译器或 IDE。它本身不编译，而是帮你装好并调用 gcc；它也可以脱离 VS Code 纯命令行用。这也是本平台选它的原因：AI 能直接跑命令。",
+      "example": "本项目 firmware/dog-feeder/platformio.ini：board = bluepill_f103c8、framework = arduino、upload_protocol = stlink。在那个目录跑 pio run -t upload 就完成编译加烧录。",
+      "related": ["lib_deps", "arduino_framework", "toolchain", "flashing"]
+    },
+    {
+      "id": "toolchain",
+      "term": "工具链（Toolchain）",
+      "category": "软件",
+      "metaphor": "从面粉到面包的一整套设备：和面机、发酵箱、烤炉、切片机。少一台都出不了面包。",
+      "definition": "把源代码变成可烧录固件所需的一整套工具：编译器（gcc）、汇编器、链接器、二进制工具（objcopy）、烧录工具（OpenOCD / st-flash）、调试器（gdb）。",
+      "misconception": "以为「环境没配好」是自己笨。工具链安装是嵌入式最劝退的一步，和智商无关。本平台的 tools/check-env.sh 就是帮你逐项体检的。",
+      "example": "本项目用 arm-none-eabi-gcc（编译 ARM 代码）、OpenOCD（通过 ST-Link 烧录）。PlatformIO 会自动下载这些到 ~/.platformio/packages/。",
+      "related": ["compile", "platformio", "flashing", "st_link"]
+    },
+    {
+      "id": "setup_loop",
+      "term": "setup() 与 loop()",
+      "category": "软件",
+      "metaphor": "早上起床洗脸刷牙（setup，一次），然后一天里不停重复「看一眼手机、干点活、再看一眼」（loop，无限循环）直到断电。",
+      "definition": "Arduino 程序的两个入口函数。setup() 在上电或复位后执行一次，用于初始化引脚、串口、外设；loop() 之后被无限循环调用，放主要逻辑。",
+      "misconception": "以为 loop() 跑完程序就「结束」了。MCU 没有「结束」这个概念，loop 执行完立刻再执行，每秒可能跑几十万次。所以「在 loop 里点亮 LED」会一直亮，不会亮一下就灭。",
+      "example": "void setup() { pinMode(PC13, OUTPUT); Serial.begin(115200); } void loop() { digitalWrite(PC13, !digitalRead(PC13)); delay(500); } 这就是最小的闪灯程序。",
+      "related": ["arduino_framework", "delay_millis", "blocking_nonblocking", "state_machine"]
+    },
+    {
+      "id": "blocking_nonblocking",
+      "term": "阻塞与非阻塞（Blocking / Non-blocking）",
+      "category": "软件",
+      "metaphor": "阻塞是站在锅前盯着水开，什么都不能干。非阻塞是把水放上，去干别的，每隔一会儿回来看一眼。",
+      "definition": "阻塞：函数在完成前不返回，期间 CPU 无法处理其他事（delay、等待串口）。非阻塞：函数立刻返回，任务的推进靠反复检查状态或时间戳。",
+      "misconception": "以为程序「反应慢」是芯片太弱。多数情况是 loop 里有 delay(1000) 之类的阻塞调用，按键在那一秒内按了就被漏掉。72MHz 的芯片响应一个按键绰绰有余，是代码在等。",
+      "example": "闪灯用 delay(500) 时按键会失灵。改成 if (millis() - last >= 500) { last = millis(); toggle LED; } 后 loop 每次几微秒就跑完，按键随时能读到。",
+      "related": ["delay_millis", "state_machine", "interrupt", "setup_loop"]
+    },
+    {
+      "id": "delay_millis",
+      "term": "delay() 与 millis()",
+      "category": "软件",
+      "metaphor": "delay 是「闭眼数到 1000 什么都别干」。millis 是「看一眼手表记下时间」，之后随时再看手表算过了多久。",
+      "definition": "delay(ms) 让程序原地等待 ms 毫秒（阻塞）。millis() 返回开机以来经过的毫秒数（无符号 32 位，约 49.7 天溢出归零），用来在不阻塞的情况下计时。",
+      "misconception": "以为 millis() 溢出会导致 bug。只要用「millis() - last >= interval」这种减法写法，无符号整数溢出后差值依然正确。写成「millis() >= last + interval」才会出问题。",
+      "example": "狗粮机每天 8 点喂食，不能用 delay 睡 24 小时（按键、串口全废）。用 RTC 读时间加 millis 做非阻塞检查，loop 保持每秒跑几万次。",
+      "related": ["blocking_nonblocking", "timer", "rtc", "setup_loop"]
+    },
+    {
+      "id": "state_machine",
+      "term": "状态机（State Machine）",
+      "category": "软件",
+      "metaphor": "红绿灯。它永远处于「红」「绿」「黄」三种状态之一，每种状态下只做对应的事，满足条件（计时到）就切到下一个状态。",
+      "definition": "一种程序组织方式：用一个变量记录当前「状态」，loop 中根据状态执行对应逻辑，并在特定事件或条件下切换状态。是非阻塞多任务的核心写法。",
+      "misconception": "以为状态机是高深的计算机理论。它就是一个 switch(state) 加几个 case。任何「先干 A，等条件成立再干 B，再等再干 C」的流程，用状态机写都比一串 delay 清爽。",
+      "example": "狗粮机：enum { IDLE, FEEDING, DONE } state; IDLE 里检查是否到时间，到了就转舵机并进 FEEDING；FEEDING 里看舵机转够 2 秒没，够了就归位进 DONE；DONE 里记录日志回 IDLE。",
+      "related": ["blocking_nonblocking", "delay_millis", "setup_loop", "debounce"]
+    },
+    {
+      "id": "debounce",
+      "term": "去抖 / 消抖（Debounce）",
+      "category": "软件",
+      "metaphor": "按一下门铃，机械触点其实在几毫秒内抖了好几下，门铃响成一串。去抖就是「第一下响了之后，20 毫秒内再响的都不算」。",
+      "definition": "消除机械按键闭合或断开瞬间产生的多次抖动信号的方法。软件方法：检测到变化后等待 20～50ms 再确认；硬件方法：并联电容或用施密特触发器。",
+      "misconception": "以为按键读到多次是程序 bug 或者板子坏了。这是机械开关的物理特性，所有按键都有，必须处理。另一个坑是用 delay(50) 去抖，虽然能用但阻塞了整个程序。",
+      "example": "非阻塞去抖：读 PB12，若和上次不同就记下 millis()；若当前状态持续超过 30ms 才算真正变化。Bounce2 库把这套逻辑封装好了，button.update(); if (button.fell()) ...",
+      "related": ["button", "blocking_nonblocking", "state_machine", "interrupt"]
+    },
+    {
+      "id": "volatile",
+      "term": "volatile 关键字",
+      "category": "软件",
+      "metaphor": "在便签上写「这个数随时会被别人偷偷改，每次都要重新看一眼，别凭记忆」。",
+      "definition": "C/C++ 类型修饰符，告诉编译器该变量可能被程序之外的东西（中断服务函数、硬件寄存器）改变，禁止编译器把它缓存到 CPU 寄存器或优化掉重复读取。",
+      "misconception": "以为 volatile 能解决所有多任务问题。它只保证「每次真的去内存读」，不保证原子性。中断和主循环同时改一个 32 位以上的变量仍可能读到半新半旧的值。",
+      "example": "volatile bool pressed = false; 在中断函数里 pressed = true，在 loop 里 if (pressed) 才能被看到。不加 volatile，开优化后编译器可能把 loop 里的读取优化成永远 false。",
+      "related": ["interrupt", "variable", "compile", "register"]
+    },
+    {
+      "id": "datasheet",
+      "term": "数据手册（Datasheet）",
+      "category": "软件",
+      "metaphor": "商品的规格参数页：尺寸、重量、耐温、每个脚是干什么的、能吃多大电流。买之前看，接线时查。",
+      "definition": "芯片厂商发布的、描述某一颗芯片电气特性、引脚定义、封装尺寸、绝对最大额定值的文档。通常几十到一两百页。",
+      "misconception": "看到一百多页就不敢打开。数据手册不是从头读的，是查的：接线查引脚表，怕烧查 Absolute Maximum Ratings，其他 95% 的页可以一辈子不看。",
+      "example": "STM32F103x8/xB 的数据手册（DS5319）第 4 章引脚定义表告诉你 PA0 的复用功能有 ADC12_IN0、TIM2_CH1、WKUP；第 5 章告诉你每个 IO 最大 25mA、总电流 150mA。",
+      "related": ["reference_manual", "pin", "pinout", "schematic"]
+    },
+    {
+      "id": "reference_manual",
+      "term": "参考手册（Reference Manual）",
+      "category": "软件",
+      "metaphor": "说明书里的「高级维修手册」：不告诉你尺寸，而是告诉你里面每个开关（寄存器）每一位拨到哪会发生什么。",
+      "definition": "描述一个芯片家族内部外设如何工作、每个寄存器每一位含义的厚文档。STM32F1 系列的参考手册是 RM0008，一千多页。写 HAL 之下的底层代码时才需要。",
+      "misconception": "把数据手册和参考手册搞混。数据手册说「这颗芯片有什么、能承受什么」（针对具体型号），参考手册说「这些外设怎么用」（针对整个系列）。查引脚看前者，查寄存器看后者。",
+      "example": "想知道为什么 PC13 驱动能力弱，翻 RM0008 找不到，那是数据手册的事；想知道 GPIOC 的 BSRR 寄存器怎么写，就得翻 RM0008 第 9 章 GPIO。",
+      "related": ["datasheet", "register", "hal", "peripheral"]
+    },
+    {
+      "id": "schematic",
+      "term": "原理图（Schematic）",
+      "category": "软件",
+      "metaphor": "地铁线路图。不管站台实际长什么样，图上只画「哪条线连哪站」。看电路怎么连的，看这张。",
+      "definition": "用标准符号表示电路中各元件及其电气连接关系的图。不表示实际物理位置和尺寸，只表示「谁和谁连着」。PCB 是按原理图画出来的。",
+      "misconception": "以为原理图就是 PCB 图或者实物图。原理图里一个电阻就是一个方框加两根线，可能离芯片很远画；PCB 上它可能就贴在芯片脚旁边。要理解电路看原理图，要找元件位置看 PCB 图。",
+      "example": "搜 blue pill schematic 能找到蓝药丸原理图。从图上能看出：PC13 → 电阻 R → LED → 3.3V，所以 LED 是低电平亮；USB D+ 上那颗 R10 应该是 1.5kΩ 但很多克隆板用了 10kΩ，这就是 USB 不稳的原因。",
+      "related": ["pcb", "silkscreen", "datasheet", "wiring"]
+    },
+    {
+      "id": "silkscreen",
+      "term": "丝印（Silkscreen）",
+      "category": "软件",
+      "metaphor": "板子上印的白字，就像键盘上的字母：告诉你这个脚叫 PA0、那个是 GND、这里插 BOOT0。",
+      "definition": "印在 PCB 表面的文字和符号层，标注引脚名、元件编号、板子型号等。通常是白色。",
+      "misconception": "完全相信丝印。廉价板子的丝印偶尔会印错或者省略（比如蓝药丸把 PA13/PA14 印成 SWIO/SWCLK，把 PA15 印成 A15）。丝印看不清或有疑问时以原理图为准。",
+      "example": "蓝药丸背面丝印把每个引脚名都印在插针旁边：A0～A15 对应 PA0～PA15，B0～B15 对应 PB0～PB15，C13～C15 对应 PC13～PC15。代码里写 PA0，板子上找 A0。",
+      "related": ["pcb", "pin", "pinout", "schematic"]
+    },
+    {
+      "id": "header_file",
+      "term": "头文件（Header File, .h）",
+      "category": "软件",
+      "metaphor": "餐厅门口的菜单。只列菜名和价格（函数名和参数），不说怎么做（实现在厨房 .cpp 里）。",
+      "definition": "包含函数声明、类定义、常量和宏的文件，通过 #include 被引入。让多个源文件能共享同一套声明，编译器据此检查你的调用是否合法。",
+      "misconception": "以为 #include 会把库「装」进项目。#include 只是文本粘贴那份声明，库的实现文件还得在项目里（lib_deps 下载）并被链接进来。",
+      "example": "#include <Arduino.h> 引入 pinMode、digitalWrite 等声明；#include <RTClib.h> 引入 RTC_DS3231 类。写多文件项目时，自己的 feeder.h 放声明、feeder.cpp 放实现。",
+      "related": ["library", "compile", "link", "lib_deps"]
+    },
+    {
+      "id": "macro",
+      "term": "宏定义（#define / Macro）",
+      "category": "软件",
+      "metaphor": "全文替换。你在文章开头写「以下所有 X 都代表 PC13」，编译前有人会把每个 X 机械地换成 PC13。",
+      "definition": "C 预处理器指令，在编译前进行纯文本替换。常用于定义常量（引脚号、参数）和条件编译开关。",
+      "misconception": "以为宏是变量。宏没有类型、不占内存、不能在运行时改，它在编译之前就被替换掉了。改引脚要改宏然后重新编译烧录，不是运行时能变的。",
+      "example": "本项目 platformio.ini 里 build_flags = -D LED_PIN=PC13 等价于在所有文件顶部写 #define LED_PIN PC13。代码里 digitalWrite(LED_PIN, LOW) 换板子只改 ini 一处。",
+      "related": ["compile", "header_file", "platformio", "variable"]
+    },
+    {
+      "id": "variable",
+      "term": "变量与数据类型（Variable / Data Type）",
+      "category": "软件",
+      "metaphor": "贴了标签的盒子。标签写着盒子名和「只能装整数」「只能装小数」，盒子大小固定，装不下就溢出来。",
+      "definition": "程序中有名字的存储单元。嵌入式常用类型及其大小：uint8_t（1 字节，0～255）、int（4 字节）、uint32_t（4 字节，0～约 42.9 亿）、float（4 字节）、bool。放在 RAM 中。",
+      "misconception": "在 8 位 Arduino UNO 上 int 是 2 字节，很多教程据此写 int 最大 32767。STM32 上 int 是 4 字节。用 uint8_t、uint32_t 这种明确大小的类型能避免跨平台踩坑。",
+      "example": "unsigned long last = 0; 存 millis() 的返回值（32 位无符号），用 int 存会在 24.8 天后变负数出 bug。float 在 F103 上没有硬件浮点单元，算起来慢，能用整数尽量用整数。",
+      "related": ["ram", "volatile", "macro", "stack_overflow"]
+    },
+    {
+      "id": "serial_print",
+      "term": "串口打印调试（Serial.print）",
+      "category": "软件",
+      "metaphor": "程序的日记本。它没法说话，你让它每到一步就在本子上记一笔，出问题翻本子看走到哪了。",
+      "definition": "通过 UART 把变量值和状态信息发送到电脑上的串口监视器，是嵌入式最基础、最常用的调试手段。",
+      "misconception": "以为程序有问题第一件事是找调试器单步跟踪。90% 的问题靠几行 Serial.println 就能定位。另一个坑是 Serial.print 是阻塞的，在时间敏感的代码或中断里打太多会拖慢程序。",
+      "example": "Serial.begin(115200); 然后 Serial.print(\"raw=\"); Serial.println(analogRead(PA0)); 在 pio device monitor 里就能看到读数滚动。狗粮机每次喂食打印一行时间和次数，就是最简单的日志。",
+      "related": ["uart", "baud_rate", "platformio", "debugger"]
+    },
+    {
+      "id": "compile_error",
+      "term": "编译报错（Compile Error）",
+      "category": "软件",
+      "metaphor": "作文老师用红笔在稿子上画的圈：第几行、哪个字、什么问题。看着吓人，其实是最友好的错误，因为它明确告诉你在哪。",
+      "definition": "编译器或链接器在构建时发现问题而终止并输出的信息，包含文件名、行号、错误类型和描述。只要报错就不会生成固件。",
+      "misconception": "看到一屏红字就慌，或者只看最后一行。编译错误要看第一个 error（后面的往往是它引发的连锁反应），并且从「文件名:行号」跳过去看那一行。warning 不影响生成固件，但值得读。",
+      "example": "src/main.cpp:12:3: error: 'Servo' was not declared in this scope 意思是 main.cpp 第 12 行第 3 个字符处用了没声明的 Servo。原因通常是忘了 #include <Servo.h> 或 lib_deps 没加库。把报错原文粘给 AI 是最高效的求助方式。",
+      "related": ["compile", "link", "lib_deps", "header_file"]
+    },
+    {
+      "id": "stack_overflow",
+      "term": "栈溢出与内存越界（Stack Overflow / Out-of-bounds）",
+      "category": "软件",
+      "metaphor": "桌子（RAM）就那么大，你摊的东西越来越多，最后压到了别人的东西，或者掉到地上，谁也不知道后果是什么。",
+      "definition": "程序使用的内存超出分配范围。栈溢出：函数调用太深或局部数组太大；越界：访问数组第 11 个元素而它只有 10 个。MCU 没有操作系统保护，后果是数据被悄悄改坏或程序莫名重启、卡死。",
+      "misconception": "以为程序莫名重启是电源问题或芯片坏了。电源确实可能，但在 loop 里定义 char buf[4000] 或者字符串拼接失控也会。RAM 只有 20KB，比电脑上敏感一万倍。",
+      "example": "编译输出 RAM: 95% 是警告信号。String 类频繁拼接会让内存碎片化，几小时后崩。狗粮机这种要连续跑几个月的设备，优先用固定大小的 char 数组。",
+      "related": ["ram", "variable", "watchdog", "reset"]
+    },
+    {
+      "id": "version_control",
+      "term": "版本控制（Git）",
+      "category": "软件",
+      "metaphor": "写作文时每改一版都存一份带日期的副本，随时能翻回去，还能看两版之间到底改了哪几个字。",
+      "definition": "记录文件每次修改历史的工具，Git 是事实标准。每次「提交」（commit）是一个快照，可以回退、对比、分支、多人协作。",
+      "misconception": "以为 Git 是程序员专用、嵌入式用不着。硬件项目改一行代码可能导致舵机乱转，能一键回到「昨天能用的版本」比什么都重要。本平台的每次任务都会提交一次。",
+      "example": "本项目在 ~/Documents/embeded 下就是一个 Git 仓库。git log --oneline 能看到「任务 0-0、0-1 完成」这样的历史；改坏了 main.cpp，git checkout -- firmware/dog-feeder/src/main.cpp 能恢复。",
+      "related": ["firmware", "platformio", "toolchain", "compile_error"]
+    },
+    {
+      "id": "st_link",
+      "term": "ST-Link（烧录调试器）",
+      "category": "工具",
+      "metaphor": "电脑和芯片之间的翻译官兼快递员。电脑说「把这段程序写进去」，它翻译成芯片听得懂的信号送过去，还能反过来问芯片「你现在跑到哪了」。",
+      "definition": "ST 公司的调试烧录器，通过 SWD 或 JTAG 连接 STM32，实现烧录固件、单步调试、读写内存。有官方版和几十块的 U 盘形状克隆版（ST-Link V2）。",
+      "misconception": "以为烧录必须有它。蓝药丸也能用串口 + BOOT0 跳线烧，但那样不能调试、每次要跳线。ST-Link 几十块钱，是让「改代码→烧录→看结果」这个循环变快的最值投资。",
+      "example": "ST-Link V2 的 10 针口接四根线到蓝药丸短边：SWDIO → SWIO、SWCLK → SWCLK、GND → GND、3.3V → 3.3（板子已接 USB 时不接这根）。platformio.ini 里 upload_protocol = stlink。",
+      "related": ["swd", "flashing", "debugger", "jtag"]
+    },
+    {
+      "id": "swd",
+      "term": "SWD（串行线调试）",
+      "category": "工具",
+      "metaphor": "芯片留的一个「后门」，只用两根线就能进去改 Flash、看内存、暂停程序。专门给维修人员用的。",
+      "definition": "Serial Wire Debug，ARM Cortex-M 的两线调试接口：SWDIO（数据）和 SWCLK（时钟），加共地。是 JTAG 的精简版，功能一样，线更少。",
+      "misconception": "以为 SWD 只能烧录。它还能让程序在某一行暂停、看变量值、单步执行（调试），只是入门阶段用 Serial.print 更多。另一个坑是把 SWDIO 和 SWCLK 拿去当普通 GPIO 用，之后就烧不进去了。",
+      "example": "蓝药丸的 PA13 是 SWDIO、PA14 是 SWCLK，引到短边那排四针上，丝印 SWIO / SWCLK。烧录时 OpenOCD 报 Error: init mode failed (unable to connect to the target) 一般就是这两根线没接好。",
+      "related": ["st_link", "jtag", "flashing", "debugger"]
+    },
+    {
+      "id": "jtag",
+      "term": "JTAG",
+      "category": "工具",
+      "metaphor": "SWD 的老大哥。功能一样但要接五六根线，早年所有芯片都用它，现在 Cortex-M 上基本被两根线的 SWD 取代。",
+      "definition": "Joint Test Action Group，一种通用的芯片调试和测试接口标准，用 TCK、TMS、TDI、TDO（可选 TRST）四五根线。STM32 同时支持 JTAG 和 SWD。",
+      "misconception": "看到 ST-Link 上有 20 针 JTAG 口就以为得全接。STM32 只接 SWD 的两根就够，其他针脚是给 JTAG 和老芯片留的。",
+      "example": "蓝药丸的 JTAG 引脚（PA13/14/15、PB3/PB4）默认被占用，所以 PA15、PB3、PB4 在 Arduino 框架下要先释放才能当 GPIO 用。这也是 SWD 更省引脚的原因。",
+      "related": ["swd", "st_link", "debugger", "pin"]
+    },
+    {
+      "id": "debugger",
+      "term": "调试器 / 断点调试（Debugger / Breakpoint）",
+      "category": "工具",
+      "metaphor": "看电影时随时按暂停，然后问「这时候主角口袋里有什么」，还能一帧一帧放。",
+      "definition": "通过 SWD/JTAG 让程序在指定行暂停（断点）、逐行执行、查看和修改变量与寄存器值的工具。PlatformIO 用 pio debug 配合 GDB 和 OpenOCD 实现。",
+      "misconception": "以为调试器是「高级功能」而 Serial.print 是「土办法」。两者互补：Serial.print 适合看流程，调试器适合看某一刻的精确状态、查崩溃现场。会两种、知道什么时候用哪种最重要。",
+      "example": "在 VS Code 里给 main.cpp 的 feed() 函数第一行打断点，pio debug 启动，程序会在舵机动之前停下，你能看到 rtc.now() 返回的具体时间。",
+      "related": ["st_link", "swd", "serial_print", "register"]
+    },
+    {
+      "id": "multimeter",
+      "term": "万用表（Multimeter）",
+      "category": "工具",
+      "metaphor": "电路的体温计兼听诊器。哪里有电、多少伏、通不通、电阻多少，一个表全能量。",
+      "definition": "测量电压、电流、电阻、通断（蜂鸣）的手持仪表。嵌入式入门最该买的第一件工具，几十块的数字表就够。",
+      "misconception": "以为万用表是「电工用的」，玩板子用不着。板子不亮时，量一下 3.3V 脚有没有 3.3V，比重烧十次程序都管用。80% 的「程序没反应」其实是接线问题，万用表一分钟就能排除。",
+      "example": "上电前用蜂鸣档量 3.3V 和 GND 之间是否短路；上电后量 3.3V 脚是否有 3.2～3.4V；程序把 PC13 拉低时量 PC13 应接近 0V，拉高时应接近 3.3V。",
+      "related": ["voltage", "short_circuit", "oscilloscope", "wiring"]
+    },
+    {
+      "id": "oscilloscope",
+      "term": "示波器（Oscilloscope）",
+      "category": "工具",
+      "metaphor": "万用表只能告诉你「现在几伏」，示波器画出「电压随时间怎么变」的曲线，能看到每秒变化几百万次的波形。",
+      "definition": "显示电压随时间变化波形的仪器。看 PWM 占空比、串口波形、时钟信号、电源噪声都靠它。入门可用几百元的便携式或 USB 示波器。",
+      "misconception": "以为学嵌入式必须先买示波器。前几个月完全用不到，万用表加逻辑分析仪够用。示波器是「怀疑信号本身有问题」时才需要的。",
+      "example": "analogWrite(PA8, 64) 后用示波器探头夹 PA8，能看到一个 25% 占空比的方波；要是看到边沿很缓、有振铃，说明线太长或负载不对。",
+      "related": ["multimeter", "logic_analyzer", "pwm", "noise"]
+    },
+    {
+      "id": "logic_analyzer",
+      "term": "逻辑分析仪（Logic Analyzer）",
+      "category": "工具",
+      "metaphor": "专门听「数字对话」的录音机。它不管电压精确多少，只记 0 和 1，然后能把 I2C、UART 的波形自动翻译成「地址 0x68，读，数据 0x12」。",
+      "definition": "同时采集多路数字信号的高低电平并按时间显示的仪器，通常带协议解码功能。几十元的 8 通道 USB 款配 PulseView 软件足够入门。",
+      "misconception": "以为它和示波器是一回事。示波器看模拟波形细节（电压多少、边沿多陡），逻辑分析仪看数字时序和协议内容。查「I2C 为什么读不到」用逻辑分析仪，查「电源为什么有毛刺」用示波器。",
+      "example": "把逻辑分析仪的两路夹到 PB6（SCL）和 PB7（SDA），PulseView 里选 I2C 解码，就能看到蓝药丸每次读 DS3231 时发的地址和收到的字节，还能看出是没上拉、地址错还是时序错。",
+      "related": ["oscilloscope", "i2c", "uart", "protocol"]
+    },
+    {
+      "id": "soldering_iron",
+      "term": "烙铁与焊接（Soldering Iron / Soldering）",
+      "category": "工具",
+      "metaphor": "电子世界的热熔胶枪。用融化的锡把元件的脚和板子上的铜焊在一起，既固定又导电。",
+      "definition": "用加热的烙铁头融化焊锡，使元件引脚与 PCB 焊盘形成可靠电气连接的过程。恒温烙铁（如 T12 系列）设 300～350℃ 最常用。",
+      "misconception": "以为焊接是必须先学会的门槛技能。蓝药丸买带焊好排针的版本，传感器模块都是带排针的，用杜邦线和面包板可以撑到第三四个项目。真需要焊时再学，两个小时就能焊得能用。",
+      "example": "有的蓝药丸买回来排针是散装的，需要自己焊 40 个点。先把排针插进面包板固定，再把板子放上去焊，就不会焊歪。",
+      "related": ["pcb", "dupont_wire", "breadboard", "package"]
+    },
+    {
+      "id": "dupont_wire",
+      "term": "杜邦线（Dupont Wire / Jumper Wire）",
+      "category": "工具",
+      "metaphor": "两头带插头的短电线，插上就通，拔了就断。电子实验的乐高连接件。",
+      "definition": "两端带 2.54mm 间距插头的连接线，分公对公、公对母、母对母三种。用于面包板、开发板、模块之间免焊连接。",
+      "misconception": "以为杜邦线随便买、坏了也看不出来。劣质杜邦线接触不良、内部断线是「昨天能用今天不行」的头号原因。怀疑时用万用表蜂鸣档量一下两头通不通。",
+      "example": "蓝药丸和 DS3231 模块都焊了公排针，用母对母杜邦线四根：3.3V、GND、PB6 到 SCL、PB7 到 SDA。板子和面包板之间用公对公。",
+      "related": ["breadboard", "wiring", "multimeter", "common_ground"]
+    },
+    {
+      "id": "usb_ttl",
+      "term": "USB 转 TTL 模块（USB-to-Serial Adapter）",
+      "category": "工具",
+      "metaphor": "翻译器：电脑只会说 USB，蓝药丸只会说 3.3V 的串口，这个小模块夹在中间两头翻译。",
+      "definition": "把电脑 USB 转换成 3.3V/5V 逻辑电平 UART 信号的小板，常见芯片 CH340、CP2102、FT232。让电脑能看 MCU 的 Serial 输出，也能给 MCU 发命令。",
+      "misconception": "以为蓝药丸自己的 USB 口就是串口。默认不是，那个口只供电。不想折腾 USB CDC 配置的话，十块钱的 CH340 模块是最省心的看串口方式。",
+      "example": "CH340 模块拨到 3.3V 档，TXD 接蓝药丸 PA10、RXD 接 PA9、GND 接 GND。电脑上出现 /dev/cu.usbserial-xxx，pio device monitor 就能看 Serial.println 的输出。",
+      "related": ["uart", "tx_rx", "logic_level", "serial_print"]
+    },
+    {
+      "id": "wiring",
+      "term": "接线（Wiring）",
+      "category": "工具",
+      "metaphor": "搭水管：源头接对、去向接对、回流的管子别忘了接，接之前先关总闸。",
+      "definition": "按原理图或接线图用杜邦线、面包板把板子、模块、元件正确连接的过程。原则：断电接线、先电源后信号、共地、接完对照检查再上电。",
+      "misconception": "以为接线是「体力活」不用动脑。嵌入式里一半以上的「程序不工作」是接线问题：接错脚、少了 GND、电源正负反了、杜邦线断了。接线时的严谨比写代码时更重要，因为接错可能烧东西。",
+      "example": "本平台每个任务的接线图用 wiring 画布画出，比如 ST-Link 接蓝药丸的四根线。接完先不插 USB，用万用表量 3.3V 和 GND 不短路，再上电。",
+      "related": ["dupont_wire", "breadboard", "common_ground", "schematic"]
+    },
+    {
+      "id": "sensor",
+      "term": "传感器（Sensor）",
+      "category": "传感执行",
+      "metaphor": "设备的感官。温度传感器是皮肤、光敏电阻是眼睛、麦克风是耳朵，把世界的变化变成芯片能读的电信号。",
+      "definition": "把物理量（温度、光、距离、加速度、气体浓度）转换为电信号（电压、电阻、数字数据）的器件。输出形式有模拟电压、开关量、I2C/SPI/UART 数字接口。",
+      "misconception": "以为传感器读出来的数直接就是「温度 25.3℃」。模拟传感器给你的是电压，要查手册换算；数字传感器给你的是寄存器里的原始字节，要用库解析。中间都有转换和误差。",
+      "example": "DHT22（温湿度，单总线）、DS3231（时间，I2C，严格说是时钟不是传感器）、光敏电阻（模拟，接 PA0 读 ADC）、HC-SR04 超声波（GPIO 测脉宽算距离）都是狗粮机能用上的。",
+      "related": ["analog_digital", "adc", "i2c", "sampling"]
+    },
+    {
+      "id": "analog_digital",
+      "term": "模拟量与数字量（Analog / Digital）",
+      "category": "传感执行",
+      "metaphor": "模拟量像滑杆音量，可以停在任何位置；数字量像开关，只有开和关，或者像一排开关能表示 0～255 的整数。",
+      "definition": "模拟量：连续变化的物理信号（电压可以是 1.234V）。数字量：离散的、用有限位数表示的值（0/1 或 0～4095）。MCU 内部只处理数字量，ADC/DAC 是两者之间的桥。",
+      "misconception": "以为「数字」就比「模拟」高级准确。数字化必然有量化误差（12 位 ADC 最小分辨 0.8mV），采样太慢还会漏掉快变化。模拟是世界本来的样子，数字是为了方便处理。",
+      "example": "digitalRead(PB12) 是数字量：HIGH 或 LOW。analogRead(PA0) 是把模拟量数字化：0～4095。板子上的按键是数字量传感器，电位器是模拟量传感器。",
+      "related": ["adc", "dac", "sampling", "gpio"]
+    },
+    {
+      "id": "sampling",
+      "term": "采样（Sampling）",
+      "category": "传感执行",
+      "metaphor": "拍照记录一辆车的位置。每秒拍一张，车动得慢能还原轨迹；车动得太快，两张照片之间发生了什么你就不知道了。",
+      "definition": "以固定时间间隔读取连续信号的值，把它变成一串离散数据。采样率（每秒采多少次）至少要是信号最高频率的两倍才能还原（奈奎斯特定理）。",
+      "misconception": "以为采样越快越好。采样快耗电、占 RAM、占 CPU。读室温一分钟一次就够；另一个坑是单次读数有噪声，常见做法是连读 8～16 次取平均。",
+      "example": "读电位器时 loop 里每次都 analogRead，读数最后一位会跳。改成累加 16 次除以 16 就稳了。读 DHT22 温湿度每 2 秒一次已经是它的上限。",
+      "related": ["adc", "analog_digital", "noise", "dma"]
+    },
+    {
+      "id": "noise",
+      "term": "噪声与干扰（Noise / Interference）",
+      "category": "传感执行",
+      "metaphor": "在菜市场打电话，对方声音里混着各种杂音。你说话（信号）没变，但环境把它弄脏了。",
+      "definition": "叠加在有用信号上的无规律扰动。来源：电源纹波、电机启停、无线信号、线太长成了天线、共地不良。表现为 ADC 读数跳动、串口偶尔乱码、按键误触发。",
+      "misconception": "以为读数跳动是程序 bug 或者芯片精度差。多数情况是电路问题：线太长、没去耦电容、电机和 MCU 共用电源。先在硬件上降噪，再在软件上滤波。",
+      "example": "狗粮机的电机一转，ADC 读数全乱：电机的电流冲击拉低了 3.3V。解决办法：电机用独立电源、电源上并大电容、信号线远离电机线。",
+      "related": ["capacitor", "sampling", "floating", "common_ground"]
+    },
+    {
+      "id": "button",
+      "term": "按键（Push Button）",
+      "category": "传感执行",
+      "metaphor": "最简单的传感器：只回答「按了没」。但机械触点抖动这个小毛病让它成了入门第一个真正的坑。",
+      "definition": "按下时导通、松开时断开的机械开关（常见四脚轻触开关，对角两脚一组）。接 GPIO 时需要上拉或下拉给默认电平，软件需要去抖。",
+      "misconception": "四脚按键随便接两个脚。四脚中每两个是内部连通的，接了同一组的两脚等于永远短路。用万用表蜂鸣档找出不按时不通、按下时通的那两个脚。",
+      "example": "按键一脚接 PB12、对角脚接 GND，pinMode(PB12, INPUT_PULLUP)。digitalRead(PB12) 平时 HIGH，按下 LOW。狗粮机用它做「手动喂一次」。",
+      "related": ["pull_up_pull_down", "debounce", "gpio", "interrupt"]
+    },
+    {
+      "id": "potentiometer",
+      "term": "电位器（Potentiometer）",
+      "category": "传感执行",
+      "metaphor": "老收音机上的音量旋钮。转到哪，中间那个脚的电压就滑到哪。",
+      "definition": "带滑动触点的可变电阻，三个脚：两端接固定电阻的两头，中间抽头随旋钮位置在两端之间滑动，形成一个可调分压器。",
+      "misconception": "以为电位器输出的是「角度」。它输出的是电压，ADC 读出来是 0～4095，要自己 map() 成角度或百分比。也别只接两个脚当可变电阻接 LED，那样容易在阻值转到 0 时烧 LED。",
+      "example": "电位器两端接 3.3V 和 GND，中间接 PA0。int raw = analogRead(PA0); int angle = map(raw, 0, 4095, 0, 180); 转旋钮就能控制舵机角度。",
+      "related": ["voltage_divider", "adc", "servo", "analog_digital"]
+    },
+    {
+      "id": "servo",
+      "term": "舵机（Servo Motor）",
+      "category": "传感执行",
+      "metaphor": "一个听指挥的转盘：你说「转到 90 度」它就转到 90 度停住，还会自己纠正被外力推歪的位置。",
+      "definition": "内置位置反馈和控制电路的电机，通过 50Hz PWM 信号的脉宽（0.5～2.5ms）指定角度，一般 0～180 度。三根线：电源（红）、地（棕/黑）、信号（黄/橙）。",
+      "misconception": "以为舵机信号线接 GPIO、电源接板子 3.3V 就行。舵机启动电流几百 mA 甚至 1A，从板子取电会导致板子复位重启。舵机电源要接 5V 引脚（USB 直通）或独立供电，只有信号线和 GND 接板子。",
+      "example": "SG90 舵机：红接蓝药丸 5V、棕接 GND、黄接 PA8。lib_deps 加 Servo 库，servo.attach(PA8); servo.write(0); delay(1000); servo.write(90); 就是狗粮机的出粮动作。",
+      "related": ["pwm", "power_supply", "stepper_motor", "duty_cycle"]
+    },
+    {
+      "id": "dc_motor",
+      "term": "直流电机（DC Motor）",
+      "category": "传感执行",
+      "metaphor": "通电就转、反接就反转、电压越高转越快的最简单马达。玩具车里的那种。",
+      "definition": "两根线的电机，加直流电压就旋转，转速与电压成正比，方向由电压极性决定。没有位置反馈。需要驱动电路（三极管、MOS 管或 H 桥芯片）才能被 MCU 控制。",
+      "misconception": "把电机直接接在 GPIO 上。电机要几百 mA，GPIO 最多 20mA，直接接轻则不转重则烧引脚。电机断电瞬间还会产生反向高压，需要续流二极管保护。",
+      "example": "用 L298N 或 TB6612 电机驱动模块：蓝药丸 PA8 输出 PWM 控速、PB0/PB1 两个 GPIO 控方向，模块单独接 6～12V 电源，GND 和蓝药丸共地。",
+      "related": ["driver", "mosfet", "pwm", "diode"]
+    },
+    {
+      "id": "stepper_motor",
+      "term": "步进电机（Stepper Motor）",
+      "category": "传感执行",
+      "metaphor": "一步一步走的电机。你发一个脉冲它转一小格（比如 1.8 度），发 200 个正好一圈。数着脉冲就知道转了多少，不用反馈。",
+      "definition": "把电脉冲转换为固定角度步进的电机，靠按顺序给多组线圈通电来旋转。精度高、能低速大扭矩、可精确定位，但需要专门的驱动器（A4988、ULN2003）。",
+      "misconception": "以为步进电机和舵机一样「告诉它角度就行」。步进电机只知道「走了几步」，不知道自己在哪；断电后位置丢失，开机需要回零。它也不能像直流电机那样直接加电就转。",
+      "example": "28BYJ-48 步进电机配 ULN2003 驱动板：驱动板 IN1～IN4 接蓝药丸 PB12～PB15，Stepper 库 stepper.step(512) 转四分之一圈。狗粮机的螺旋出粮用它比舵机更可控。",
+      "related": ["servo", "dc_motor", "driver", "pwm"]
+    },
+    {
+      "id": "relay",
+      "term": "继电器（Relay）",
+      "category": "传感执行",
+      "metaphor": "用小电流控制的机械开关。3.3V 的小信号一推，「咔哒」一声，另一边 220V 的电路就接通了，两边完全不接触。",
+      "definition": "用电磁线圈带动机械触点开合的开关，实现用低压小电流控制高压大电流负载，且两侧电气隔离。听到「咔哒」声就是触点在动。",
+      "misconception": "以为继电器模块可以直接控制家里的 220V 电器。技术上可以，但 220V 会致命，初学者应该只用继电器控制 12V 以下的东西。另一个坑是继电器线圈也需要驱动，好在模块一般自带三极管。",
+      "example": "继电器模块 IN 接蓝药丸 PB5、VCC 接 5V、GND 接 GND，digitalWrite(PB5, HIGH) 吸合（有的模块是低电平触发）。可以控制一个 12V 的小风扇或水泵。",
+      "related": ["transistor", "diode", "driver", "gpio"]
+    },
+    {
+      "id": "driver",
+      "term": "驱动（Driver，驱动电路 / 驱动程序）",
+      "category": "传感执行",
+      "metaphor": "两种「驱动」：硬件驱动是大力士，MCU 小声说一句它就出大力气推电机；软件驱动是翻译，把「读温度」翻译成某个芯片听得懂的一串寄存器操作。",
+      "definition": "硬件驱动：放大 MCU 信号以驱动大功率负载的电路或芯片（三极管、MOS、H 桥、ULN2003）。软件驱动：操控某个具体硬件的底层代码（传感器库、屏幕库）。",
+      "misconception": "两种含义混着听会晕。「买个电机驱动」是买一块板；「写个 OLED 驱动」是写代码。上下文里说「驱动板」「驱动模块」是硬件，说「驱动库」「驱动程序」是软件。",
+      "example": "硬件：ULN2003 驱动板让蓝药丸能带动 28BYJ-48 步进电机。软件：RTClib 就是 DS3231 的驱动程序，把 I2C 读寄存器包装成 rtc.now()。",
+      "related": ["mosfet", "transistor", "library", "stepper_motor"]
+    },
+    {
+      "id": "sd_card",
+      "term": "SD 卡（SD Card，数据记录）",
+      "category": "传感执行",
+      "metaphor": "给设备配一个笔记本，把每天几点喂了多少记下来，几个月后拔出来插电脑看。",
+      "definition": "通过 SPI 接口连接的外部大容量存储。用 SD 库以文件形式读写，常用于记录日志、存配置、存图片。",
+      "misconception": "以为 MCU 读写 SD 卡像电脑一样随便。SD 库要占几 KB RAM，写入要及时 close() 否则断电丢数据，卡要格式化成 FAT32，大卡（>32GB）经常不兼容。",
+      "example": "SD 卡模块接 SPI1：CS → PA4、SCK → PA5、MISO → PA6、MOSI → PA7，3.3V 供电。File f = SD.open(\"feed.log\", FILE_WRITE); f.println(timeString); f.close(); 就记了一条喂食日志。",
+      "related": ["spi", "ram", "library", "rtc"]
+    },
+    {
+      "id": "rtos",
+      "term": "实时操作系统（RTOS）",
+      "category": "系统",
+      "metaphor": "一个特别守时的班主任，把一节课切成很多小段，轮流叫每个学生（任务）上来干活几毫秒，谁急就先叫谁，保证每个人都不会被完全饿着。",
+      "definition": "Real-Time Operating System，为 MCU 设计的小型操作系统内核（FreeRTOS、RT-Thread、Zephyr），提供多任务调度、任务间通信（队列、信号量）、定时器。「实时」指响应时间可预测，不是「快」。",
+      "misconception": "以为 RTOS 是入门必学，或者「不用 RTOS 就不专业」。裸机（无操作系统）加状态机能做 80% 的项目。RTOS 解决的是「任务多了、状态机写不动了」的问题，狗粮机用不上。",
+      "example": "PlatformIO 里加 lib_deps = stm32duino/STM32duino FreeRTOS 就能在蓝药丸上跑 FreeRTOS：一个任务读传感器、一个任务刷屏、一个任务管串口，各自有自己的 loop，靠 vTaskDelay 让出 CPU。",
+      "related": ["task", "state_machine", "blocking_nonblocking", "embedded_linux"]
+    },
+    {
+      "id": "task",
+      "term": "任务与调度（Task / Scheduling）",
+      "category": "系统",
+      "metaphor": "多个人排队用一台电脑，管理员规定每人用 10 毫秒就得让位，急事可以插队。每个人感觉自己「独占」了电脑，其实是轮着来。",
+      "definition": "RTOS 中独立运行的代码单元，每个任务有自己的栈和优先级，像一个独立的无限循环。调度器根据优先级和时间片决定当前运行哪个任务。",
+      "misconception": "以为多任务是「同时」运行。单核 MCU 任何一刻只跑一个任务，是快速切换造成的并行假象。任务之间共享变量要加保护（互斥锁），否则和中断一样会读到半旧半新的数据。",
+      "example": "xTaskCreate(readSensorTask, \"sensor\", 128, NULL, 1, NULL); 创建一个任务，128 是栈大小（字），1 是优先级。栈给小了会溢出崩，这在 20KB RAM 的蓝药丸上很容易撞上。",
+      "related": ["rtos", "stack_overflow", "interrupt", "volatile"]
+    },
+    {
+      "id": "low_power",
+      "term": "低功耗（Low Power）",
+      "category": "系统",
+      "metaphor": "手机待机：屏幕黑了、大部分东西关了，只留一根神经等电话响。响了瞬间全部唤醒。",
+      "definition": "让 MCU 在无事可做时进入睡眠、停止或待机模式，关闭时钟和外设，把电流从几十 mA 降到几 μA，靠外部中断、RTC 闹钟等事件唤醒。电池供电设备的核心技术。",
+      "misconception": "以为写 delay() 就是「让芯片休息」。delay 期间 CPU 满速空转，电流一点不降。真正省电要调用睡眠指令让内核停下来，并且把不用的外设关掉。",
+      "example": "STM32F103 有 Sleep、Stop、Standby 三级。狗粮机用电池的话可以在 loop 里 LowPower.deepSleep(60000) 睡一分钟，由 RTC 闹钟唤醒检查时间；接 USB 供电就不用折腾。",
+      "related": ["rtc", "interrupt", "clock", "iot"]
+    },
+    {
+      "id": "ota",
+      "term": "OTA（空中升级）",
+      "category": "系统",
+      "metaphor": "手机系统更新：不用拿数据线连电脑，睁眼一看已经是新版本了。",
+      "definition": "Over-The-Air，通过无线网络（WiFi、蓝牙、4G）把新固件传到设备并写入 Flash 的机制。需要 bootloader 支持、Flash 留双份空间、失败回滚。",
+      "misconception": "以为 OTA 是「加个功能」。它是整个固件架构的事：Flash 要分区、要有能自我更新的 bootloader、要考虑升级到一半断电怎么办。蓝药丸 64KB Flash 加没有无线，基本做不了。",
+      "example": "蓝药丸上做不了 OTA。如果把狗粮机主控换成 ESP32，ArduinoOTA 库几行代码就能让你在同一 WiFi 下不插线烧程序。这是 ESP32 比 STM32F103 更适合物联网小项目的原因之一。",
+      "related": ["bootloader", "firmware", "wifi", "iot"]
+    },
+    {
+      "id": "embedded_linux",
+      "term": "嵌入式 Linux（Embedded Linux）",
+      "category": "系统",
+      "metaphor": "从「一颗听话的小芯片」升级到「一台能装系统的小电脑」：树莓派、路由器、智能电视、车机里跑的都是它。",
+      "definition": "运行精简版 Linux 操作系统的嵌入式设备，处理器是 Cortex-A 级别（几百 MHz 到几 GHz），有几十 MB 到几 GB 内存，能跑多进程、文件系统、网络栈、Python。",
+      "misconception": "以为学了 STM32 就能直接搞嵌入式 Linux，或者两者是「一条路」。它们是嵌入式的两个分支：MCU 讲实时和省电，用 C 直接控硬件；嵌入式 Linux 讲系统和应用，更接近服务器开发。很多产品是两者配合（Linux 主控加 MCU 干实时活）。",
+      "example": "树莓派 Pico 是 MCU（RP2040，和蓝药丸一类）；树莓派 4 是嵌入式 Linux（能装桌面浏览网页）。如果狗粮机要带摄像头识别狗脸，就得上后者。",
+      "related": ["mcu", "rtos", "cortex_m", "embedded_engineer"]
+    },
+    {
+      "id": "iot",
+      "term": "物联网（IoT, Internet of Things）",
+      "category": "系统",
+      "metaphor": "给每个电器发一部手机，让它们能上网汇报状态、接收指令。灯、锁、狗粮机都能在手机上看和控。",
+      "definition": "让物理设备通过网络连接、交换数据的整体概念和技术栈：设备端（MCU 加无线模块）、通信协议（MQTT、HTTP、CoAP）、云平台（数据存储、规则、App）。",
+      "misconception": "以为物联网就是「给板子加 WiFi」。设备端只是冰山一角，服务器、协议、安全、配网、固件升级、断线重连才是大头。物联网工程师很多时间在写后端和 App。",
+      "example": "狗粮机的物联网版：ESP32 主控，MQTT 每次喂食发一条消息到服务器，手机 App 订阅显示「今天 8:00 已喂」。蓝药丸能做的部分是喂食机构本身。",
+      "related": ["wifi", "bluetooth", "ota", "protocol"]
+    },
+    {
+      "id": "bare_metal",
+      "term": "裸机（Bare Metal）",
+      "category": "系统",
+      "metaphor": "没有管家、没有操作系统，你的程序是这台机器上唯一的居民，从上电第一秒到断电全归你管。",
+      "definition": "不使用操作系统、程序直接运行在硬件上的开发方式。Arduino 的 setup/loop 就是裸机编程。与之相对的是运行 RTOS 或 Linux。",
+      "misconception": "以为裸机是「低级」「过渡阶段」。绝大多数 MCU 产品（遥控器、电饭锅、鼠标）都是裸机，简单可靠、启动快、资源省。裸机加状态机是嵌入式的基本功，RTOS 是在此之上的工具。",
+      "example": "本平台的全部课程和狗粮机项目都是裸机：一个 main.cpp，setup 初始化，loop 里状态机轮询。没有任务、没有调度器，程序行为完全可预测。",
+      "related": ["rtos", "setup_loop", "state_machine", "firmware"]
+    },
+    {
+      "id": "embedded_engineer",
+      "term": "嵌入式工程师做什么（Embedded Engineer）",
+      "category": "职业与专业",
+      "metaphor": "让「不像电脑的东西」有脑子的人。扫地机器人怎么知道撞墙了、电动车仪表怎么显示电量、空调遥控器按下去发生了什么，都是他们写的。",
+      "definition": "设计和开发运行在专用硬件上的软件（有时也包括硬件）的工程师。日常工作：读芯片手册、写驱动和业务逻辑、调硬件时序、用示波器和逻辑分析仪查问题、和硬件工程师对接线、做量产测试。",
+      "misconception": "以为嵌入式就是「写 C 语言点灯」或者「焊板子」。实际工作大量时间在读文档、看波形、定位「为什么偶尔会重启」这种玄学问题，语言只是工具。也不要以为嵌入式收入一定低于互联网，汽车、机器人、医疗设备领域需求很旺。",
+      "example": "做一台狗粮机的嵌入式工程师要：选芯片、画原理图（或和硬件工程师一起）、写喂食逻辑、调舵机时序、处理断电恢复、加看门狗、做 100 台的批量烧录方案。本平台就是把这个流程缩小到一个人能走完。",
+      "related": ["firmware_engineer", "hardware_engineer", "vs_software_dev", "ee_major"]
+    },
+    {
+      "id": "firmware_engineer",
+      "term": "固件工程师（Firmware Engineer）",
+      "category": "职业与专业",
+      "metaphor": "嵌入式工程师里专门负责「写进芯片里那段程序」的人。硬件工程师把板子造好交给他，他让板子活起来。",
+      "definition": "专注于 MCU/SoC 上底层软件开发的工程师：驱动、bootloader、通信协议栈、RTOS 移植、功耗优化。相比通用嵌入式工程师，更少碰硬件设计，更多碰底层软件。",
+      "misconception": "以为固件工程师和软件工程师的区别只是「语言用 C」。真正的区别是固件工程师必须理解硬件：寄存器、时序、电气特性，出问题时要判断「是代码错还是电路错」。这也是本平台反复让你接线、量电压的原因。",
+      "example": "在一家做智能门锁的公司，固件工程师负责：指纹模块的 UART 驱动、BLE 协议、低功耗管理（电池要撑一年）、OTA 升级、防砸开的安全逻辑。",
+      "related": ["embedded_engineer", "hardware_engineer", "firmware", "hal"]
+    },
+    {
+      "id": "hardware_engineer",
+      "term": "硬件工程师（Hardware Engineer）",
+      "category": "职业与专业",
+      "metaphor": "造舞台的人。固件工程师是演员，硬件工程师决定舞台有多大、灯在哪、电从哪来、哪里不能踩。",
+      "definition": "负责电路设计的工程师：选芯片和元件、画原理图、设计 PCB 布局布线、计算电源和散热、做 EMC（电磁兼容）测试、跟进打样和量产。工具是 Altium、KiCad、示波器、频谱仪。",
+      "misconception": "以为硬件工程师就是「焊电路板的」。焊接是工人或工程师自己顺手做的事，核心工作是设计：为什么这里放 100nF 电容、走线为什么要等长、电源为什么分三路。也不要以为硬件工程师不写代码，很多人会写测试固件。",
+      "example": "蓝药丸这块板子是硬件工程师的作品：选 STM32F103C8T6、配 8MHz 晶振、加 3.3V LDO、把 40 个脚引出来、放两个 BOOT 跳线。克隆板把 USB 上拉电阻选错（10kΩ 而不是 1.5kΩ），就是硬件设计失误的典型例子。",
+      "related": ["embedded_engineer", "firmware_engineer", "pcb", "schematic"]
+    },
+    {
+      "id": "ee_major",
+      "term": "电子信息工程专业学什么（EE / Electronic Information Engineering）",
+      "category": "职业与专业",
+      "metaphor": "从「电为什么会流」到「手机怎么收到信号」一路学下来的专业。前两年打基础（数学、物理、电路），后两年分方向（芯片、通信、嵌入式、信号处理）。",
+      "definition": "本科专业，核心课程：电路分析、模拟电路、数字电路、信号与系统、通信原理、单片机原理、嵌入式系统、电磁场、C 语言、FPGA。培养的是理解并设计电子系统的能力，方向可偏硬件、软件或通信。",
+      "misconception": "以为电子信息工程「毕业就是去工厂焊板子」，或者「和计算机专业差不多」。它和计算机的区别是多了电路和信号的底子，少了算法和软件工程；毕业去向包括芯片设计、嵌入式、通信设备、消费电子、汽车电子，也有不少人转纯软件。",
+      "example": "本平台的路线大致对应这个专业的「单片机原理与应用」「嵌入式系统设计」两门课的实验部分，但跳过了理论推导，先动手再补理论。想知道自己适不适合，做完蓝药丸前五个任务基本能有感觉。",
+      "related": ["automation_major", "embedded_engineer", "vs_software_dev", "hardware_engineer"]
+    },
+    {
+      "id": "automation_major",
+      "term": "自动化专业（Automation / Control Engineering）",
+      "category": "职业与专业",
+      "metaphor": "研究「怎么让系统自己稳住」的专业：空调怎么把温度控在 26 度不多不少，无人机怎么悬停不掉下来，工厂流水线怎么按顺序动。",
+      "definition": "以控制理论为核心的工科专业，课程包括自动控制原理、现代控制理论、电机与拖动、PLC、传感器与检测、单片机、机器人学。培养设计控制系统（反馈、调节、执行）的能力。",
+      "misconception": "以为自动化就是「搞机械」或「搞工厂」。它的核心是控制算法（PID、状态空间），应用从工厂 PLC 到无人机、自动驾驶、机器人。它和电子信息工程有大量重叠，区别是自动化更偏「系统怎么控」，电子更偏「电路怎么做」。",
+      "example": "狗粮机如果要「精确出 50 克」，就要称重传感器读重量、和目标比较、控制电机多转少转，这就是一个反馈控制回路，自动化专业大一到大四都在研究这类问题。",
+      "related": ["ee_major", "embedded_engineer", "sensor", "stepper_motor"]
+    },
+    {
+      "id": "vs_software_dev",
+      "term": "嵌入式和软件开发的区别",
+      "category": "职业与专业",
+      "metaphor": "软件开发像在一间无限大的房子里装修，资源随便用，出了问题看日志。嵌入式像在一个 20 平米的房间里装修，每一寸都要算，出了问题得拿仪器去量墙。",
+      "definition": "嵌入式：资源受限（KB 级内存、MHz 级主频）、直接操控硬件、无或简易操作系统、调试靠串口和仪器、bug 可能来自电路、产品出厂后难更新。软件开发：资源充裕、有操作系统和丰富框架、调试工具完善、快速迭代部署。",
+      "misconception": "以为嵌入式「更难」或「更低级」。它们难在不同的地方：嵌入式难在硬件交互和资源约束，软件难在抽象、规模和协作。也别以为会写 Python 就能无缝转嵌入式，或者反过来。两边的思维方式要重新练。",
+      "example": "在网页上做一个「每天 8 点提醒」十行 JavaScript；在蓝药丸上做同样的事要：接 RTC 模块、处理 I2C、处理断电后时间丢失、处理舵机电流导致的复位、确保连续跑三个月不死机。这就是区别。",
+      "related": ["embedded_engineer", "ram", "serial_print", "ee_major"]
+    },
+    {
+      "id": "learning_path",
+      "term": "嵌入式怎么入门（Learning Path）",
+      "category": "职业与专业",
+      "metaphor": "学开车不是先背发动机原理，是先在停车场把车开起来，然后才慢慢懂它为什么会动。",
+      "definition": "对零基础者，一条被广泛验证的路径：能点灯（GPIO）→ 能看串口（UART）→ 能读传感器（ADC/I2C）→ 能控执行器（PWM/舵机）→ 做一个能用的小项目 → 回头补 C 语言细节、数字电路、寄存器。理论在需要时补，而不是先修完。",
+      "misconception": "以为要先学完 C 语言、数字电路、模拟电路才能碰板子。这是大学课程的顺序，不是自学的最优顺序。先让灯亮起来，你会有一百个具体问题，带着问题学理论快十倍。",
+      "example": "本平台的课程顺序：0 装环境认板子 → 1 点灯 → 2 串口 → 3 读电位器 → 4 舵机 → 5 时间 → 狗粮机。每一步都有真板子在手里，卡住了有提示词库。这个 glossary 是遇到不认识的词时随手查的，不是让你从头背的。",
+      "related": ["embedded_engineer", "ee_major", "gpio", "development_board"]
+    }
+  ]
+}

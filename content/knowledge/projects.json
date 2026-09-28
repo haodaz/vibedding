@@ -1,0 +1,3880 @@
+{
+  "note": "项目菜谱知识库。AI 的 suggest_project / get_recipe 工具查这里。每个项目都是\"一个下午能做出东西\"的粒度：先给看得见的结果，再讲原理。difficulty 1 = 只要板子；hardware_free = 能先在浏览器虚拟蓝药丸里跑（只模拟 GPIO/PWM/ADC/串口/按键）。引脚约定：I2C1 PB6/PB7，SPI1 PA5/PA6/PA7，UART1 PA9/PA10，UART2 PA2/PA3，ADC PA0-PA7，板载 LED PC13 低电平亮，PA0-PA7 不耐 5V。parts.id 为空表示元件库还没收录，需要用 add_part 补。",
+  "projects": [
+    {
+      "id": "blink_led",
+      "title": "要有光：眨眼灯",
+      "tagline": "让板子上那颗小 LED 一秒亮一秒灭，这是所有嵌入式的\"Hello World\"。做出来就是一颗有节奏眨眼的灯。",
+      "difficulty": 1,
+      "time": "30 分钟",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PC13",
+          "to": "板载 LED",
+          "note": "板子自带，不用接线。低电平亮"
+        },
+        {
+          "from": "stlink.SWDIO/SWCLK/GND/3.3V",
+          "to": "bluepill 顶部 4 针",
+          "note": "四根线一一对应，不要接 5V"
+        }
+      ],
+      "steps": [
+        "接好 ST-Link，PlatformIO 点 Upload。结果：终端出现 SUCCESS，板子 LED 开始一秒一闪。",
+        "把 delay(1000) 改成 delay(100) 再烧。结果：LED 眨得飞快。",
+        "把两个 delay 改成不一样（亮 100，灭 900）。结果：像路由器那种\"心跳\"。",
+        "加一颗外接 LED 到 PA1（串 220Ω 电阻）。结果：两颗灯一起眨。",
+        "让 PA1 和 PC13 轮流亮。结果：两颗灯交替闪，像警车灯。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\n// 板载 LED 在 PC13，低电平点亮（和外接 LED 反过来）\nconst int LED = PC13;\n// 第 4 步再接一颗外接 LED 到 PA1（长脚经 220Ω 到 PA1，短脚到 GND）\nconst int LED2 = PA1;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  pinMode(LED2, OUTPUT);\n  digitalWrite(LED, HIGH);   // 先灭（PC13 是 HIGH 灭）\n  digitalWrite(LED2, LOW);   // 外接 LED 是 LOW 灭，正好相反\n}\n\nvoid loop() {\n  digitalWrite(LED, LOW);    // 板载亮\n  digitalWrite(LED2, HIGH);  // 外接亮\n  delay(1000);               // 等 1000 毫秒 = 1 秒\n  digitalWrite(LED, HIGH);   // 板载灭\n  digitalWrite(LED2, LOW);   // 外接灭\n  delay(1000);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "烧录报 \"unknown chip id\" / \"target voltage may be too low\"：ST-Link 的 3.3V 没接，或者买到的是克隆芯片（CH32/GD32）。先量一下板子 3V3 脚有没有电，再试 upload_flags = -c set CPUTAPID 0。",
+        "程序写了 HIGH 却灭了：PC13 的 LED 是\"灌电流\"接法，LOW 才亮，这是板子设计决定的，不是你的错。",
+        "烧录成功但 LED 不闪：看板子上 BOOT0 跳线，要在 0 那边。"
+      ],
+      "concepts": [
+        "GPIO",
+        "数字输出",
+        "delay 阻塞",
+        "高低电平",
+        "烧录/下载"
+      ],
+      "extensions": [
+        "用 millis() 代替 delay，让灯闪的同时还能做别的事",
+        "接 3 颗 LED 做流水灯",
+        "把闪烁节奏改成摩斯电码，眨出 SOS"
+      ]
+    },
+    {
+      "id": "breathing_led",
+      "title": "呼吸灯",
+      "tagline": "LED 不再是亮/灭两种状态，而是像呼吸一样慢慢变亮、慢慢变暗。学会 PWM 之后，调速、调音量都是同一个原理。",
+      "difficulty": 1,
+      "time": "45 分钟",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "被呼吸的那颗灯"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 1,
+          "role": "限流"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_5mm.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接好 LED，先烧 analogWrite(PA1, 128)。结果：LED 半亮。",
+        "改成 255 和 10 各烧一次。结果：全亮 / 很暗，理解数字和亮度的关系。",
+        "用 for 循环 0→255→0。结果：LED 开始呼吸。",
+        "把每步 delay 从 10 改到 2。结果：呼吸变急促。",
+        "用 sin() 或平方曲线代替线性。结果：呼吸更像真的（人眼对暗部更敏感）。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int LED = PA1;   // PA1 支持 PWM\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  // 慢慢变亮\n  for (int b = 0; b <= 255; b++) {\n    analogWrite(LED, b);   // 0 = 全灭, 255 = 全亮\n    delay(8);\n  }\n  // 慢慢变暗\n  for (int b = 255; b >= 0; b--) {\n    analogWrite(LED, b);\n    delay(8);\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "analogWrite 没反应、只有亮灭：选的引脚不支持 PWM。蓝药丸能 PWM 的是 PA0-PA3、PA6-PA10、PB0、PB1、PB6-PB9，PC13 不行。",
+        "灯亮度变化不均匀，暗的那段一跳就亮：人眼是对数感知，用 b*b/255 这类曲线会顺很多。",
+        "LED 不亮：长脚（+）短脚（-）接反了。LED 是二极管，只认一个方向。"
+      ],
+      "concepts": [
+        "PWM",
+        "占空比",
+        "限流电阻",
+        "for 循环",
+        "analogWrite"
+      ],
+      "extensions": [
+        "三色 RGB LED 做彩虹渐变",
+        "加电位器，旋钮控制亮度",
+        "用 millis() 改写成不阻塞版本，后面能塞进任何项目"
+      ]
+    },
+    {
+      "id": "button_toggle_light",
+      "title": "按键开关灯",
+      "tagline": "按一下亮，再按一下灭。看起来最简单，但\"按键抖动\"和\"上拉电阻\"这两个坑，几乎每个人都要踩一次。",
+      "difficulty": 1,
+      "time": "1 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "输入"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "输出"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 1,
+          "role": "LED 限流"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_5mm.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "先只接按键，把按键状态打印到串口。结果：按下打印 0，松开打印 1。",
+        "按下时 LED 亮、松开灭（跟随模式）。结果：像门铃按钮。",
+        "改成按一下切换一次状态。结果：大概率会发现有时按一下变两次——这就是抖动。",
+        "加 30ms 防抖。结果：每次按都准确切换。",
+        "加长按 1 秒进入呼吸模式。结果：短按开关，长按呼吸。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int BTN = PB12;\nconst int LED = PA1;\n\nbool ledOn = false;\nint lastReading = HIGH;          // 上拉：没按是 HIGH\nunsigned long lastChange = 0;\n\nvoid setup() {\n  pinMode(BTN, INPUT_PULLUP);    // 内部上拉，省一个电阻\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int reading = digitalRead(BTN);\n  // 状态变了，而且距离上次变化超过 30ms，才算真的按\n  if (reading != lastReading && millis() - lastChange > 30) {\n    lastChange = millis();\n    if (reading == LOW) {        // 按下的那一刻\n      ledOn = !ledOn;\n      digitalWrite(LED, ledOn ? HIGH : LOW);\n    }\n  }\n  lastReading = reading;\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "按一下灯闪好几次、或者时好时坏：机械按键闭合瞬间会弹跳几十次，叫\"抖动\"。要么等 30ms 稳定再读，要么用库。",
+        "不按也乱亮：引脚\"悬空\"，没接上拉/下拉，读到的是随机噪声。用 INPUT_PULLUP 或外接 10k 到 3.3V。",
+        "按下读到的是 0 不是 1：上拉接法就是这样，按下接地 = LOW。不是坏了。"
+      ],
+      "concepts": [
+        "数字输入",
+        "上拉电阻",
+        "按键防抖",
+        "状态变量",
+        "millis 计时"
+      ],
+      "extensions": [
+        "两个按键：一个加亮度一个减亮度",
+        "按键次数计数并打印到串口",
+        "用中断 attachInterrupt 代替轮询"
+      ]
+    },
+    {
+      "id": "traffic_light",
+      "title": "交通灯",
+      "tagline": "红黄绿三颗灯按真实路口的时序切换，再加个\"行人按钮\"。第一个有\"状态\"概念的项目。",
+      "difficulty": 1,
+      "time": "1 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED 红/黄/绿",
+          "qty": 3,
+          "role": "三色灯"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 3,
+          "role": "每颗 LED 一个"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "行人过街按钮（可选）"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA0",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_红.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_红.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_黄.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_黄.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_绿.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_绿.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        }
+      ],
+      "steps": [
+        "三颗灯各自接好，烧一个轮流点亮的程序。结果：红→黄→绿轮流亮，确认接线没错。",
+        "改成真实时序：绿 5 秒 → 黄 2 秒 → 红 5 秒。结果：像个真的路口。",
+        "红灯最后 3 秒闪黄（或绿灯末尾闪）。结果：更像国内路口。",
+        "加行人按钮：按下后绿灯提前结束。结果：按一下，很快就红了。",
+        "用状态机改写（switch/case）。结果：代码变清楚，加状态不用推翻重写。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int RED = PA0, YELLOW = PA1, GREEN = PA2;\nconst int BTN = PB12;\n\nenum State { GO, SLOW, STOP };\nState state = GO;\nunsigned long stateStart = 0;\n\nvoid setLights(bool r, bool y, bool g) {\n  digitalWrite(RED, r); digitalWrite(YELLOW, y); digitalWrite(GREEN, g);\n}\n\nvoid setup() {\n  pinMode(RED, OUTPUT); pinMode(YELLOW, OUTPUT); pinMode(GREEN, OUTPUT);\n  pinMode(BTN, INPUT_PULLUP);\n  setLights(0, 0, 1);\n}\n\nvoid loop() {\n  unsigned long elapsed = millis() - stateStart;\n  switch (state) {\n    case GO:   // 绿灯 5 秒，或者行人按了按钮\n      if (elapsed > 5000 || digitalRead(BTN) == LOW) {\n        state = SLOW; stateStart = millis(); setLights(0, 1, 0);\n      }\n      break;\n    case SLOW: // 黄灯 2 秒\n      if (elapsed > 2000) { state = STOP; stateStart = millis(); setLights(1, 0, 0); }\n      break;\n    case STOP: // 红灯 5 秒\n      if (elapsed > 5000) { state = GO; stateStart = millis(); setLights(0, 0, 1); }\n      break;\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "三颗灯亮度不一样：不同颜色 LED 的正向电压不同（红 1.8V、绿/蓝 3V 左右），同一个电阻亮度就不同。红灯换 470Ω 会均匀些。",
+        "用 delay 写的版本按钮没反应：delay 期间 CPU 什么都不干，按键读不到。这就是为什么要学 millis 状态机。",
+        "几颗 LED 共用一个电阻：会互相抢电流、亮度不稳。每颗一个。"
+      ],
+      "concepts": [
+        "状态机",
+        "enum 枚举",
+        "millis 非阻塞",
+        "多路输出",
+        "正向电压"
+      ],
+      "extensions": [
+        "加个 TM1637 数码管显示倒计时秒数",
+        "两个方向的路口（6 颗灯）互锁",
+        "夜间模式：黄灯闪烁"
+      ]
+    },
+    {
+      "id": "serial_chat",
+      "title": "串口聊天",
+      "tagline": "在电脑上敲字，板子回话；板子把自己的状态说给电脑听。串口是你以后调试一切的\"眼睛和嘴\"。",
+      "difficulty": 1,
+      "time": "45 分钟",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "usb_serial",
+          "name": "USB 转 TTL 串口 (CH340)",
+          "qty": 1,
+          "role": "把板子的话传到电脑"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线 母母",
+          "qty": 3,
+          "role": "接串口"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA9",
+          "to": "usb_serial.RXD",
+          "note": "板子说→电脑听"
+        },
+        {
+          "from": "bluepill.PA10",
+          "to": "usb_serial.TXD",
+          "note": "电脑说→板子听"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "usb_serial.GND",
+          "note": "必须共地"
+        }
+      ],
+      "steps": [
+        "接好 USB-TTL，烧 Serial.println(\"hello\")。结果：串口监视器每秒一行 hello。",
+        "打印 millis()。结果：看到数字一直涨，说明板子在跑。",
+        "电脑发字符，板子原样回。结果：敲 a 回 a。",
+        "发 \"on\"/\"off\" 控制板载 LED。结果：打字能开关灯。",
+        "发 \"temp?\" 板子回一个假温度。结果：你已经会做\"命令行协议\"了。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\n// 蓝药丸的 Serial 默认 = USART1 = PA9(TX)/PA10(RX)\nconst int LED = PC13;\nString cmd = \"\";\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n  digitalWrite(LED, HIGH);\n  Serial.println(\"你好，我是蓝药丸。试试发 on / off / ping\");\n}\n\nvoid loop() {\n  while (Serial.available()) {\n    char c = Serial.read();\n    if (c == '\\n' || c == '\\r') {      // 一行结束\n      cmd.trim();\n      if (cmd == \"on\")  { digitalWrite(LED, LOW);  Serial.println(\"灯开了\"); }\n      else if (cmd == \"off\") { digitalWrite(LED, HIGH); Serial.println(\"灯关了\"); }\n      else if (cmd == \"ping\") { Serial.print(\"pong, 已运行 \"); Serial.print(millis() / 1000); Serial.println(\" 秒\"); }\n      else if (cmd.length()) { Serial.print(\"听不懂: \"); Serial.println(cmd); }\n      cmd = \"\";\n    } else {\n      cmd += c;\n    }\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "串口监视器一片空白：蓝药丸的 Serial 默认走 PA9/PA10，不是那根 USB 线。要接 USB 转 TTL（TX→PA10，RX→PA9，GND 共地），或者在 platformio.ini 加 build_flags = -D USBCON -D USBD_VCP 让 Serial 走 USB。",
+        "收到一堆乱码 \"�����\"：波特率不一致。代码 115200，监视器（platformio.ini 的 monitor_speed）也要 115200。",
+        "TX 接 TX 没反应：串口是\"我的嘴接你的耳朵\"，板子 TX(PA9) → 模块 RX，板子 RX(PA10) → 模块 TX。",
+        "发命令没反应：监视器没开\"发送时加换行\"。代码靠 \\n 判断一行结束。"
+      ],
+      "concepts": [
+        "UART 串口",
+        "波特率",
+        "TX/RX 交叉",
+        "字符串解析",
+        "协议"
+      ],
+      "extensions": [
+        "把命令扩展成 \"led 128\" 带参数的形式",
+        "用 HC-05 把这条串口线换成蓝牙，手机聊天",
+        "用 Serial2(PA2/PA3) 让两块板子互聊"
+      ]
+    },
+    {
+      "id": "electronic_dice",
+      "title": "电子骰子",
+      "tagline": "按一下按钮，7 颗 LED 像真骰子那样\"滚动\"几下，最后停在 1-6 的点数。学随机数和 LED 图案。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 7,
+          "role": "摆成骰子的 7 个点位"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 7,
+          "role": "每颗一个"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "摇骰子"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA0~PA6",
+          "to": "7 颗 LED 各自的 220Ω→长脚",
+          "note": "按骰子点位：PA0 左上 PA1 右上 PA2 左中 PA3 中 PA4 右中 PA5 左下 PA6 右下"
+        },
+        {
+          "from": "7 颗 LED 短脚",
+          "to": "bluepill.GND",
+          "note": "可以共地"
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        }
+      ],
+      "steps": [
+        "7 颗 LED 排成骰子形状，烧一个逐颗点亮的程序。结果：能确认每颗对应哪个位置。",
+        "写一张表：点数 1-6 对应哪几颗亮。烧 showDice(6)。结果：六个点。",
+        "按钮按下 → 随机 1-6 显示。结果：每次不同（如果每次都一样看坑 1）。",
+        "加\"滚动\"动画：先快速随机切换 15 次再定格。结果：有摇骰子的感觉。",
+        "加两个骰子（串口打印第二个）。结果：能玩大富翁了。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int PINS[7] = {PA0, PA1, PA2, PA3, PA4, PA5, PA6};\nconst int BTN = PB12;\n// 每一行：7 颗灯的亮灭。位置：左上 右上 左中 中 右中 左下 右下\nconst uint8_t FACE[7][7] = {\n  {0,0,0,0,0,0,0},\n  {0,0,0,1,0,0,0},          // 1\n  {1,0,0,0,0,0,1},          // 2\n  {1,0,0,1,0,0,1},          // 3\n  {1,1,0,0,0,1,1},          // 4\n  {1,1,0,1,0,1,1},          // 5\n  {1,1,1,0,1,1,1},          // 6\n};\n\nvoid showDice(int n) {\n  for (int i = 0; i < 7; i++) digitalWrite(PINS[i], FACE[n][i]);\n}\n\nvoid setup() {\n  for (int i = 0; i < 7; i++) pinMode(PINS[i], OUTPUT);\n  pinMode(BTN, INPUT_PULLUP);\n  randomSeed(analogRead(PA7));   // 用悬空引脚的噪声当种子\n  showDice(0);\n}\n\nvoid loop() {\n  if (digitalRead(BTN) == LOW) {\n    for (int i = 0; i < 15; i++) {      // 滚动动画\n      showDice(random(1, 7));\n      delay(60 + i * 15);               // 越来越慢\n    }\n    showDice(random(1, 7));             // 最终点数\n    delay(500);\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "每次上电第一次摇都是同一个数：random() 是伪随机，种子一样序列就一样。randomSeed 用一个悬空 ADC 引脚的噪声。",
+        "7 颗 LED 全亮时板子重启：每颗 LED 约 10mA，7 颗 70mA 走 3V3 稳压器有点吃力。用 330Ω 或者只从 5V 供电。",
+        "接线乱成一团：先在纸上画好 7 个位置对应的引脚，再插线。"
+      ],
+      "concepts": [
+        "随机数与种子",
+        "二维数组/查表",
+        "多路 GPIO",
+        "动画节奏",
+        "电流预算"
+      ],
+      "extensions": [
+        "换成 OLED 画骰子点",
+        "加蜂鸣器：滚动时嗒嗒声",
+        "两人对决模式：谁大谁的灯闪"
+      ]
+    },
+    {
+      "id": "reaction_game",
+      "title": "反应速度游戏",
+      "tagline": "灯随机亮起，你越快按下越好。板子精确到毫秒告诉你反应时间，还能和朋友比。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "usb_serial",
+          "name": "USB 转 TTL 串口 (CH340)",
+          "qty": 1,
+          "role": "把板子的话传到电脑"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "起跑灯"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 1,
+          "role": "限流"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "拍下去"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_5mm.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        },
+        {
+          "from": "bluepill.PA9",
+          "to": "usb_serial.RXD",
+          "note": "板子说→电脑听"
+        },
+        {
+          "from": "bluepill.PA10",
+          "to": "usb_serial.TXD",
+          "note": "电脑说→板子听"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "usb_serial.GND",
+          "note": "必须共地"
+        }
+      ],
+      "steps": [
+        "接好，烧一个\"按下按键打印 millis()\"的程序。结果：串口能看到时间戳。",
+        "灯随机等 1-4 秒后亮，然后等按键。结果：串口打印反应时间（毫秒）。",
+        "灯没亮就抢按 → 判\"抢跑\"。结果：不能作弊了。",
+        "记录最好成绩并打印。结果：每局后看到 best。",
+        "加第二个按键和 LED 做双人对决。结果：谁快谁的灯亮。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int LED = PA1;\nconst int BTN = PB12;\nunsigned long best = 999999;\n\nbool pressed() { return digitalRead(BTN) == LOW; }\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n  pinMode(BTN, INPUT_PULLUP);\n  randomSeed(analogRead(PA7));\n  Serial.println(\"按一下按键开始\");\n}\n\nvoid loop() {\n  while (!pressed()) {}                 // 等待开始\n  delay(300);\n  Serial.println(\"准备... 灯亮就按!\");\n  unsigned long wait = random(1000, 4000);\n  unsigned long t0 = millis();\n  while (millis() - t0 < wait) {\n    if (pressed()) { Serial.println(\"抢跑! 重来\"); delay(1000); return; }\n  }\n  digitalWrite(LED, HIGH);\n  unsigned long lit = millis();\n  while (!pressed()) {}\n  unsigned long rt = millis() - lit;\n  digitalWrite(LED, LOW);\n  Serial.print(\"反应时间: \"); Serial.print(rt); Serial.println(\" ms\");\n  if (rt < best) { best = rt; Serial.println(\"新纪录!\"); }\n  Serial.print(\"最好: \"); Serial.println(best);\n  delay(1500);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "反应时间总是 0 或几毫秒：上一次按键还没松开就进了下一轮。开始前先等按键松开。",
+        "\"抢跑\"误判：按键抖动被当成按下。加 20ms 二次确认。",
+        "串口监视器一片空白：蓝药丸的 Serial 默认走 PA9/PA10，不是那根 USB 线。要接 USB 转 TTL（TX→PA10，RX→PA9，GND 共地），或者在 platformio.ini 加 build_flags = -D USBCON -D USBD_VCP 让 Serial 走 USB。"
+      ],
+      "concepts": [
+        "millis 计时",
+        "随机延时",
+        "阻塞与非阻塞",
+        "边沿检测",
+        "游戏状态"
+      ],
+      "extensions": [
+        "用 OLED 显示时间，脱离电脑",
+        "用蜂鸣器代替灯（听觉反应）",
+        "10 局取平均并排名"
+      ]
+    },
+    {
+      "id": "night_light_ldr",
+      "title": "小夜灯（光敏）",
+      "tagline": "天一黑灯自动亮，越黑越亮；天亮自动灭。第一个\"传感器→决策→动作\"的闭环。",
+      "difficulty": 2,
+      "time": "1 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "ldr",
+          "name": "光敏电阻",
+          "qty": 1,
+          "role": "感受亮度"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ 电阻",
+          "qty": 1,
+          "role": "和光敏组成分压"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "夜灯"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 1,
+          "role": "LED 限流"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "ldr.一端",
+          "note": ""
+        },
+        {
+          "from": "ldr.另一端",
+          "to": "bluepill.PA0",
+          "note": "这一点同时接 10k 电阻"
+        },
+        {
+          "from": "电阻 10kΩ",
+          "to": "bluepill.GND",
+          "note": "光敏+10k 组成分压，PA0 读中点电压"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_5mm.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接分压电路，串口打印 analogRead(PA0)。结果：手遮住光敏数字明显变化（0-1023）。",
+        "找阈值：记下白天和捂住的数值，取中间。结果：心里有数。",
+        "低于阈值 LED 亮。结果：一捂灯亮。",
+        "用 map() 把亮度映射成 PWM。结果：越黑越亮，渐变。",
+        "加\"滞回\"：亮的阈值和灭的阈值分开。结果：灯不会在临界点抽搐。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int LDR = PA0;    // ADC\nconst int LED = PA1;    // PWM\nconst int DARK_ON = 300;   // 低于这个算黑（按你实测改）\nconst int BRIGHT_OFF = 450; // 高于这个算亮\nbool on = false;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int light = analogRead(LDR);   // 0-1023，越亮数值越大（取决于接法）\n  Serial.println(light);\n\n  // 滞回：两个阈值，避免临界点来回跳\n  if (!on && light < DARK_ON) on = true;\n  if (on && light > BRIGHT_OFF) on = false;\n\n  if (on) {\n    int bright = map(light, DARK_ON, 0, 40, 255);   // 越黑越亮\n    bright = constrain(bright, 0, 255);\n    analogWrite(LED, bright);\n  } else {\n    analogWrite(LED, 0);\n  }\n  delay(100);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "数值几乎不变：光敏电阻直接接到 ADC 没有分压电阻——ADC 读的是电压，不是电阻，要靠 10k 把电阻变化变成电压变化。",
+        "灯在临界亮度疯狂闪：一个阈值上下抽搐。用两个阈值（滞回）。",
+        "夜灯一亮，光敏就觉得\"亮了\"于是灭：自己照自己。把光敏背对 LED，或者加滞回。"
+      ],
+      "concepts": [
+        "ADC 模数转换",
+        "分压电路",
+        "map 映射",
+        "阈值与滞回",
+        "闭环控制"
+      ],
+      "extensions": [
+        "换成 WS2812 灯带做暖光氛围灯",
+        "加 PIR：有人且黑才亮",
+        "加电位器现场调阈值"
+      ]
+    },
+    {
+      "id": "sound_activated_light",
+      "title": "声控灯",
+      "tagline": "拍一下手灯亮，再拍一下灭，就是楼道那种声控灯。做完你会明白为什么楼道灯有时候要跺脚。",
+      "difficulty": 2,
+      "time": "1 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "sound",
+          "name": "声音传感器（麦克风模块）",
+          "qty": 1,
+          "role": "听声音"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "灯"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 1,
+          "role": "限流"
+        },
+        {
+          "id": "relay",
+          "name": "继电器模块",
+          "qty": 1,
+          "role": "可选：控制真台灯"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "sound.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sound.GND",
+          "note": ""
+        },
+        {
+          "from": "sound.DO",
+          "to": "bluepill.PB12",
+          "note": "数字输出：有声音时跳变"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_5mm.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接好，串口打印 DO 引脚状态。结果：拍手时看到 0/1 跳变（不变就拧模块上的蓝色电位器）。",
+        "拍手 → LED 亮 3 秒后灭。结果：楼道灯。",
+        "改成拍一下切换。结果：会发现一拍变好几次。",
+        "加 500ms 锁定期。结果：每拍切一次。",
+        "接继电器控制真台灯（低压 LED 灯，别碰 220V）。结果：拍手开台灯。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int MIC = PB12;   // 声音模块 DO\nconst int LED = PA1;\nbool on = false;\nunsigned long lastTrigger = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(MIC, INPUT);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  // 大多数模块：有声音时 DO 变 HIGH（有的反过来，串口看一眼）\n  if (digitalRead(MIC) == HIGH && millis() - lastTrigger > 500) {\n    lastTrigger = millis();\n    on = !on;\n    digitalWrite(LED, on);\n    Serial.println(on ? \"开\" : \"关\");\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "一直触发或者永远不触发：模块上的电位器是灵敏度，边拍手边拧，直到板载指示灯\"拍一下亮一下\"。",
+        "拍一下灯闪好几次：一次拍手其实是几十毫秒的一串脉冲。加锁定期，500ms 内只算一次。",
+        "接继电器后板子死机重启：继电器线圈电流大，用 5V 供电而不是 3V3，并且共地。"
+      ],
+      "concepts": [
+        "数字传感器",
+        "比较器/阈值电位器",
+        "触发锁定",
+        "事件与状态",
+        "继电器"
+      ],
+      "extensions": [
+        "用 AO 模拟输出做\"音量条\"LED",
+        "两次拍手才触发（防误触）",
+        "声控 + 光控：只有黑的时候拍手才亮"
+      ]
+    },
+    {
+      "id": "ultrasonic_parking_radar",
+      "title": "超声波倒车雷达",
+      "tagline": "越靠近障碍物，蜂鸣器叫得越急，就像倒车雷达。学会用声音测距离。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "hcsr04",
+          "name": "HC-SR04 超声波",
+          "qty": 1,
+          "role": "测距"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "无源蜂鸣器",
+          "qty": 1,
+          "role": "滴滴声"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "距离指示（可选）"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.5V",
+          "to": "hcsr04.VCC",
+          "note": "模块要 5V 才准"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "hcsr04.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB8",
+          "to": "hcsr04.Trig",
+          "note": "发命令"
+        },
+        {
+          "from": "hcsr04.Echo",
+          "to": "bluepill.PB9",
+          "note": "PB9 耐 5V，Echo 是 5V 信号，别接 PA0-PA7"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接好，串口打印距离（cm）。结果：手前后移动数字跟着变，用尺子验证。",
+        "距离小于 50cm 蜂鸣器叫。结果：靠近就响。",
+        "把间隔和距离绑定：越近响得越急。结果：倒车雷达的感觉出来了。",
+        "小于 10cm 长鸣。结果：撞了！",
+        "加 5 次取中位数。结果：数字不再乱跳。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int TRIG = PB8;\nconst int ECHO = PB9;    // 5V 耐压引脚\nconst int BUZZ = PA1;\n\nlong readDistanceCm() {\n  digitalWrite(TRIG, LOW); delayMicroseconds(2);\n  digitalWrite(TRIG, HIGH); delayMicroseconds(10);   // 10us 高电平触发\n  digitalWrite(TRIG, LOW);\n  long us = pulseIn(ECHO, HIGH, 30000);              // 等回波，最多 30ms\n  if (us == 0) return -1;                            // 超时 = 没测到\n  return us / 58;                                    // 声速换算：约 58us/cm\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(TRIG, OUTPUT); pinMode(ECHO, INPUT);\n  pinMode(BUZZ, OUTPUT);\n}\n\nvoid loop() {\n  long d = readDistanceCm();\n  Serial.print(\"距离: \"); Serial.print(d); Serial.println(\" cm\");\n  if (d > 0 && d < 50) {\n    tone(BUZZ, 2000);\n    delay(50);\n    noTone(BUZZ);\n    delay(map(d, 0, 50, 0, 500));     // 越近间隔越短\n  } else {\n    delay(100);\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "永远读到 0 或 -1：模块用 3.3V 供电不工作，要 5V。或者 Trig/Echo 接反。",
+        "数值偶尔乱跳到 2000+：超声波打到软的/斜的表面没回来，超时了。取几次的中位数，或者忽略 >400 的值。",
+        "Echo 接到 PA0-PA7 上板子发烫/引脚坏：这些脚只耐 3.3V，Echo 是 5V。用 PB8/PB9 这类耐 5V 的脚，或者串 1k 电阻。",
+        "蜂鸣器不响只咔一下：用了有源蜂鸣器还调 tone()。有源的直接给高电平就响，无源的才要 tone()。"
+      ],
+      "concepts": [
+        "超声波测距",
+        "pulseIn 脉宽测量",
+        "5V 耐压引脚",
+        "tone 发声",
+        "中位数滤波"
+      ],
+      "extensions": [
+        "加 OLED 显示距离和进度条",
+        "装在小车前面做避障",
+        "换成\"距离越近呼吸灯越红\""
+      ]
+    },
+    {
+      "id": "pir_door_alarm",
+      "title": "门磁/人体感应报警器",
+      "tagline": "有人靠近或者门被打开，立刻响铃闪灯，还能\"布防/撤防\"。放宿舍门口防偷零食。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "pir",
+          "name": "HC-SR501 人体红外",
+          "qty": 1,
+          "role": "感应有人"
+        },
+        {
+          "id": "",
+          "name": "门磁（干簧管开关）",
+          "qty": 1,
+          "role": "感应门开（可选）"
+        },
+        {
+          "id": "buzzer_active",
+          "name": "有源蜂鸣器",
+          "qty": 1,
+          "role": "报警"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "布防/撤防"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "状态灯"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.5V",
+          "to": "pir.VCC",
+          "note": "PIR 要 5V 供电"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "pir.GND",
+          "note": ""
+        },
+        {
+          "from": "pir.OUT",
+          "to": "bluepill.PB12",
+          "note": "输出是 3.3V 逻辑，可以直接接"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "门磁.一端",
+          "note": "INPUT_PULLUP，门关=磁铁贴着=接通=LOW"
+        },
+        {
+          "from": "门磁.另一端",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_active.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_active.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB14",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_5mm.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "先接 PIR，串口打印 OUT。结果：人走过变 1，静止几秒变 0。",
+        "有人 → 蜂鸣器响 3 秒。结果：一走过就叫。",
+        "加按键布防/撤防，LED 表示状态。结果：撤防时走过不响。",
+        "布防后延迟 10 秒再生效（给自己离开时间）。结果：按完走出去不会被自己触发。",
+        "加门磁：门开也报警。结果：两种传感器一套逻辑。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int PIR = PB12, DOOR = PB13, BTN = PB14;\nconst int BUZZ = PA1, LED = PA2;\nbool armed = false;\nunsigned long armedAt = 0, alarmUntil = 0;\nint lastBtn = HIGH;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PIR, INPUT);\n  pinMode(DOOR, INPUT_PULLUP);   // 门关 = LOW\n  pinMode(BTN, INPUT_PULLUP);\n  pinMode(BUZZ, OUTPUT); pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int b = digitalRead(BTN);\n  if (b == LOW && lastBtn == HIGH) {         // 按下切换布防\n    armed = !armed; armedAt = millis();\n    Serial.println(armed ? \"布防（10 秒后生效）\" : \"撤防\");\n    delay(50);\n  }\n  lastBtn = b;\n\n  bool active = armed && millis() - armedAt > 10000;   // 布防延迟\n  digitalWrite(LED, armed ? (active ? HIGH : (millis() / 250) % 2) : LOW);\n\n  if (active && (digitalRead(PIR) == HIGH || digitalRead(DOOR) == HIGH)) {\n    alarmUntil = millis() + 3000;\n    Serial.println(\"有情况!\");\n  }\n  digitalWrite(BUZZ, millis() < alarmUntil ? HIGH : LOW);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "PIR 一上电就报警好几次：模块上电要 30-60 秒预热稳定，这期间输出乱跳。开机后等一分钟再布防。",
+        "PIR 人不动就\"没人\"了：它只感应温度变化（移动），静止的人几秒后就消失，这是原理不是坏了。模块背面跳线可选\"可重复触发\"。",
+        "灵敏度太高，窗帘一动就响：PIR 上两个电位器，一个灵敏度（距离）一个延时，拧小灵敏度。",
+        "门磁：磁铁和干簧管距离超过 1-2cm 就断开，要装在门框和门的对应位置。"
+      ],
+      "concepts": [
+        "PIR 红外原理",
+        "干簧管",
+        "布防状态机",
+        "延迟生效",
+        "事件触发"
+      ],
+      "extensions": [
+        "放到冰箱：门磁开超过 60 秒才响 → 冰箱门未关提醒",
+        "加 HC-05 蓝牙推送到手机",
+        "加 DS3231 只在夜间布防"
+      ]
+    },
+    {
+      "id": "desk_weather_station_oled",
+      "title": "桌面温湿度站（OLED）",
+      "tagline": "一块小屏幕显示实时温度、湿度和一条趋势小曲线，放桌上比手机看天气舒服。",
+      "difficulty": 3,
+      "time": "2 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "dht11",
+          "name": "DHT11 温湿度",
+          "qty": 1,
+          "role": "传感器（DHT22 更准可替换）"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96 寸 OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "显示"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "dht11.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "dht11.GND",
+          "note": ""
+        },
+        {
+          "from": "dht11.DATA",
+          "to": "bluepill.PB12",
+          "note": "模块版自带上拉；裸元件要加 10k 到 3V3"
+        },
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 时钟"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 数据"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "先只接 OLED，跑 I2C 扫描。结果：串口看到 0x3C。",
+        "显示 \"Hello\"。结果：屏幕亮字。",
+        "接 DHT11，串口打印温湿度。结果：两秒一组数据，捂一下传感器温度上升。",
+        "把数据画到 OLED，大字体。结果：桌面站雏形。",
+        "每分钟存一个点，画 60 点趋势线。结果：能看出一天温度走势。",
+        "数据异常（nan）时显示\"传感器?\"。结果：拔掉线也不崩。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n#include <DHT.h>\n\n#define DHT_PIN PB12\n#define DHT_TYPE DHT11         // 换 DHT22 改这里\nDHT dht(DHT_PIN, DHT_TYPE);\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\n\nfloat hist[64]; int histN = 0;\nunsigned long lastSample = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();                 // 蓝药丸默认 PB6/PB7\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.clearDisplay(); oled.setTextColor(WHITE);\n  dht.begin();\n}\n\nvoid loop() {\n  if (millis() - lastSample < 2000) return;   // DHT 至少 2 秒读一次\n  lastSample = millis();\n  float t = dht.readTemperature();\n  float h = dht.readHumidity();\n\n  oled.clearDisplay();\n  if (isnan(t) || isnan(h)) {\n    oled.setTextSize(1); oled.setCursor(0, 0); oled.println(\"sensor?\");\n  } else {\n    oled.setTextSize(2); oled.setCursor(0, 0);\n    oled.print(t, 1); oled.println(\" C\");\n    oled.print(h, 0); oled.println(\" %\");\n    // 简单趋势：右移一格，右端画新点\n    if (histN < 64) hist[histN++] = t; else { memmove(hist, hist + 1, 63 * sizeof(float)); hist[63] = t; }\n    for (int i = 0; i < histN; i++) {\n      int y = 63 - constrain((int)((hist[i] - 15) * 2), 0, 20);   // 15~25 度映射到 20 像素\n      oled.drawPixel(i * 2, y, WHITE);\n    }\n  }\n  oled.display();\n}",
+      "lib_deps": [
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO",
+        "adafruit/DHT sensor library",
+        "adafruit/Adafruit Unified Sensor"
+      ],
+      "pitfalls": [
+        "OLED 一片黑：90% 是 I2C 地址不对（0x3C 还是 0x3D）或 SDA/SCL 接反。先跑一遍 I2C 扫描程序，看到 0x3C 再往下走。",
+        "DHT 一直读到 nan：读得太频繁（DHT11 至少 2 秒一次）、DATA 线没上拉、或者刚上电第一次就读。第一次读之前 delay(2000)。",
+        "OLED 显示中文是方块：Adafruit 字体只有 ASCII。想显示中文要换 olikraus/U8g2 库和中文字体（会吃掉几十 KB Flash）。",
+        "温度比实际高 2-3 度：传感器贴着板子被芯片和屏幕烤热了。用杜邦线拉开一点距离。"
+      ],
+      "concepts": [
+        "I2C 总线",
+        "单总线协议（DHT）",
+        "库的使用",
+        "缓冲区与刷屏",
+        "环形历史数据"
+      ],
+      "extensions": [
+        "加 BMP280 显示气压，预测下雨",
+        "加 ESP-01 上传到手机看",
+        "加 DS3231 显示时间，变成桌面时钟"
+      ]
+    },
+    {
+      "id": "auto_plant_watering",
+      "title": "自动浇花",
+      "tagline": "土干了自动开水泵浇几秒，湿了就停。出门一周回来花还活着。",
+      "difficulty": 3,
+      "time": "2.5 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "soil_moisture",
+          "name": "土壤湿度传感器（电容式）",
+          "qty": 1,
+          "role": "测土干湿"
+        },
+        {
+          "id": "relay",
+          "name": "1 路继电器模块",
+          "qty": 1,
+          "role": "开关水泵"
+        },
+        {
+          "id": "water_pump",
+          "name": "微型水泵 + 硅胶管",
+          "qty": 1,
+          "role": "抽水"
+        },
+        {
+          "id": "pump_diode",
+          "name": "1N5819 二极管",
+          "qty": 1,
+          "role": "并在水泵两端吸反冲电压"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 2A 电源",
+          "qty": 1,
+          "role": "给水泵和板子供电"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "浇水指示"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "soil_moisture.VCC",
+          "note": "电容式传感器 3.3V 也能用"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "soil_moisture.GND",
+          "note": ""
+        },
+        {
+          "from": "soil_moisture.AOUT",
+          "to": "bluepill.PA0",
+          "note": "ADC"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "relay.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "relay.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "relay.IN",
+          "note": "低电平触发的模块：LOW 吸合"
+        },
+        {
+          "from": "电源 5V+",
+          "to": "relay.COM",
+          "note": ""
+        },
+        {
+          "from": "relay.NO",
+          "to": "water_pump.+",
+          "note": ""
+        },
+        {
+          "from": "water_pump.-",
+          "to": "电源 GND",
+          "note": ""
+        },
+        {
+          "from": "pump_diode.白环",
+          "to": "water_pump.+ ",
+          "note": "二极管反向并联在水泵两端"
+        },
+        {
+          "from": "pump_diode.另一端",
+          "to": "water_pump.-",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接土壤传感器，串口打印数值。结果：插进干土/湿土数字明显不同，记下来。",
+        "接继电器，每 3 秒吸合/断开。结果：听到嗒嗒声、模块灯闪。",
+        "水泵挂到继电器上，先手动通电测试。结果：能抽水，方向对。",
+        "写逻辑：干了浇 3 秒，然后至少等 30 分钟再判断。结果：土慢慢湿，泵停。",
+        "加\"缺水保护\"：连续浇 5 次还干，报警不再浇。结果：水桶空了不会烧泵。",
+        "换 5V 电源独立供电，放窗台跑一天。结果：活着。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int SOIL = PA0;\nconst int RELAY = PB12;    // 低电平吸合\nconst int LED = PA1;\nconst int DRY = 600;        // 按你实测改：数值越大越干（电容式）\nconst unsigned long WATER_MS = 3000;\nconst unsigned long COOLDOWN_MS = 30UL * 60 * 1000;   // 30 分钟\n\nunsigned long lastWater = 0;\nint failCount = 0;\n\nvoid pump(bool on) {\n  digitalWrite(RELAY, on ? LOW : HIGH);\n  digitalWrite(LED, on);\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(RELAY, OUTPUT); pinMode(LED, OUTPUT);\n  pump(false);\n  lastWater = millis() - COOLDOWN_MS;   // 上电允许立即判断\n}\n\nvoid loop() {\n  int soil = 0;\n  for (int i = 0; i < 10; i++) { soil += analogRead(SOIL); delay(10); }\n  soil /= 10;                           // 平均 10 次去抖\n  Serial.print(\"土壤: \"); Serial.println(soil);\n\n  bool dry = soil > DRY;\n  bool cooled = millis() - lastWater > COOLDOWN_MS;\n  if (dry && cooled && failCount < 5) {\n    Serial.println(\"浇水\");\n    pump(true); delay(WATER_MS); pump(false);\n    lastWater = millis();\n    failCount++;                        // 变湿后清零\n  }\n  if (!dry) failCount = 0;\n  if (failCount >= 5) Serial.println(\"连浇 5 次还干，水桶空了?\");\n  delay(5000);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "继电器不吸合、指示灯半亮：3.3V 信号驱动 5V 继电器模块有点勉强。选\"低电平触发\"的模块（LOW 吸合更可靠），或者换光耦隔离版。",
+        "水泵一转板子就重启：电机启停的电流冲击把 5V 拉塌了。水泵用独立电源，只共地；水泵两端并 1N5819 二极管。",
+        "电阻式（两根叉子）土壤传感器几天就烂了：电解腐蚀。用电容式的，或者只在测的那一秒给它供电。",
+        "浇完立刻又浇：水渗到传感器要几分钟，别刚浇完就判断，加冷却时间。"
+      ],
+      "concepts": [
+        "ADC 采样与平均",
+        "继电器",
+        "电机反冲/续流二极管",
+        "冷却时间",
+        "失败保护"
+      ],
+      "extensions": [
+        "加 DS3231 + 继电器定时开植物生长灯",
+        "加 OLED 显示湿度和上次浇水时间",
+        "多个花盆多路继电器"
+      ]
+    },
+    {
+      "id": "pet_feeder",
+      "title": "宠物自动喂食器",
+      "tagline": "每天早 7 点晚 7 点舵机打开舱门放粮 1 秒，按键随时手动加餐。断电重启也不会忘记时间。",
+      "difficulty": 4,
+      "time": "4 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "rtc_ds3231",
+          "name": "DS3231 实时时钟",
+          "qty": 1,
+          "role": "断电也记得时间"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 舵机",
+          "qty": 1,
+          "role": "开关舱门"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "手动喂食"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 2A 电源",
+          "qty": 1,
+          "role": "舵机吃电"
+        },
+        {
+          "id": "electrolytic_1000uf",
+          "name": "1000uF 电解电容",
+          "qty": 1,
+          "role": "舵机启动瞬间稳压"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "rtc_ds3231.SCL",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "rtc_ds3231.SDA",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "rtc_ds3231.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rtc_ds3231.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA0",
+          "to": "sg90.橙线(信号)",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.红线",
+          "note": "舵机用 5V，电容并在 5V/GND 之间"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sg90.棕线",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        }
+      ],
+      "steps": [
+        "接 DS3231，串口打印时间。结果：能看到年月日时分秒在走（第一次要用 adjust 设一次）。",
+        "接舵机，写 0°→90°→0°。结果：舵机臂来回摆。",
+        "按键 → 舵机开 1.2 秒再关。结果：手动喂食。",
+        "每分钟比对时间，到点自动喂。结果：把时间设到下一分钟验证。",
+        "记录\"今天已喂过\"防止一分钟内重复。结果：到点只喂一次。",
+        "做舱门机械结构（瓶子+舵机臂）。结果：真的出粮。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <RTClib.h>\n#include <Servo.h>          // STM32duino 自带\n\nRTC_DS3231 rtc;\nServo gate;\nconst int SERVO_PIN = PA0, BTN = PA1;\nconst int OPEN_ANGLE = 95, CLOSED_ANGLE = 10;\nconst int FEED_HOURS[] = {7, 19};\nint lastFedMinute = -1;\n\nvoid feed(const char* why) {\n  Serial.print(\"出粮: \"); Serial.println(why);\n  gate.write(OPEN_ANGLE);\n  delay(1200);\n  gate.write(CLOSED_ANGLE);\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();\n  if (!rtc.begin()) { Serial.println(\"找不到 DS3231\"); while (1); }\n  if (rtc.lostPower()) rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // 用编译时间设一次\n  gate.attach(SERVO_PIN);\n  gate.write(CLOSED_ANGLE);\n  pinMode(BTN, INPUT_PULLUP);\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n  int minuteOfDay = now.hour() * 60 + now.minute();\n  for (int h : FEED_HOURS) {\n    if (minuteOfDay == h * 60 && lastFedMinute != minuteOfDay) {\n      lastFedMinute = minuteOfDay;\n      feed(\"定时\");\n    }\n  }\n  if (digitalRead(BTN) == LOW) { feed(\"手动\"); delay(500); }\n  delay(200);\n}",
+      "lib_deps": [
+        "adafruit/RTClib"
+      ],
+      "pitfalls": [
+        "舵机一动板子就重启/串口乱码：舵机启动瞬间电流 500mA+，板子 5V 被拉低。舵机单独 5V 供电（共地），5V 和 GND 之间并 1000uF 电容。",
+        "DS3231 时间每次上电都回到 2000 年：没装纽扣电池，或者用了不可充电的 CR2032 装在带充电电路的模块上（会鼓包！）——DS3231 模块要用 LIR2032 或者拆掉充电电阻。",
+        "舵机抖动嗡嗡响：目标角度到了边界（0 或 180）顶住了。用 10-170 之间。",
+        "定时到点喂了 N 次：一分钟内 loop 跑了很多遍。记住\"这分钟已喂\"。"
+      ],
+      "concepts": [
+        "RTC 实时时钟",
+        "I2C",
+        "舵机 PWM 控制",
+        "定时任务",
+        "电源去耦"
+      ],
+      "extensions": [
+        "OLED 显示当前时间和下次喂食时间",
+        "加称重传感器 HX711 知道碗里还有多少",
+        "加 HC-05 手机远程喂食"
+      ]
+    },
+    {
+      "id": "keypad_servo_lock",
+      "title": "密码锁（矩阵键盘+舵机）",
+      "tagline": "按 4 位密码，对了舵机转开门栓、绿灯亮；错三次锁定 30 秒并报警。",
+      "difficulty": 3,
+      "time": "3 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "keypad",
+          "name": "4x4 矩阵键盘",
+          "qty": 1,
+          "role": "输密码"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 舵机",
+          "qty": 1,
+          "role": "门栓"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "无源蜂鸣器",
+          "qty": 1,
+          "role": "按键音/报警"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED 红/绿",
+          "qty": 2,
+          "role": "状态"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB10,PB11,PB12,PB13",
+          "to": "keypad.行 R1-R4",
+          "note": "8 根排针，前 4 是行"
+        },
+        {
+          "from": "bluepill.PB14,PB15,PA8,PB5",
+          "to": "keypad.列 C1-C4",
+          "note": "后 4 是列"
+        },
+        {
+          "from": "bluepill.PA0",
+          "to": "sg90.橙线",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.红线",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sg90.棕线",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_绿.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_绿.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_红.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_红.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接键盘，串口打印按下的键。结果：按 5 打 5（打错说明行列接错，对着调）。",
+        "每按一键蜂鸣器嘀一声。结果：有手感。",
+        "攒 4 位后和密码比对，对了绿灯。结果：串口打 \"开锁\"。",
+        "接舵机：对了转 90° 5 秒后回位。结果：门栓动了。",
+        "错 3 次锁 30 秒，红灯闪+报警。结果：防暴力。",
+        "按 * 清空、# 确认。结果：像真锁。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Keypad.h>\n#include <Servo.h>\n\nconst byte ROWS = 4, COLS = 4;\nchar keys[ROWS][COLS] = {\n  {'1','2','3','A'}, {'4','5','6','B'}, {'7','8','9','C'}, {'*','0','#','D'}\n};\nbyte rowPins[ROWS] = {PB10, PB11, PB12, PB13};\nbyte colPins[COLS] = {PB14, PB15, PA8, PB5};\nKeypad kp(makeKeymap(keys), rowPins, colPins, ROWS, COLS);\n\nServo lock;\nconst int SERVO = PA0, BUZZ = PA1, GREEN = PA2, RED = PA3;\nconst String PASSWORD = \"1234\";\nString input = \"\";\nint wrong = 0;\n\nvoid beep(int f, int ms) { tone(BUZZ, f); delay(ms); noTone(BUZZ); }\n\nvoid setup() {\n  Serial.begin(115200);\n  lock.attach(SERVO); lock.write(0);\n  pinMode(GREEN, OUTPUT); pinMode(RED, OUTPUT); pinMode(BUZZ, OUTPUT);\n}\n\nvoid loop() {\n  char k = kp.getKey();\n  if (!k) return;\n  beep(1500, 40);\n  if (k == '*') { input = \"\"; return; }\n  if (k == '#') {\n    if (input == PASSWORD) {\n      wrong = 0; digitalWrite(GREEN, HIGH); beep(2000, 200);\n      lock.write(90); delay(5000); lock.write(0);\n      digitalWrite(GREEN, LOW);\n    } else {\n      wrong++; digitalWrite(RED, HIGH); beep(300, 500); digitalWrite(RED, LOW);\n      if (wrong >= 3) {\n        for (int i = 0; i < 30; i++) { digitalWrite(RED, i % 2); beep(400, 200); delay(800); }\n        wrong = 0;\n      }\n    }\n    input = \"\";\n  } else if (input.length() < 8) {\n    input += k;\n  }\n}",
+      "lib_deps": [
+        "chris--a/Keypad"
+      ],
+      "pitfalls": [
+        "按 1 出来的是 4 或 A：行列接反或顺序反了。用串口把 8 根线逐一试出来，别猜。",
+        "有的键没反应：矩阵键盘靠扫描，某根杜邦线松了整行/整列都失灵。",
+        "舵机一转屏幕/串口就乱：电源问题，同喂食器。",
+        "密码写在代码里烧进去了怎么改：先用串口命令改，进阶存到 Flash（EEPROM 库）。"
+      ],
+      "concepts": [
+        "矩阵键盘扫描",
+        "字符串比对",
+        "舵机",
+        "tone 发声",
+        "锁定与重试计数"
+      ],
+      "extensions": [
+        "加 OLED 显示 ****",
+        "加 RFID 刷卡开锁",
+        "密码存 EEPROM，串口可改"
+      ]
+    },
+    {
+      "id": "pomodoro_timer_oled",
+      "title": "番茄钟（OLED+按键）",
+      "tagline": "25 分钟工作、5 分钟休息，屏幕上大数字倒计时和进度环，到点蜂鸣器提醒。",
+      "difficulty": 3,
+      "time": "2.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96 寸 OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "显示"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 2,
+          "role": "开始/暂停、切换模式"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "无源蜂鸣器",
+          "qty": 1,
+          "role": "到点提醒"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 时钟"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 数据"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "button2.一脚",
+          "note": "模式键"
+        },
+        {
+          "from": "button2.对角脚",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "OLED 显示 \"25:00\"。结果：屏幕出大字。",
+        "用 millis 做倒计时，每秒刷新。结果：数字在走。",
+        "按键开始/暂停。结果：能停能继续。",
+        "到 0 蜂鸣器响、自动切到 5 分钟休息。结果：完整一轮。",
+        "画进度环/进度条。结果：一眼看出剩多少。",
+        "第二个键切换 25/5/自定义。结果：可用了。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nconst int BTN_START = PB12, BTN_MODE = PB13, BUZZ = PA1;\nconst unsigned long WORK = 25UL * 60, REST = 5UL * 60;\n\nbool running = false, isWork = true;\nlong remain = WORK;          // 剩余秒\nunsigned long lastTick = 0;\nint lastStart = HIGH;\n\nvoid draw() {\n  oled.clearDisplay();\n  oled.setTextSize(1); oled.setCursor(0, 0);\n  oled.print(isWork ? \"WORK\" : \"REST\"); oled.print(running ? \"\" : \"  paused\");\n  oled.setTextSize(3); oled.setCursor(10, 20);\n  char buf[8]; sprintf(buf, \"%02ld:%02ld\", remain / 60, remain % 60);\n  oled.print(buf);\n  long total = isWork ? WORK : REST;\n  oled.drawRect(0, 56, 128, 8, WHITE);\n  oled.fillRect(0, 56, 128 - (128 * remain / total), 8, WHITE);   // 进度条\n  oled.display();\n}\n\nvoid setup() {\n  Wire.begin();\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.setTextColor(WHITE);\n  pinMode(BTN_START, INPUT_PULLUP); pinMode(BTN_MODE, INPUT_PULLUP);\n  draw();\n}\n\nvoid loop() {\n  int s = digitalRead(BTN_START);\n  if (s == LOW && lastStart == HIGH) { running = !running; delay(50); draw(); }\n  lastStart = s;\n  if (digitalRead(BTN_MODE) == LOW) { isWork = !isWork; remain = isWork ? WORK : REST; running = false; delay(300); draw(); }\n\n  if (running && millis() - lastTick >= 1000) {\n    lastTick = millis();\n    if (--remain <= 0) {\n      tone(BUZZ, 1800); delay(800); noTone(BUZZ);\n      isWork = !isWork; remain = isWork ? WORK : REST;\n    }\n    draw();\n  }\n}",
+      "lib_deps": [
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "OLED 一片黑：90% 是 I2C 地址不对（0x3C 还是 0x3D）或 SDA/SCL 接反。先跑一遍 I2C 扫描程序，看到 0x3C 再往下走。",
+        "倒计时走得比手表慢：每次 display() 刷屏要几十毫秒，如果用 delay(1000) 累积误差很大。用 millis 差值而不是 delay。",
+        "按暂停要按好几次：刷屏期间按键没读到。把刷屏频率控制在 1 秒一次，按键每次 loop 都读。",
+        "进度条算出来是 0：整数除法 remain/total 先算成 0 了。先乘再除。"
+      ],
+      "concepts": [
+        "millis 计时器",
+        "OLED 图形绘制",
+        "sprintf 格式化",
+        "多按键状态",
+        "整数运算陷阱"
+      ],
+      "extensions": [
+        "加旋转编码器旋钮调时长",
+        "记录今天完成几个番茄，存到 EEPROM",
+        "加 WS2812 灯环当进度环"
+      ]
+    },
+    {
+      "id": "ds18b20_thermometer",
+      "title": "电子温度计（DS18B20）",
+      "tagline": "防水探头，可以插水杯、鱼缸、泡面里，精确到 0.1 度，串口和 OLED 显示。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "ds18b20",
+          "name": "DS18B20 防水温度探头",
+          "qty": 1,
+          "role": "测温"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "4.7kΩ 电阻",
+          "qty": 1,
+          "role": "单总线上拉，必须有"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96 寸 OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "显示"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "ds18b20.红线(VCC)",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "ds18b20.黑线(GND)",
+          "note": ""
+        },
+        {
+          "from": "ds18b20.黄线(DATA)",
+          "to": "bluepill.PB12",
+          "note": ""
+        },
+        {
+          "from": "电阻 4.7kΩ",
+          "to": "PB12 与 3V3 之间",
+          "note": "上拉电阻，没有它读 -127 或 85"
+        },
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 时钟"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 数据"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接探头+4.7k，串口打印温度。结果：室温 2x.x 度，手握探头上升。",
+        "插进冰水。结果：接近 0 度，验证准确性。",
+        "接 OLED 显示大字温度。结果：脱离电脑。",
+        "记录最高/最低。结果：屏幕显示 max/min。",
+        "超过 60 度蜂鸣器叫（泡面好了）。结果：实用。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <OneWire.h>\n#include <DallasTemperature.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nOneWire oneWire(PB12);\nDallasTemperature sensors(&oneWire);\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nfloat tMax = -100, tMin = 200;\n\nvoid setup() {\n  Serial.begin(115200);\n  sensors.begin();\n  Wire.begin();\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.setTextColor(WHITE);\n}\n\nvoid loop() {\n  sensors.requestTemperatures();            // 发起转换（12 位约 750ms）\n  float t = sensors.getTempCByIndex(0);\n  if (t == DEVICE_DISCONNECTED_C || t == 85.0) {\n    Serial.println(\"读不到探头，检查上拉电阻和接线\");\n  } else {\n    if (t > tMax) tMax = t;\n    if (t < tMin) tMin = t;\n    Serial.print(t, 1); Serial.println(\" C\");\n    oled.clearDisplay();\n    oled.setTextSize(3); oled.setCursor(0, 8); oled.print(t, 1); oled.print(\"C\");\n    oled.setTextSize(1); oled.setCursor(0, 50);\n    oled.print(\"max \"); oled.print(tMax, 1); oled.print(\"  min \"); oled.print(tMin, 1);\n    oled.display();\n  }\n  delay(1000);\n}",
+      "lib_deps": [
+        "paulstoffregen/OneWire",
+        "milesburton/DallasTemperature",
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "读到 -127：探头没找到，几乎都是 4.7k 上拉电阻没接，或者数据线接错。",
+        "读到 85.0：探头刚上电还没完成第一次转换，或者供电不足。等 1 秒再读，红线接稳。",
+        "三根线颜色不对应：有的探头是 红=VCC 黄=DATA 黑=GND，有的黄/白/绿混用。用万用表量哪根和金属壳通的是 GND。",
+        "探头泡热水后读数滞后：金属壳有热惯性，等 10 秒。"
+      ],
+      "concepts": [
+        "单总线 OneWire",
+        "上拉电阻",
+        "数字温度传感器",
+        "最大/最小追踪",
+        "传感器错误码"
+      ],
+      "extensions": [
+        "接 3 个探头同一根线，多点测温",
+        "加继电器做恒温箱",
+        "记录到 SD 卡画一天曲线"
+      ]
+    },
+    {
+      "id": "air_quality_mq2",
+      "title": "空气质量监测（MQ 气体传感器）",
+      "tagline": "检测烟雾、酒精、可燃气体，浓度用 LED 颜色和蜂鸣器提示，做个厨房煤气报警器雏形。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "mq2",
+          "name": "MQ-2 烟雾/可燃气体",
+          "qty": 1,
+          "role": "闻气味"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ + 20kΩ 电阻",
+          "qty": 1,
+          "role": "分压：把 5V 输出降到 3.3V 以内"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED 红/绿",
+          "qty": 2,
+          "role": "好/坏指示"
+        },
+        {
+          "id": "buzzer_active",
+          "name": "有源蜂鸣器",
+          "qty": 1,
+          "role": "报警"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 电源",
+          "qty": 1,
+          "role": "加热丝耗电 150mA"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.5V",
+          "to": "mq2.VCC",
+          "note": "必须 5V，内部加热丝"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "mq2.GND",
+          "note": ""
+        },
+        {
+          "from": "mq2.AO",
+          "to": "电阻 10kΩ 一端",
+          "note": "分压上臂"
+        },
+        {
+          "from": "电阻 10kΩ 另一端",
+          "to": "bluepill.PA0",
+          "note": "同时接 20kΩ 到 GND，AO 最高 5V→3.3V"
+        },
+        {
+          "from": "电阻 20kΩ",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_绿.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_绿.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_红.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_红.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "buzzer_active.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_active.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接好通电，等 3 分钟预热。结果：模块发热是正常的。",
+        "串口打印 AO 数值。结果：稳定在某个基线；喷一下酒精/凑近打火机（不点火）数字暴涨。",
+        "设阈值：基线 × 1.5。结果：绿灯常亮，超标红灯。",
+        "连续超标 3 秒才报警。结果：一阵风不会误报。",
+        "串口输出格式化数据，用 Serial Plotter 看曲线。结果：能看到浓度上升和消散。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int MQ = PA0, GREEN = PA1, RED = PA2, BUZZ = PA3;\nint baseline = 0;\nunsigned long overSince = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(GREEN, OUTPUT); pinMode(RED, OUTPUT); pinMode(BUZZ, OUTPUT);\n  Serial.println(\"预热 60 秒（正式使用建议 3 分钟以上）...\");\n  delay(60000);\n  long sum = 0;\n  for (int i = 0; i < 50; i++) { sum += analogRead(MQ); delay(20); }\n  baseline = sum / 50;                  // 干净空气基线\n  Serial.print(\"基线: \"); Serial.println(baseline);\n}\n\nvoid loop() {\n  int v = analogRead(MQ);\n  Serial.println(v);                    // Serial Plotter 直接画曲线\n  bool bad = v > baseline * 1.5;\n  digitalWrite(GREEN, !bad); digitalWrite(RED, bad);\n\n  if (bad) {\n    if (overSince == 0) overSince = millis();\n    if (millis() - overSince > 3000) digitalWrite(BUZZ, HIGH);   // 持续 3 秒才响\n  } else {\n    overSince = 0; digitalWrite(BUZZ, LOW);\n  }\n  delay(200);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "数值一直在慢慢变、阈值老是错：MQ 系列有加热丝，新模块要\"烧机\" 24-48 小时才稳定，每次上电也要预热几分钟。",
+        "AO 直接接 PA0 板子发烫：MQ-2 用 5V 供电，AO 最高接近 5V，ADC 引脚只能承受 3.3V。必须分压。",
+        "用 3.3V 供电数值很低不灵敏：加热丝要 5V，不然温度不够，检测不到。",
+        "ADC 数字对应多少 ppm？：MQ-2 不是精确仪器，要按数据手册的曲线标定；玩的阶段\"相对基线倍数\"就够用。"
+      ],
+      "concepts": [
+        "ADC",
+        "电阻分压",
+        "传感器预热与基线",
+        "相对阈值",
+        "持续时间判断"
+      ],
+      "extensions": [
+        "加 OLED 显示相对浓度条",
+        "加 ESP-01 超标时推送通知",
+        "换 MQ-135（CO2/空气质量）或 MQ-7（一氧化碳）"
+      ]
+    },
+    {
+      "id": "serial_oscilloscope",
+      "title": "简易示波器（ADC+串口绘图）",
+      "tagline": "把引脚电压实时画成波形，转电位器看曲线上下，量呼吸灯看 PWM 的锯齿。",
+      "difficulty": 2,
+      "time": "1 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "usb_serial",
+          "name": "USB 转 TTL 串口 (CH340)",
+          "qty": 1,
+          "role": "把板子的话传到电脑"
+        },
+        {
+          "id": "potentiometer",
+          "name": "电位器 10kΩ",
+          "qty": 1,
+          "role": "产生一个可变电压当信号源"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ + 1kΩ 电阻",
+          "qty": 1,
+          "role": "探头保护/分压"
+        },
+        {
+          "id": "electrolytic_1000uf",
+          "name": "电容（任意）",
+          "qty": 1,
+          "role": "看 RC 充放电曲线用"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "potentiometer.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "potentiometer.GND",
+          "note": ""
+        },
+        {
+          "from": "potentiometer.OUT",
+          "to": "bluepill.PA0",
+          "note": "被测信号"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "探头输出：analogWrite 产生 PWM 给自己量",
+          "note": "可选，用 1k 电阻接到 PA0 试试"
+        },
+        {
+          "from": "bluepill.PA9",
+          "to": "usb_serial.RXD",
+          "note": "板子说→电脑听"
+        },
+        {
+          "from": "bluepill.PA10",
+          "to": "usb_serial.TXD",
+          "note": "电脑说→板子听"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "usb_serial.GND",
+          "note": "必须共地"
+        }
+      ],
+      "steps": [
+        "接电位器，串口每 10ms 打印 analogRead(PA0)。结果：Serial Plotter（或 VSCode 的串口绘图插件）出现一条线，转旋钮线上下。",
+        "换成打印电压值（v * 3.3 / 1023）。结果：轴变成真实伏特。",
+        "让 PA1 输出 PWM，用 1k 电阻接到 PA0。结果：看到方波/锯齿（取样率不够会像锯齿）。",
+        "PA0 前面加个 RC（10k+电容）。结果：方波变成圆润的充放电曲线，这就是低通滤波。",
+        "把 analogReadResolution 改成 12 位。结果：曲线更细腻（0-4095）。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int PROBE = PA0;\nconst int GEN = PA1;                 // 自带信号源：PWM\nconst unsigned long INTERVAL_US = 2000;   // 采样间隔 2ms = 500Hz\nunsigned long lastUs = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);          // 0-4095\n  pinMode(GEN, OUTPUT);\n  analogWrite(GEN, 64);              // 25% 占空比方波\n}\n\nvoid loop() {\n  unsigned long now = micros();\n  if (now - lastUs < INTERVAL_US) return;\n  lastUs = now;\n  int raw = analogRead(PROBE);\n  float volt = raw * 3.3f / 4095.0f;\n  // Serial Plotter 格式：数值 空格 数值 换行。第二列固定 3.3 当参考线\n  Serial.print(volt, 3); Serial.print(' '); Serial.println(3.3);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "曲线像\"锯齿\"/一坨：采样率太低看不出 PWM 真面貌（PWM 约 1kHz，采样 500Hz 只能看到混叠）。示波器就是看采样率的游戏。",
+        "打印太快画面卡死：串口 115200 每秒最多传约 1000 行，别每微秒打印。",
+        "量到 5V 信号板子坏了：ADC 引脚上限 3.3V。量高电压先分压（10k+20k 量 5V 以内）。",
+        "读数漂：ADC 参考电压就是 3.3V 稳压器输出，USB 供电不稳它就漂。"
+      ],
+      "concepts": [
+        "ADC 分辨率",
+        "采样率与混叠",
+        "micros 定时",
+        "RC 低通滤波",
+        "串口绘图"
+      ],
+      "extensions": [
+        "用 OLED 直接画波形，做便携示波器",
+        "加触发（超过某电压才开始记录）",
+        "记录到 SD 卡后在电脑分析"
+      ]
+    },
+    {
+      "id": "smart_fan_pwm",
+      "title": "智能风扇（温控 PWM）",
+      "tagline": "越热风扇转越快，凉了自动停，还能手动调。像笔记本散热的逻辑。",
+      "difficulty": 3,
+      "time": "2 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "ds18b20",
+          "name": "DS18B20 温度探头",
+          "qty": 1,
+          "role": "测温（也可以用 DHT11）"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "4.7kΩ 电阻",
+          "qty": 1,
+          "role": "DS18B20 上拉"
+        },
+        {
+          "id": "mosfet",
+          "name": "MOS 管驱动模块 (IRF520)",
+          "qty": 1,
+          "role": "用 PWM 控制大电流"
+        },
+        {
+          "id": "dc_motor_l298n",
+          "name": "直流电机（只用套装里的小电机+扇叶）",
+          "qty": 1,
+          "role": "风扇"
+        },
+        {
+          "id": "pump_diode",
+          "name": "1N5819 二极管",
+          "qty": 1,
+          "role": "并在电机两端"
+        },
+        {
+          "id": "potentiometer",
+          "name": "电位器",
+          "qty": 1,
+          "role": "手动模式调速"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 2A 电源",
+          "qty": 1,
+          "role": "电机供电"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB12",
+          "to": "ds18b20.DATA",
+          "note": "4.7k 上拉到 3V3"
+        },
+        {
+          "from": "bluepill.PA8",
+          "to": "mosfet.SIG",
+          "note": "PWM，PA8 是 TIM1 通道"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "mosfet.GND",
+          "note": "共地"
+        },
+        {
+          "from": "电源 5V",
+          "to": "mosfet.VIN",
+          "note": ""
+        },
+        {
+          "from": "mosfet.V+ / V-",
+          "to": "电机两端",
+          "note": "二极管反向并联在电机两端"
+        },
+        {
+          "from": "potentiometer.OUT",
+          "to": "bluepill.PA0",
+          "note": "手动调速"
+        }
+      ],
+      "steps": [
+        "接 MOS 模块和电机，analogWrite(PA8, 255)。结果：电机全速转。",
+        "改 analogWriteFrequency(25000) 后再 128。结果：半速，而且没有滋滋噪音。",
+        "接 DS18B20 打印温度。结果：正常读数。",
+        "温度→转速 map（25 度停，35 度全速）。结果：手握探头风扇加速。",
+        "电位器接管手动模式（拧到底=自动）。结果：两种模式。",
+        "最低启动占空比：低于 30% 电机不转。结果：不会有\"通电但卡住\"。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <OneWire.h>\n#include <DallasTemperature.h>\n\nOneWire ow(PB12);\nDallasTemperature temp(&ow);\nconst int FAN = PA8, POT = PA0;\nconst float T_MIN = 25, T_MAX = 35;\nconst int DUTY_MIN = 80;                 // 低于这个电机不转\n\nvoid setup() {\n  Serial.begin(115200);\n  temp.begin();\n  pinMode(FAN, OUTPUT);\n  analogWriteFrequency(25000);           // 25kHz，人耳听不到\n  analogWrite(FAN, 0);\n}\n\nvoid loop() {\n  temp.requestTemperatures();\n  float t = temp.getTempCByIndex(0);\n  int pot = analogRead(POT);             // 0-1023\n  int duty;\n  if (pot < 30) {                        // 拧到底 = 自动模式\n    duty = map(constrain((int)(t * 10), T_MIN * 10, T_MAX * 10), T_MIN * 10, T_MAX * 10, 0, 255);\n  } else {\n    duty = map(pot, 0, 1023, 0, 255);   // 手动\n  }\n  if (duty > 0 && duty < DUTY_MIN) duty = DUTY_MIN;\n  analogWrite(FAN, duty);\n  Serial.print(t, 1); Serial.print(\" C  duty \"); Serial.println(duty);\n  delay(500);\n}",
+      "lib_deps": [
+        "paulstoffregen/OneWire",
+        "milesburton/DallasTemperature"
+      ],
+      "pitfalls": [
+        "电机只是嗡嗡不转或很慢：IRF520 不是\"逻辑电平\" MOS，3.3V 只能半开。换 IRLZ44N/AO3400 这类逻辑电平 MOS 模块，或者用 L298N。",
+        "风扇半速时有尖锐滋滋声：PWM 默认约 1kHz 在人耳范围内，用 analogWriteFrequency(25000)。",
+        "电机停转瞬间板子重启：电机是电感，断电反冲。二极管反并联，电源加电容。",
+        "温度读数越来越高：探头贴在电机/MOS 旁边被烤了。"
+      ],
+      "concepts": [
+        "MOSFET 开关",
+        "PWM 频率",
+        "温度-转速映射",
+        "最小启动占空比",
+        "电感反冲"
+      ],
+      "extensions": [
+        "加 OLED 显示温度和转速",
+        "换 4 线 PC 风扇读转速（FG 线）",
+        "做成电脑机箱附加风扇控制器"
+      ]
+    },
+    {
+      "id": "bluetooth_rc_car",
+      "title": "蓝牙遥控小车",
+      "tagline": "手机装个蓝牙串口 App，按前后左右，小车就动。第一个\"会跑\"的作品。",
+      "difficulty": 4,
+      "time": "4 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "hc05",
+          "name": "HC-05 蓝牙串口",
+          "qty": 1,
+          "role": "和手机通信"
+        },
+        {
+          "id": "dc_motor_l298n",
+          "name": "直流电机 x2 + L298N 驱动 + 车底盘",
+          "qty": 1,
+          "role": "动力"
+        },
+        {
+          "id": "power_18650",
+          "name": "18650 电池 x2 + 电池盒",
+          "qty": 1,
+          "role": "7.4V 供电"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "电池 7.4V+",
+          "to": "l298n.12V 输入",
+          "note": "板载稳压跳线帽保留，5V 输出可供蓝药丸"
+        },
+        {
+          "from": "电池 GND",
+          "to": "l298n.GND 和 bluepill.GND",
+          "note": "共地"
+        },
+        {
+          "from": "l298n.5V 输出",
+          "to": "bluepill.5V",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12,PB13",
+          "to": "l298n.IN1,IN2",
+          "note": "左轮方向"
+        },
+        {
+          "from": "bluepill.PB14,PB15",
+          "to": "l298n.IN3,IN4",
+          "note": "右轮方向"
+        },
+        {
+          "from": "bluepill.PA8",
+          "to": "l298n.ENA",
+          "note": "PWM 左轮速度（拔掉跳线帽）"
+        },
+        {
+          "from": "bluepill.PB8",
+          "to": "l298n.ENB",
+          "note": "PWM 右轮速度"
+        },
+        {
+          "from": "bluepill.PA2 (USART2 TX)",
+          "to": "hc05.RXD",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3 (USART2 RX)",
+          "to": "hc05.TXD",
+          "note": ""
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "hc05.VCC",
+          "note": "模块自带稳压，3.3V 逻辑"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "hc05.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "先不装轮子，L298N 接电机，写前进 2 秒后退 2 秒。结果：两个电机同向转（反了就换 IN 的顺序）。",
+        "接 HC-05，手机 App 配对（密码 1234），发字符，串口回显。结果：手机发 F 板子收到 F。",
+        "F/B/L/R/S 映射成前后左右停。结果：手机控制车轮。",
+        "数字 0-9 控制速度。结果：能慢能快。",
+        "超过 500ms 没收到命令就停。结果：蓝牙断了车不会跑丢。",
+        "装好轮子，跑起来。结果：满屋跑。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nHardwareSerial BT(PA3, PA2);   // RX, TX -> USART2 接 HC-05\nconst int IN1 = PB12, IN2 = PB13, IN3 = PB14, IN4 = PB15;\nconst int ENA = PA8, ENB = PB8;\nint speedPwm = 180;\nunsigned long lastCmd = 0;\n\nvoid drive(int l, int r) {   // -1 后退 0 停 1 前进\n  digitalWrite(IN1, l > 0); digitalWrite(IN2, l < 0);\n  digitalWrite(IN3, r > 0); digitalWrite(IN4, r < 0);\n  analogWrite(ENA, l ? speedPwm : 0);\n  analogWrite(ENB, r ? speedPwm : 0);\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  BT.begin(9600);              // HC-05 出厂默认 9600\n  for (int p : {IN1, IN2, IN3, IN4, ENA, ENB}) pinMode(p, OUTPUT);\n  drive(0, 0);\n}\n\nvoid loop() {\n  if (BT.available()) {\n    char c = BT.read();\n    lastCmd = millis();\n    Serial.print(\"收到: \"); Serial.println(c);\n    switch (c) {\n      case 'F': drive(1, 1); break;\n      case 'B': drive(-1, -1); break;\n      case 'L': drive(-1, 1); break;\n      case 'R': drive(1, -1); break;\n      case 'S': drive(0, 0); break;\n      default:\n        if (c >= '0' && c <= '9') speedPwm = map(c - '0', 0, 9, 90, 255);\n    }\n  }\n  if (millis() - lastCmd > 500) drive(0, 0);   // 失联保护\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "手机搜不到 HC-05：模块灯要快闪才是可配对，慢闪是已连接；HC-05 是经典蓝牙，iPhone 不支持，要用安卓。",
+        "HC-05 收到全是乱码：波特率不是 9600（有人进过 AT 模式改成 38400），或者 TX/RX 接反。",
+        "电机一转蓝药丸就重启：电机噪声太大。电池够电、L298N 的 5V 输出给板子、大电容、别用一节 18650 带两个电机。",
+        "L298N 发热厉害、电机没劲：它内部压降 2V 以上，7.4V 进去电机只剩 5V。正常，要劲换 TB6612。"
+      ],
+      "concepts": [
+        "H 桥电机驱动",
+        "第二个串口 HardwareSerial",
+        "蓝牙串口透传",
+        "心跳/失联保护",
+        "电源与噪声"
+      ],
+      "extensions": [
+        "前面加超声波自动避障",
+        "手机 App 摇杆做成比例控制",
+        "加 WS2812 车灯"
+      ]
+    },
+    {
+      "id": "line_following_car",
+      "title": "循迹小车",
+      "tagline": "在白纸上贴黑胶带画条路，小车自己沿着线跑，不用遥控。",
+      "difficulty": 4,
+      "time": "4 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "",
+          "name": "TCRT5000 红外循迹模块",
+          "qty": 2,
+          "role": "看地上的黑线（左右各一个）"
+        },
+        {
+          "id": "dc_motor_l298n",
+          "name": "直流电机 x2 + L298N + 底盘",
+          "qty": 1,
+          "role": "动力"
+        },
+        {
+          "id": "power_18650",
+          "name": "18650 电池 x2",
+          "qty": 1,
+          "role": "供电"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "",
+          "name": "黑色电工胶带",
+          "qty": 1,
+          "role": "画赛道"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB12,PB13,PB14,PB15",
+          "to": "l298n.IN1-IN4",
+          "note": "同蓝牙小车"
+        },
+        {
+          "from": "bluepill.PA8, PB8",
+          "to": "l298n.ENA, ENB",
+          "note": "PWM 调速"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "tcrt_左.VCC 和 tcrt_右.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "tcrt.GND",
+          "note": ""
+        },
+        {
+          "from": "tcrt_左.DO",
+          "to": "bluepill.PB10",
+          "note": "黑线=输出高（多数模块）"
+        },
+        {
+          "from": "tcrt_右.DO",
+          "to": "bluepill.PB11",
+          "note": ""
+        },
+        {
+          "from": "l298n.5V 输出",
+          "to": "bluepill.5V",
+          "note": "共地"
+        }
+      ],
+      "steps": [
+        "接两个循迹模块，串口打印两个 DO。结果：放到黑胶带上 1，白纸上 0（反了就当反的用）。",
+        "调模块电位器，让探头离地 1cm 时区分明确。结果：稳定。",
+        "简单逻辑：两白直行、左黑左转、右黑右转。结果：能沿直线和缓弯。",
+        "两黑=终点线，停车。结果：跑到头会停。",
+        "转弯时内轮减速而不是停。结果：跑得顺滑。",
+        "丢线（两白超 1 秒）按上次方向找线。结果：不会跑丢。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int IN1 = PB12, IN2 = PB13, IN3 = PB14, IN4 = PB15, ENA = PA8, ENB = PB8;\nconst int SENS_L = PB10, SENS_R = PB11;\nconst int FAST = 170, SLOW = 90;\nint lastDir = 0;           // -1 左 1 右\nunsigned long lostSince = 0;\n\nvoid motors(int lSpeed, int rSpeed) {      // 正前进 负后退\n  digitalWrite(IN1, lSpeed > 0); digitalWrite(IN2, lSpeed < 0);\n  digitalWrite(IN3, rSpeed > 0); digitalWrite(IN4, rSpeed < 0);\n  analogWrite(ENA, abs(lSpeed)); analogWrite(ENB, abs(rSpeed));\n}\n\nvoid setup() {\n  for (int p : {IN1, IN2, IN3, IN4, ENA, ENB}) pinMode(p, OUTPUT);\n  pinMode(SENS_L, INPUT); pinMode(SENS_R, INPUT);\n}\n\nvoid loop() {\n  bool L = digitalRead(SENS_L);   // 1 = 看到黑线\n  bool R = digitalRead(SENS_R);\n  if (L && R) { motors(0, 0); return; }          // 终点：两边都黑\n  if (!L && !R) {                                 // 线在两探头之间：直走\n    if (lostSince == 0) lostSince = millis();\n    if (millis() - lostSince > 1000) {            // 丢线太久：按上次方向找\n      if (lastDir < 0) motors(SLOW, FAST); else motors(FAST, SLOW);\n    } else motors(FAST, FAST);\n  } else {\n    lostSince = 0;\n    if (L) { motors(SLOW, FAST); lastDir = -1; }  // 左边压线：左转\n    else   { motors(FAST, SLOW); lastDir = 1; }   // 右边压线：右转\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "传感器在黑白上都读一样：探头离地太高（>2cm）或电位器没调。理想高度 0.5-1.5cm，边看模块指示灯边拧。",
+        "车一直左右画龙：速度太快、两个探头间距比线宽窄太多。降速、把探头间距调到比胶带略宽。",
+        "强光下失灵：阳光里的红外把传感器\"糊住\"。室内或加遮光罩。",
+        "一装电池就跑偏：两个电机本来就不一样快。左右 PWM 分别校准。"
+      ],
+      "concepts": [
+        "红外反射传感",
+        "差速转向",
+        "简单控制律",
+        "丢线恢复",
+        "传感器标定"
+      ],
+      "extensions": [
+        "用 5 路循迹模块 + PID 控制，跑得又快又稳",
+        "加超声波，遇到障碍停车",
+        "路口计数，跑到第 N 个路口拐弯"
+      ]
+    },
+    {
+      "id": "ir_remote_switch",
+      "title": "红外遥控开关",
+      "tagline": "用家里电视遥控器（或套件遥控器）开关台灯、风扇，每个键做一件事。",
+      "difficulty": 3,
+      "time": "2 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "ir_receiver",
+          "name": "红外接收头 + 遥控器",
+          "qty": 1,
+          "role": "收遥控信号"
+        },
+        {
+          "id": "relay",
+          "name": "1 路继电器模块",
+          "qty": 1,
+          "role": "开关负载"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 2,
+          "role": "模拟两路灯"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 2,
+          "role": "限流"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "ir_receiver.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "ir_receiver.GND",
+          "note": ""
+        },
+        {
+          "from": "ir_receiver.OUT",
+          "to": "bluepill.PB12",
+          "note": "任意 GPIO 都支持中断"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "relay.IN",
+          "note": ""
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "relay.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "relay.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_1.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_1.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_2.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_2.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接接收头，烧库自带的接收例程，按遥控器。结果：串口打印每个键的编码（记下来）。",
+        "把编码填进代码，按 1 开 LED1。结果：遥控亮灯。",
+        "按 2 开 LED2，按 0 全关。结果：多键映射。",
+        "按住不放会重复触发 → 处理\"重复码\"。结果：按一下只切换一次。",
+        "接继电器控制 5V 小台灯。结果：遥控开台灯。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <IRremote.hpp>       // IRremote 4.x\n\nconst int IR_PIN = PB12, RELAY = PB13, LED1 = PA1, LED2 = PA2;\n// 先跑一遍打印出你遥控器的键值，替换下面几个\nconst uint16_t KEY_1 = 0x0C, KEY_2 = 0x18, KEY_0 = 0x16;\nbool s1 = false, s2 = false;\n\nvoid setup() {\n  Serial.begin(115200);\n  IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);\n  pinMode(RELAY, OUTPUT); pinMode(LED1, OUTPUT); pinMode(LED2, OUTPUT);\n  digitalWrite(RELAY, HIGH);   // 低电平触发模块：HIGH = 断开\n}\n\nvoid loop() {\n  if (!IrReceiver.decode()) return;\n  auto &d = IrReceiver.decodedIRData;\n  if (!(d.flags & IRDATA_FLAGS_IS_REPEAT)) {      // 忽略按住不放的重复码\n    Serial.print(\"协议 \"); Serial.print(getProtocolString(d.protocol));\n    Serial.print(\" 命令 0x\"); Serial.println(d.command, HEX);\n    if (d.command == KEY_1) { s1 = !s1; digitalWrite(LED1, s1); digitalWrite(RELAY, s1 ? LOW : HIGH); }\n    if (d.command == KEY_2) { s2 = !s2; digitalWrite(LED2, s2); }\n    if (d.command == KEY_0) { s1 = s2 = false; digitalWrite(LED1, 0); digitalWrite(LED2, 0); digitalWrite(RELAY, HIGH); }\n  }\n  IrReceiver.resume();          // 准备收下一个\n}",
+      "lib_deps": [
+        "z3t0/IRremote"
+      ],
+      "pitfalls": [
+        "收不到任何东西：接收头三只脚顺序各家不一样（常见 OUT-GND-VCC），接反会发热。看模块丝印或手册。",
+        "同一个键每次编码不同 / 出现 0xFFFFFFFF：那是\"重复码\"，表示按住没松。用 flags 判断忽略。",
+        "日光灯/阳光下误触发：38kHz 载波会被干扰。远离强光源。",
+        "编译报错找不到 IRremote.h：4.x 版本头文件改成 IRremote.hpp，老教程是 .h。"
+      ],
+      "concepts": [
+        "红外 NEC 协议",
+        "38kHz 载波",
+        "库与例程",
+        "重复码处理",
+        "键值映射表"
+      ],
+      "extensions": [
+        "加红外发射管，做万能遥控器控制真电视",
+        "和光敏结合：遥控设置自动模式",
+        "用 OLED 显示当前哪路开着"
+      ]
+    },
+    {
+      "id": "pedometer_mpu6050",
+      "title": "计步器（MPU6050）",
+      "tagline": "绑在腿上或拿在手里走路，OLED 显示步数。学会读加速度并从\"抖动\"里识别\"一步\"。",
+      "difficulty": 3,
+      "time": "3 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "mpu6050",
+          "name": "MPU6050 六轴陀螺仪",
+          "qty": 1,
+          "role": "测加速度"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96 寸 OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "显示"
+        },
+        {
+          "id": "power_18650",
+          "name": "18650 电池模块",
+          "qty": 1,
+          "role": "可移动供电"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "清零"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "mpu6050.SCL 和 oled.SCL",
+          "note": "两个模块挂同一条 I2C（地址 0x68 / 0x3C 不冲突）"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "mpu6050.SDA 和 oled.SDA",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "mpu6050.VCC, oled.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "mpu6050.GND, oled.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        }
+      ],
+      "steps": [
+        "I2C 扫描。结果：看到 0x68 和 0x3C 两个地址。",
+        "串口打印 ax ay az。结果：平放 az≈9.8，翻转变负。",
+        "算合加速度 |a|，用 Serial Plotter 看走路时的波形。结果：每一步一个明显的峰。",
+        "峰值检测：超过阈值且距上次 >300ms 算一步。结果：走 20 步数出 18-22。",
+        "OLED 大字显示步数，按键清零。结果：可用。",
+        "电池供电揣兜里走一圈。结果：真实计步。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <Adafruit_MPU6050.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nAdafruit_MPU6050 mpu;\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nconst int BTN = PB12;\nconst float THRESHOLD = 12.5;        // m/s^2，静止约 9.8，走路峰值 12-15\nunsigned long lastStep = 0, lastDraw = 0;\nint steps = 0;\nbool above = false;\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();\n  if (!mpu.begin()) { Serial.println(\"找不到 MPU6050\"); while (1); }\n  mpu.setAccelerometerRange(MPU6050_RANGE_4_G);\n  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);   // 滤掉高频抖动\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.setTextColor(WHITE);\n  pinMode(BTN, INPUT_PULLUP);\n}\n\nvoid loop() {\n  sensors_event_t a, g, t;\n  mpu.getEvent(&a, &g, &t);\n  float mag = sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z);\n  Serial.println(mag);               // Plotter 看波形调阈值\n\n  // 上穿阈值算一步，两步至少间隔 300ms\n  if (mag > THRESHOLD && !above && millis() - lastStep > 300) { steps++; lastStep = millis(); }\n  above = mag > THRESHOLD;\n\n  if (digitalRead(BTN) == LOW) steps = 0;\n  if (millis() - lastDraw > 200) {\n    lastDraw = millis();\n    oled.clearDisplay(); oled.setTextSize(4); oled.setCursor(0, 16); oled.print(steps); oled.display();\n  }\n  delay(20);                         // 约 50Hz 采样\n}",
+      "lib_deps": [
+        "adafruit/Adafruit MPU6050",
+        "adafruit/Adafruit Unified Sensor",
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "找不到 MPU6050：模块 AD0 脚接了高电平地址变 0x69；或者 3.3V 供电不足。用 I2C 扫描确认地址。",
+        "静止时也一直计步：阈值太低，或者没用合加速度只看一个轴。阈值要比静止的 9.8 高出 2-3。",
+        "甩手一下算好几步：加最小间隔（300ms），人一秒最多走 3 步。",
+        "I2C 挂两个设备 OLED 花屏：杜邦线太长、上拉太弱。线短一点，或者 Wire.setClock(100000)。"
+      ],
+      "concepts": [
+        "I2C 多设备",
+        "加速度计",
+        "向量模长",
+        "峰值检测",
+        "低通滤波"
+      ],
+      "extensions": [
+        "加卡路里/距离估算",
+        "每天步数存 EEPROM，DS3231 零点清零",
+        "用陀螺仪做\"翻转手腕亮屏\""
+      ]
+    },
+    {
+      "id": "water_leak_alarm",
+      "title": "水位/漏水报警器",
+      "tagline": "放在洗衣机旁、鱼缸边，水一漫过传感器就响铃；也能显示水杯/水箱水位高低。",
+      "difficulty": 2,
+      "time": "1 小时",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "rain",
+          "name": "雨滴/水位传感器",
+          "qty": 1,
+          "role": "感应水"
+        },
+        {
+          "id": "buzzer_active",
+          "name": "有源蜂鸣器",
+          "qty": 1,
+          "role": "报警"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED 红/黄/绿",
+          "qty": 3,
+          "role": "水位三档指示"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 3,
+          "role": "限流"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB13",
+          "to": "rain.VCC",
+          "note": "用 GPIO 供电，测的时候才通电，防腐蚀"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rain.GND",
+          "note": ""
+        },
+        {
+          "from": "rain.AO",
+          "to": "bluepill.PA0",
+          "note": "ADC，3.3V 供电时输出不超过 3.3V"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_active.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_active.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_绿.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_绿.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_黄.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_黄.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA4",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_红.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_红.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接好，串口打印 AO。结果：干的时候接近 0（或 1023，取决于模块），沾水变化。",
+        "把传感器插进杯子，慢慢加水。结果：数值随水位近似线性变化，记下三个档位。",
+        "三颗 LED 显示低/中/高。结果：加水灯一颗颗亮。",
+        "高水位（或任何水）触发蜂鸣器。结果：漏水报警。",
+        "改成 GPIO 间歇供电（每 2 秒通电 50ms 测一次）。结果：传感器电极不再几天就发黑。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int SENSOR = PA0, SENSOR_PWR = PB13;\nconst int BUZZ = PA1, G = PA2, Y = PA3, R = PA4;\nconst int LVL_LOW = 200, LVL_MID = 450, LVL_HIGH = 700;   // 按实测改\n\nint readWater() {\n  digitalWrite(SENSOR_PWR, HIGH);   // 只在测量时供电，减少电极腐蚀\n  delay(30);\n  int v = analogRead(SENSOR);\n  digitalWrite(SENSOR_PWR, LOW);\n  return v;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  for (int p : {SENSOR_PWR, BUZZ, G, Y, R}) pinMode(p, OUTPUT);\n}\n\nvoid loop() {\n  int w = readWater();\n  Serial.println(w);\n  digitalWrite(G, w > LVL_LOW);\n  digitalWrite(Y, w > LVL_MID);\n  digitalWrite(R, w > LVL_HIGH);\n  digitalWrite(BUZZ, w > LVL_HIGH);   // 漏水/满水报警\n  delay(2000);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "传感器几天后读数越来越低、电极发黑：一直通电泡在水里会电解腐蚀。用 GPIO 间歇供电，只在测的那 30ms 通电。",
+        "干的时候数值不是 0 而是乱跳：电极悬空有噪声。程序里低于 50 就当 0。",
+        "5V 供电时 AO 超过 3.3V：ADC 引脚上限 3.3V，传感器用 3V3 或 GPIO 供电就安全。",
+        "自来水和纯净水读数差很多：传感器测的是导电性，不是真\"水位\"。同一种水下标定。"
+      ],
+      "concepts": [
+        "ADC",
+        "导电式传感原理",
+        "GPIO 当电源",
+        "电解腐蚀",
+        "多档阈值"
+      ],
+      "extensions": [
+        "加 HC-05 漏水推送到手机",
+        "接继电器自动关水泵/开排水泵",
+        "换非接触式 XKC-Y25 水位传感器贴在水箱外壁"
+      ]
+    },
+    {
+      "id": "servo_curtain",
+      "title": "自动窗帘（舵机窗）",
+      "tagline": "天亮自动拉开、天黑自动拉上，按键手动切换。做个小模型窗，再升级到真窗帘。",
+      "difficulty": 3,
+      "time": "2.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 舵机",
+          "qty": 1,
+          "role": "拉窗帘（模型）"
+        },
+        {
+          "id": "ldr",
+          "name": "光敏电阻",
+          "qty": 1,
+          "role": "判断白天黑夜"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ 电阻",
+          "qty": 1,
+          "role": "光敏分压"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "手动开/关"
+        },
+        {
+          "id": "electrolytic_1000uf",
+          "name": "1000uF 电容",
+          "qty": 1,
+          "role": "舵机稳压"
+        },
+        {
+          "id": "mg996r",
+          "name": "MG996R 金属齿舵机",
+          "qty": 1,
+          "role": "进阶：拉真窗帘用（力气大）"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA0",
+          "to": "sg90.橙线",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.红线",
+          "note": "并 1000uF 电容"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sg90.棕线",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "ldr.一端",
+          "note": ""
+        },
+        {
+          "from": "ldr.另一端",
+          "to": "bluepill.PA1",
+          "note": "同时接 10k 到 GND"
+        },
+        {
+          "from": "电阻 10kΩ",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        }
+      ],
+      "steps": [
+        "舵机 0°↔180° 来回。结果：舵机臂摆动，确定\"开\"和\"关\"各是几度。",
+        "按键切换开关。结果：手动窗帘。",
+        "光敏打印数值，找白天/夜晚阈值。结果：心里有数。",
+        "亮→开、暗→关，加滞回和 1 分钟确认（一片云飘过不算天黑）。结果：不会抽搐。",
+        "舵机慢慢转（每 15ms 转 1°）。结果：拉窗帘像人拉的，不是\"啪\"一下。",
+        "手动之后 30 分钟不自动。结果：人说了算。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Servo.h>\n\nServo curtain;\nconst int SERVO = PA0, LDR = PA1, BTN = PB12;\nconst int OPEN_DEG = 170, CLOSE_DEG = 10;\nconst int BRIGHT = 600, DARK = 300;          // 滞回两个阈值\nint current = CLOSE_DEG;\nbool isOpen = false;\nunsigned long darkSince = 0, brightSince = 0, manualUntil = 0;\nint lastBtn = HIGH;\n\nvoid moveTo(int target) {                      // 慢慢转，像人拉\n  while (current != target) {\n    current += (target > current) ? 1 : -1;\n    curtain.write(current);\n    delay(15);\n  }\n}\n\nvoid setup() {\n  curtain.attach(SERVO);\n  curtain.write(current);\n  pinMode(BTN, INPUT_PULLUP);\n}\n\nvoid loop() {\n  int b = digitalRead(BTN);\n  if (b == LOW && lastBtn == HIGH) {\n    isOpen = !isOpen; moveTo(isOpen ? OPEN_DEG : CLOSE_DEG);\n    manualUntil = millis() + 30UL * 60 * 1000;   // 手动后 30 分钟不自动\n    delay(50);\n  }\n  lastBtn = b;\n  if (millis() < manualUntil) return;\n\n  int light = analogRead(LDR);\n  // 亮/暗都要持续 60 秒才算真的变天\n  if (light > BRIGHT) { if (!brightSince) brightSince = millis(); darkSince = 0; }\n  else if (light < DARK) { if (!darkSince) darkSince = millis(); brightSince = 0; }\n  else { brightSince = darkSince = 0; }\n\n  if (!isOpen && brightSince && millis() - brightSince > 60000) { isOpen = true; moveTo(OPEN_DEG); }\n  if (isOpen && darkSince && millis() - darkSince > 60000) { isOpen = false; moveTo(CLOSE_DEG); }\n  delay(200);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "晚上开灯窗帘就打开了：光敏被室内灯照到。把它朝窗外贴，或者加\"持续 60 秒\"确认。",
+        "舵机到不了位、一直嗡嗡：卡住或超出行程。SG90 别写 0/180，用 10-170。",
+        "SG90 拉不动真窗帘：它只有 1.8kg·cm 扭力。真窗帘换 MG996R 或步进电机 + 独立 5V 2A 电源。",
+        "舵机转完还在轻微抽动：供电噪声。1000uF 电容并在 5V/GND，或者到位后 detach()。"
+      ],
+      "concepts": [
+        "舵机角度控制",
+        "光敏分压",
+        "滞回",
+        "持续时间确认",
+        "手动优先"
+      ],
+      "extensions": [
+        "换 28BYJ-48 步进电机拉真窗帘导轨",
+        "加 DS3231 定时：工作日 7 点开",
+        "加 HC-05 手机控制"
+      ]
+    },
+    {
+      "id": "buzzer_piano",
+      "title": "电子琴（无源蜂鸣器）",
+      "tagline": "8 个按键就是 8 个琴键，按下发出 do re mi；不按键时自动弹《小星星》。",
+      "difficulty": 2,
+      "time": "1.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "无源蜂鸣器",
+          "qty": 1,
+          "role": "发声（必须无源）"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 8,
+          "role": "琴键"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": "tone() 输出"
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB10,PB11,PB12,PB13,PB14,PB15,PA8,PB5",
+          "to": "8 个按键各一脚",
+          "note": "INPUT_PULLUP，对应 C D E F G A B C5"
+        },
+        {
+          "from": "8 个按键另一脚",
+          "to": "bluepill.GND",
+          "note": "可以一排共地"
+        }
+      ],
+      "steps": [
+        "先烧 tone(PA1, 440) 响 1 秒。结果：听到标准 A 音。",
+        "接一个按键，按下响 262Hz（C）。结果：一个琴键。",
+        "8 个键 8 个频率。结果：能弹音阶。",
+        "写一段旋律数组（音符+时长），上电自动播放。结果：《小星星》。",
+        "加音量（其实是占空比）——用 analogWrite 代替 tone 试试。结果：发现无源蜂鸣器音量确实变了一点。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int BUZZ = PA1;\nconst int KEYS[8] = {PB10, PB11, PB12, PB13, PB14, PB15, PA8, PB5};\nconst int FREQ[8] = {262, 294, 330, 349, 392, 440, 494, 523};   // C4 ~ C5\n\n// 小星星：音符索引（0-7），-1 休止；每个音 400ms\nconst int SONG[] = {0,0,4,4,5,5,4,-1, 3,3,2,2,1,1,0,-1};\nconst int SONG_LEN = sizeof(SONG) / sizeof(SONG[0]);\n\nvoid setup() {\n  pinMode(BUZZ, OUTPUT);\n  for (int k : KEYS) pinMode(k, INPUT_PULLUP);\n  for (int i = 0; i < SONG_LEN; i++) {          // 开机弹一遍\n    if (SONG[i] >= 0) tone(BUZZ, FREQ[SONG[i]]);\n    delay(350); noTone(BUZZ); delay(50);          // 音之间留一点空隙才听得出节奏\n  }\n}\n\nvoid loop() {\n  bool any = false;\n  for (int i = 0; i < 8; i++) {\n    if (digitalRead(KEYS[i]) == LOW) { tone(BUZZ, FREQ[i]); any = true; break; }\n  }\n  if (!any) noTone(BUZZ);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "只会\"嘀\"一个音高不变：买成有源蜂鸣器了。有源内部有振荡器只会一个音，无源才能 tone() 变调。分辨：有源背面有黑胶封住，无源能看到绿色电路板。",
+        "声音很小：无源蜂鸣器直接接 GPIO 电流只有几毫安。加一个 NPN 三极管（S8050）驱动会响很多。",
+        "两个键一起按只响一个：一个蜂鸣器一次只能发一个频率，这是物理限制，代码里 break 了。",
+        "音乐节奏黏在一起：音符之间没有停顿。每个音后 noTone 几十毫秒。"
+      ],
+      "concepts": [
+        "tone 方波发声",
+        "音高与频率",
+        "数组查表",
+        "有源/无源蜂鸣器",
+        "节拍"
+      ],
+      "extensions": [
+        "加电位器改变八度",
+        "加 OLED 显示当前音名",
+        "把 MIDI 简谱转成数组，播放任何歌"
+      ]
+    },
+    {
+      "id": "digital_clock_ds3231_tm1637",
+      "title": "数字时钟（DS3231+数码管）",
+      "tagline": "四位红色数码管显示时:分，中间冒号每秒闪一下，断电也不丢时间，还能设闹钟。",
+      "difficulty": 3,
+      "time": "2.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "rtc_ds3231",
+          "name": "DS3231 实时时钟",
+          "qty": 1,
+          "role": "走时"
+        },
+        {
+          "id": "",
+          "name": "TM1637 四位数码管模块",
+          "qty": 1,
+          "role": "显示 88:88"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 2,
+          "role": "调时/闹钟"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "无源蜂鸣器",
+          "qty": 1,
+          "role": "闹钟"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "rtc_ds3231.SCL",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "rtc_ds3231.SDA",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "rtc_ds3231.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rtc_ds3231.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "tm1637.CLK",
+          "note": "不是 I2C，普通 GPIO"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "tm1637.DIO",
+          "note": ""
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "tm1637.VCC",
+          "note": "3.3V 也行但暗"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "tm1637.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB14",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        },
+        {
+          "from": "bluepill.PB15",
+          "to": "button2.一脚",
+          "note": ""
+        },
+        {
+          "from": "button2.对角脚",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "数码管显示 1234。结果：亮了，确定 CLK/DIO 没接反。",
+        "DS3231 串口打印时间，用编译时间校准一次。结果：时间在走。",
+        "数码管显示 HH:MM，冒号每秒闪。结果：一个时钟。",
+        "按键 1 长按进入调时，按键 2 加分钟。结果：能调。",
+        "设闹钟时间，到点蜂鸣器响、任意键停。结果：能叫你起床。",
+        "晚上自动调暗亮度。结果：不刺眼。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <RTClib.h>\n#include <TM1637Display.h>\n\nRTC_DS3231 rtc;\nTM1637Display disp(PB12, PB13);   // CLK, DIO\nconst int BTN_SET = PB14, BTN_ADD = PB15, BUZZ = PA1;\nint alarmH = 7, alarmM = 0;\nbool alarmOn = true;\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();\n  rtc.begin();\n  if (rtc.lostPower()) rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  disp.setBrightness(4);          // 0-7\n  pinMode(BTN_SET, INPUT_PULLUP); pinMode(BTN_ADD, INPUT_PULLUP);\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n  bool colon = now.second() % 2 == 0;\n  disp.showNumberDecEx(now.hour() * 100 + now.minute(), colon ? 0b01000000 : 0, true);\n\n  disp.setBrightness(now.hour() >= 22 || now.hour() < 7 ? 1 : 5);   // 夜间调暗\n\n  if (digitalRead(BTN_ADD) == LOW) {        // 加一分钟（简易调时）\n    rtc.adjust(now + TimeSpan(60));\n    delay(200);\n  }\n  if (alarmOn && now.hour() == alarmH && now.minute() == alarmM && now.second() < 30) {\n    tone(BUZZ, 2000); delay(200); noTone(BUZZ); delay(200);\n    if (digitalRead(BTN_SET) == LOW) alarmOn = false;   // 任意键关闹钟\n  }\n  delay(100);\n}",
+      "lib_deps": [
+        "adafruit/RTClib",
+        "avishorp/TM1637"
+      ],
+      "pitfalls": [
+        "数码管不亮或乱码：TM1637 不是 I2C 设备，别接到 PB6/PB7 上和 DS3231 抢线；CLK/DIO 接反也是常见原因。",
+        "时间比手机慢/快：DS3231 本身很准（年误差 1 分钟内），慢的是编译时间设置——从编译到烧完的十几秒都算进去了。调时后不用再 adjust。",
+        "每次重新烧录时间都被重置：代码里无条件 rtc.adjust()。只在 lostPower() 时设。",
+        "换了纽扣电池时间还丢：模块上的充电电路 + 不可充电 CR2032，电池被\"充\"坏了。"
+      ],
+      "concepts": [
+        "RTC 走时",
+        "TM1637 数码管驱动",
+        "时间比对",
+        "亮度按时段",
+        "按键调参"
+      ],
+      "extensions": [
+        "加 DHT11 交替显示时间和温度",
+        "加光敏自动调亮度",
+        "换成 OLED 显示日期星期"
+      ]
+    },
+    {
+      "id": "rfid_door_access",
+      "title": "RFID 门禁",
+      "tagline": "刷卡开门：白名单里的卡舵机开锁绿灯，陌生卡红灯报警，串口打印每次刷卡记录。",
+      "difficulty": 4,
+      "time": "3.5 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "",
+          "name": "RC522 RFID 模块 + 白卡 + 钥匙扣",
+          "qty": 1,
+          "role": "读卡（3.3V 供电！）"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 舵机",
+          "qty": 1,
+          "role": "门锁"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "无源蜂鸣器",
+          "qty": 1,
+          "role": "提示音"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED 红/绿",
+          "qty": 2,
+          "role": "状态"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω 电阻",
+          "qty": 2,
+          "role": "限流"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "rc522.3.3V",
+          "note": "一定是 3.3V，接 5V 立刻烧"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rc522.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA5",
+          "to": "rc522.SCK",
+          "note": "SPI1"
+        },
+        {
+          "from": "bluepill.PA6",
+          "to": "rc522.MISO",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA7",
+          "to": "rc522.MOSI",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA4",
+          "to": "rc522.SDA(SS)",
+          "note": "片选"
+        },
+        {
+          "from": "bluepill.PB0",
+          "to": "rc522.RST",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA8",
+          "to": "sg90.橙线",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.红线",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_绿.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_绿.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "电阻 220Ω",
+          "note": "限流，别省"
+        },
+        {
+          "from": "电阻 220Ω 另一端",
+          "to": "led_红.长脚(+)",
+          "note": ""
+        },
+        {
+          "from": "led_红.短脚(-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "接 RC522，跑读 UID 例程。结果：刷卡串口打印 4 字节 UID（如 A3 5F 12 9C）。",
+        "把自己卡的 UID 写进白名单。结果：刷自己的卡打印\"欢迎\"。",
+        "接舵机：合法卡转 90° 3 秒回位。结果：开锁动作。",
+        "绿灯+短促两声 / 红灯+低沉长声。结果：不看串口也知道结果。",
+        "陌生卡连刷 3 次触发 10 秒报警。结果：防试探。",
+        "串口打印带时间戳记录（加 DS3231）。结果：门禁日志。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <SPI.h>\n#include <MFRC522.h>\n#include <Servo.h>\n\nMFRC522 rfid(PA4, PB0);            // SS, RST；SPI1 默认 PA5/PA6/PA7\nServo lock;\nconst int SERVO = PA8, BUZZ = PA1, GREEN = PA2, RED = PA3;\n// 先跑一遍打印 UID，把你的卡填进来\nconst byte ALLOWED[][4] = { {0xA3, 0x5F, 0x12, 0x9C}, {0x10, 0x22, 0x33, 0x44} };\nint badCount = 0;\n\nbool isAllowed(byte* uid) {\n  for (auto &card : ALLOWED) if (memcmp(card, uid, 4) == 0) return true;\n  return false;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  SPI.begin();\n  rfid.PCD_Init();\n  lock.attach(SERVO); lock.write(0);\n  pinMode(BUZZ, OUTPUT); pinMode(GREEN, OUTPUT); pinMode(RED, OUTPUT);\n  Serial.println(\"请刷卡\");\n}\n\nvoid loop() {\n  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) return;\n  Serial.print(\"UID: \");\n  for (byte i = 0; i < rfid.uid.size; i++) { Serial.print(rfid.uid.uidByte[i], HEX); Serial.print(' '); }\n  Serial.println();\n\n  if (isAllowed(rfid.uid.uidByte)) {\n    badCount = 0;\n    digitalWrite(GREEN, HIGH); tone(BUZZ, 2000, 100); delay(150); tone(BUZZ, 2500, 100);\n    lock.write(90); delay(3000); lock.write(0);\n    digitalWrite(GREEN, LOW);\n  } else {\n    digitalWrite(RED, HIGH); tone(BUZZ, 300, 600); delay(700); digitalWrite(RED, LOW);\n    if (++badCount >= 3) { for (int i = 0; i < 20; i++) { tone(BUZZ, 800, 200); digitalWrite(RED, i % 2); delay(500); } badCount = 0; }\n  }\n  rfid.PICC_HaltA();              // 让这张卡\"休息\"，否则一直重复读\n  rfid.PCD_StopCrypto1();\n}",
+      "lib_deps": [
+        "miguelbalboa/MFRC522"
+      ],
+      "pitfalls": [
+        "RC522 接 5V 烧了：模块只能 3.3V，标着 3.3V 的脚就是最高电压。逻辑电平也是 3.3V，正好配蓝药丸。",
+        "读不到卡、固件版本打印 0x00 或 0xFF：SPI 线接错或杜邦线太长。MOSI/MISO 不能反，线不超过 15cm。",
+        "同一张卡刷一次触发好几次：没调用 PICC_HaltA()，卡一直在场。",
+        "手机 NFC 读不出来：RC522 只支持 13.56MHz 的 MIFARE 卡，门禁卡里 125kHz 的 ID 卡读不了（要 RDM6300）。"
+      ],
+      "concepts": [
+        "SPI 总线",
+        "RFID/NFC 13.56MHz",
+        "UID 白名单",
+        "字节数组比对",
+        "3.3V 器件保护"
+      ],
+      "extensions": [
+        "加\"管理卡\"：刷管理卡后下一张卡加入白名单，存到 EEPROM",
+        "加 OLED 显示名字和时间",
+        "接电磁锁（12V + 继电器）做真门禁"
+      ]
+    },
+    {
+      "id": "gps_logger",
+      "title": "GPS 记录仪（进阶）",
+      "tagline": "骑车/徒步带着它，OLED 实时显示经纬度速度，轨迹按秒写进 SD 卡，回家导入地图软件看路线。",
+      "difficulty": 5,
+      "time": "6 小时",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 蓝药丸",
+          "qty": 1,
+          "role": "主控"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 烧录器",
+          "qty": 1,
+          "role": "烧程序进板子"
+        },
+        {
+          "id": "breadboard",
+          "name": "面包板",
+          "qty": 1,
+          "role": "插元件不用焊"
+        },
+        {
+          "id": "jumper",
+          "name": "杜邦线",
+          "qty": 1,
+          "role": "连线"
+        },
+        {
+          "id": "",
+          "name": "GPS 模块 NEO-6M/NEO-7M（带陶瓷天线）",
+          "qty": 1,
+          "role": "定位，串口输出 NMEA"
+        },
+        {
+          "id": "sd_module",
+          "name": "SD 卡模块 + SD 卡",
+          "qty": 1,
+          "role": "存轨迹"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96 寸 OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "显示"
+        },
+        {
+          "id": "power_18650",
+          "name": "18650 电池 + TP4056 充放电模块",
+          "qty": 1,
+          "role": "便携供电"
+        },
+        {
+          "id": "button",
+          "name": "轻触按键",
+          "qty": 1,
+          "role": "开始/停止记录"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA3 (USART2 RX)",
+          "to": "gps.TX",
+          "note": "GPS 只说不听，接一根就够"
+        },
+        {
+          "from": "bluepill.PA2 (USART2 TX)",
+          "to": "gps.RX",
+          "note": "可选，配置用"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "gps.VCC",
+          "note": "多数模块 3.3-5V 都可"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "gps.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA5",
+          "to": "sd_module.SCK",
+          "note": "SPI1"
+        },
+        {
+          "from": "bluepill.PA6",
+          "to": "sd_module.MISO",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA7",
+          "to": "sd_module.MOSI",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "sd_module.CS",
+          "note": "片选自己定"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sd_module.VCC",
+          "note": "模块带稳压；裸 SD 座接 3V3"
+        },
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 时钟"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 数据"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "button.一脚",
+          "note": "代码里用 INPUT_PULLUP，不用外接电阻"
+        },
+        {
+          "from": "button.对角脚",
+          "to": "bluepill.GND",
+          "note": "按下 = 低电平"
+        },
+        {
+          "from": "power_18650.OUT+",
+          "to": "bluepill.5V 或 3V3",
+          "note": "18650 3.7V 直接进 3V3 脚偏高偏低都不行，用带 5V 升压的模块"
+        }
+      ],
+      "steps": [
+        "GPS 接 USART2，把收到的原始 NMEA 原样转发到 Serial。结果：一串 $GPRMC,$GPGGA 文本。到窗边/室外等 1-5 分钟出现经纬度。",
+        "用 TinyGPS++ 解析，串口打印经纬度、卫星数、速度。结果：人话数据。",
+        "SD 模块单独测试：写一行 hello 再读回。结果：电脑读卡能看到文件。",
+        "OLED 显示经纬度/速度/卫星数。结果：脱离电脑。",
+        "按键开始记录，每秒写一行 CSV（时间,经度,纬度,速度）。结果：走一圈生成文件。",
+        "电脑把 CSV 转 GPX 导入地图软件。结果：看到自己的轨迹。"
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <TinyGPSPlus.h>\n#include <SPI.h>\n#include <SdFat.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nHardwareSerial GPS(PA3, PA2);         // RX, TX -> USART2\nTinyGPSPlus gps;\nSdFat sd;\nSdFile logFile;\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nconst int SD_CS = PB12, BTN = PB13;\nbool recording = false;\nunsigned long lastLog = 0;\nint lastBtn = HIGH;\n\nvoid setup() {\n  Serial.begin(115200);\n  GPS.begin(9600);                    // NEO-6M 默认 9600\n  Wire.begin();\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C); oled.setTextColor(WHITE);\n  pinMode(BTN, INPUT_PULLUP);\n  if (!sd.begin(SD_CS, SD_SCK_MHZ(4))) Serial.println(\"SD 卡初始化失败\");\n}\n\nvoid loop() {\n  while (GPS.available()) gps.encode(GPS.read());   // 喂字符给解析器\n\n  int b = digitalRead(BTN);\n  if (b == LOW && lastBtn == HIGH) {\n    recording = !recording;\n    if (recording) { logFile.open(\"track.csv\", O_WRONLY | O_CREAT | O_APPEND); logFile.println(\"time,lat,lng,kmh\"); }\n    else logFile.close();\n    delay(50);\n  }\n  lastBtn = b;\n\n  if (millis() - lastLog >= 1000) {\n    lastLog = millis();\n    oled.clearDisplay(); oled.setTextSize(1); oled.setCursor(0, 0);\n    oled.print(\"sats \"); oled.print(gps.satellites.value()); oled.println(recording ? \"  REC\" : \"\");\n    if (gps.location.isValid()) {\n      oled.print(gps.location.lat(), 5); oled.println();\n      oled.print(gps.location.lng(), 5); oled.println();\n      oled.setTextSize(2); oled.print(gps.speed.kmph(), 1); oled.print(\" km/h\");\n      if (recording && logFile.isOpen()) {\n        logFile.print(gps.time.value()); logFile.print(',');\n        logFile.print(gps.location.lat(), 6); logFile.print(',');\n        logFile.print(gps.location.lng(), 6); logFile.print(',');\n        logFile.println(gps.speed.kmph(), 1);\n        logFile.sync();                                   // 每秒落盘，拔电不丢\n      }\n    } else {\n      oled.println(\"searching...\");\n    }\n    oled.display();\n  }\n}",
+      "lib_deps": [
+        "mikalhart/TinyGPSPlus",
+        "greiman/SdFat",
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "一直 searching：GPS 冷启动在室内几乎搜不到星，要到窗边/室外，第一次可能要 5-15 分钟。模块上的 LED 开始闪就是定位了。",
+        "NMEA 收到但经纬度全 0：还没定位（$GPRMC 里状态是 V）。等卫星数 ≥4。",
+        "SD 初始化失败 / 文件里只有表头没有数据：初始化失败多半是卡不是 FAT32、杜邦线太长（SPI 降到 4MHz）或模块供电不稳；有表头没数据是没 sync()/close() 就断电了，数据还在缓存里，每次写完 sync。",
+        "Flash 不够（region FLASH overflowed）：三个库加起来超过 64KB。多数 C8T6 实际有 128KB，在 platformio.ini 加 board_upload.maximum_size = 131072；或者去掉 OLED。"
+      ],
+      "concepts": [
+        "NMEA 协议解析",
+        "SPI 与 SD 卡文件系统",
+        "I2C + SPI + UART 三总线共存",
+        "数据落盘",
+        "Flash 容量预算"
+      ],
+      "extensions": [
+        "加 MPU6050 记录颠簸程度",
+        "加 ESP-01 实时上传位置",
+        "算总里程和平均速度显示在屏上"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1825 @@
+{
+  "note": "门外汉排障手册。默认环境：STM32F103C8T6 蓝药丸 + ST-Link V2 + PlatformIO CLI (macOS) + Arduino 框架 (STM32duino)，串口用 CH340。每条按「现象 → 信号 → 按概率排的原因（一分钟能验证的 check + 怎么修）→ 原理比喻 → 直接甩给 AI 的提问」组织。概率是经验值，不是统计。先查「高」的，一条一条排除，别一次改三个地方。",
+  "entries": [
+    {
+      "id": "pio_command_not_found",
+      "stage": "环境",
+      "symptom": "终端敲 pio 说 command not found，明明刚装完",
+      "signals": ["zsh: command not found: pio", "command not found: platformio", "No such file or directory"],
+      "causes": [
+        {
+          "cause": "pio 装在了一个不在 PATH 里的目录（比如 ~/.platformio/penv/bin 或 uv 的 tools 目录），终端不知道去哪找",
+          "probability": "高",
+          "check": "运行 ls ~/.platformio/penv/bin/pio 或 ls ~/.local/bin/pio，看文件在不在",
+          "fix": "把那个目录加进 PATH：在 ~/.zshrc 末尾加一行 export PATH=\"$HOME/.platformio/penv/bin:$PATH\"（路径按你实际的改），然后 source ~/.zshrc 或重开终端"
+        },
+        {
+          "cause": "装完没重开终端，旧终端的 PATH 还是旧的",
+          "probability": "中",
+          "check": "新开一个终端窗口再敲 pio --version",
+          "fix": "关掉所有终端窗口重开；VS Code 里的终端也要重开"
+        },
+        {
+          "cause": "安装其实没成功，中途报错被忽略了",
+          "probability": "中",
+          "check": "翻一下安装时的输出有没有红字 Error；或者 find ~ -name pio -type f 2>/dev/null 看全盘有没有",
+          "fix": "重新装一遍，这次盯着输出看到最后一行"
+        }
+      ],
+      "explain": "PATH 就像通讯录，终端只会在通讯录里的文件夹找命令。装好了但没登记进通讯录，终端就当它不存在。",
+      "ask_ai": "我在 macOS 上装了 PlatformIO，敲 pio 报 command not found。我的 shell 是 zsh，`ls ~/.platformio/penv/bin` 的输出是：[粘贴]。帮我把它加到 PATH，并告诉我改哪个文件。"
+    },
+    {
+      "id": "python_version_too_old",
+      "stage": "环境",
+      "symptom": "安装 PlatformIO 时报 Python 版本不对，或者说找不到 python",
+      "signals": ["Python 3.6+ is required", "python: command not found", "SyntaxError: invalid syntax (在安装脚本里)", "xcrun: error"],
+      "causes": [
+        {
+          "cause": "macOS 自带的 python3 是个占位壳，第一次用会要求装 Xcode Command Line Tools",
+          "probability": "高",
+          "check": "终端敲 python3 --version，如果弹出安装开发者工具的窗口就是这个",
+          "fix": "点安装等它装完（要几分钟），或者用 uv/Homebrew 装一个独立的 Python 3.11+"
+        },
+        {
+          "cause": "系统里有多个 Python，终端默认用了老的那个",
+          "probability": "中",
+          "check": "which -a python3 看有几个，分别 --version",
+          "fix": "推荐用 uv 管：uv python install 3.11，然后用 uv tool install platformio，绕开系统 Python"
+        },
+        {
+          "cause": "用了 python 而不是 python3（macOS 早就没有 python 这个命令了）",
+          "probability": "低",
+          "check": "把命令里的 python 换成 python3 试试",
+          "fix": "一律用 python3 / pip3，或者干脆用 uv"
+        }
+      ],
+      "explain": "PlatformIO 本身是 Python 写的程序，它需要一个够新的 Python 当地基。地基没打或者打的是老版本，楼盖不起来。",
+      "ask_ai": "我在 macOS 上装 PlatformIO 遇到 Python 问题。`which -a python3` 和 `python3 --version` 的输出是：[粘贴]。报错是：[粘贴]。我想用 uv 管理 Python，请给我完整步骤。"
+    },
+    {
+      "id": "permission_denied_install",
+      "stage": "环境",
+      "symptom": "安装时说 Permission denied，或者要求输管理员密码但我不想/不能输",
+      "signals": ["Permission denied", "EACCES", "Operation not permitted", "sudo: a password is required", "[Errno 13]"],
+      "causes": [
+        {
+          "cause": "试图往系统目录（/usr/bin、/Library）写东西，普通用户没权限",
+          "probability": "高",
+          "check": "看报错里的路径是不是以 /usr 或 /Library 开头",
+          "fix": "不要 sudo pip。改用只写用户目录的方式：uv tool install platformio，或者 pip3 install --user platformio"
+        },
+        {
+          "cause": "之前某次用 sudo 装过东西，把 ~/.platformio 或 ~/.local 的所有者改成了 root",
+          "probability": "中",
+          "check": "ls -la ~ | grep platformio，看 owner 是不是 root",
+          "fix": "sudo chown -R $(whoami) ~/.platformio（这一步需要一次密码，之后就不用了）"
+        },
+        {
+          "cause": "下载的脚本没有执行权限",
+          "probability": "低",
+          "check": "ls -l 那个脚本，看权限列有没有 x",
+          "fix": "chmod +x 脚本名，或者直接 python3 脚本名 运行"
+        }
+      ],
+      "explain": "macOS 把系统文件夹锁起来了，钥匙是管理员密码。PlatformIO 其实根本不需要进系统文件夹，装在自己家（用户目录）就够了。",
+      "ask_ai": "我在 macOS 装 PlatformIO 报 Permission denied，完整报错：[粘贴]。我不想用 sudo，请给我一个只装在用户目录的方案。"
+    },
+    {
+      "id": "pio_download_failed",
+      "stage": "环境",
+      "symptom": "第一次编译卡在下载平台/工具链，转半天然后报网络错误",
+      "signals": ["Error: Could not install package", "HTTPClientError", "Connection reset", "timed out", "Downloading toolchain", "Failed to download", "SSL: CERTIFICATE_VERIFY_FAILED"],
+      "causes": [
+        {
+          "cause": "PlatformIO 的服务器在国外，直连慢或者被掐断",
+          "probability": "高",
+          "check": "浏览器打开 https://registry.platformio.org 看能不能秒开",
+          "fix": "开代理后重试；或者给终端设置代理：export HTTPS_PROXY=http://127.0.0.1:端口（端口看你代理软件）再跑 pio run"
+        },
+        {
+          "cause": "下载了一半断掉，留下损坏的半截文件，下次继续报错",
+          "probability": "中",
+          "check": "ls ~/.platformio/packages 和 ~/.platformio/.cache 看有没有奇怪的临时文件",
+          "fix": "rm -rf ~/.platformio/.cache，删掉 packages 里报错提到的那个包目录，重跑"
+        },
+        {
+          "cause": "公司/学校网络拦截了某些域名",
+          "probability": "低",
+          "check": "换手机热点试一次",
+          "fix": "用热点把该下的下完（一次性约 300MB），以后就不需要网了"
+        }
+      ],
+      "explain": "PlatformIO 第一次编译要去仓库领工具箱（编译器、STM32 的框架代码），仓库在国外。工具箱一旦领回家放在 ~/.platformio，以后就不用再去了。",
+      "ask_ai": "PlatformIO 第一次 pio run 下载工具链失败，报错：[粘贴]。我在中国大陆，有代理软件（端口 [端口]），请告诉我怎么让 pio 走代理，以及怎么清掉损坏的缓存重试。"
+    },
+    {
+      "id": "pio_project_not_found",
+      "stage": "环境",
+      "symptom": "pio run 说不是一个 PlatformIO 项目",
+      "signals": ["Not a PlatformIO project", "platformio.ini not found", "`platformio.ini` file"],
+      "causes": [
+        {
+          "cause": "终端当前目录不对，不在项目文件夹里",
+          "probability": "高",
+          "check": "pwd 看当前在哪；ls 看有没有 platformio.ini",
+          "fix": "cd 到含 platformio.ini 的那个文件夹再跑，或者用 pio run -d /项目/路径"
+        },
+        {
+          "cause": "项目根本没初始化，只有一个 .cpp 文件",
+          "probability": "中",
+          "check": "ls 看有没有 platformio.ini 和 src 目录",
+          "fix": "pio project init --board bluepill_f103c8 生成骨架，把代码放进 src/main.cpp"
+        }
+      ],
+      "explain": "platformio.ini 是项目的身份证。pio 在当前文件夹找不到身份证，就不知道这是谁家的活。",
+      "ask_ai": "pio run 报 Not a PlatformIO project。我 pwd 是 [路径]，ls 输出是：[粘贴]。我应该在哪跑、还是要先 init？"
+    },
+    {
+      "id": "macos_gatekeeper_blocks_tool",
+      "stage": "环境",
+      "symptom": "编译或烧录时 macOS 弹窗说某个程序来自身份不明的开发者，或者进程直接被杀",
+      "signals": ["cannot be opened because the developer cannot be verified", "无法打开，因为无法验证开发者", "Killed: 9", "已损坏"],
+      "causes": [
+        {
+          "cause": "PlatformIO 下载的工具链二进制（arm-none-eabi-gcc、openocd）被 macOS Gatekeeper 拦了",
+          "probability": "高",
+          "check": "系统设置 > 隐私与安全性 底部有没有「仍要打开」的提示",
+          "fix": "对整个目录去除隔离标记：xattr -dr com.apple.quarantine ~/.platformio/packages"
+        },
+        {
+          "cause": "Apple Silicon 上跑 Intel 工具链但没装 Rosetta",
+          "probability": "中",
+          "check": "报错里有 Bad CPU type in executable",
+          "fix": "softwareupdate --install-rosetta --agree-to-license"
+        }
+      ],
+      "explain": "macOS 对从网上下载的程序会贴一张「来源不明」的封条，第一次运行要撕。工具链里几十个小程序每个都贴了，手动撕太累，命令一次撕完。",
+      "ask_ai": "macOS 阻止 PlatformIO 的工具链运行，报错：[粘贴]。我用的是 [Intel/Apple Silicon] 芯片。怎么解除限制？"
+    },
+    {
+      "id": "library_not_found",
+      "stage": "编译",
+      "symptom": "编译说找不到某个 .h 头文件",
+      "signals": ["fatal error: xxx.h: No such file or directory", "No such file", "#include <", "compilation terminated"],
+      "causes": [
+        {
+          "cause": "库没装。platformio.ini 的 lib_deps 里没写这个库",
+          "probability": "高",
+          "check": "cat platformio.ini 看 lib_deps 有没有那个库；ls .pio/libdeps/*/ 看实际装了什么",
+          "fix": "pio pkg search 库名 找到准确名字，在 platformio.ini 加 lib_deps = 作者/库名，重新 pio run"
+        },
+        {
+          "cause": "头文件名拼错或大小写不对（macOS 默认不分大小写，但 pio 有时分）",
+          "probability": "中",
+          "check": "对照库的 README 里 #include 那行一字一字比",
+          "fix": "改成库文档里写的那个准确名字"
+        },
+        {
+          "cause": "库是给 ESP32/AVR 写的，不支持 STM32，被 pio 过滤掉了",
+          "probability": "中",
+          "check": "pio run -v 里搜 Library Dependency Finder 部分有没有 compatible 之类的警告",
+          "fix": "找一个标注支持 STM32/ststm32 的替代库；或者 lib_compat_mode = off（可能编不过）"
+        },
+        {
+          "cause": "刚加了 lib_deps 但没保存文件",
+          "probability": "低",
+          "check": "编辑器标题栏有没有未保存的圆点",
+          "fix": "保存再跑"
+        }
+      ],
+      "explain": "#include 就像点外卖单上写的菜名，lib_deps 是你真正下单的菜。菜名写了没下单，厨房当然端不出来。",
+      "ask_ai": "STM32 蓝药丸 + PlatformIO + Arduino 框架，编译报 fatal error: [文件名].h: No such file or directory。我的 platformio.ini 是：[粘贴]。这个头文件属于哪个库、lib_deps 该怎么写？"
+    },
+    {
+      "id": "lib_deps_syntax_wrong",
+      "stage": "编译",
+      "symptom": "lib_deps 写了，但 pio 说找不到包、或者版本解析不了",
+      "signals": ["Could not find the package", "UnknownPackageError", "Could not find a version that satisfies", "VCS", "Invalid requirements"],
+      "causes": [
+        {
+          "cause": "库名不准确，pio 注册表里的名字是「作者/库名」，不是随口叫的名字",
+          "probability": "高",
+          "check": "pio pkg search 关键字，看返回列表里精确的名字",
+          "fix": "复制搜索结果里的完整名字，例如 adafruit/Adafruit SSD1306"
+        },
+        {
+          "cause": "多个库写在一行用逗号隔开，pio 只认换行分隔",
+          "probability": "中",
+          "check": "看 lib_deps 是不是一行里有逗号",
+          "fix": "每个库单独一行，缩进对齐：\nlib_deps =\n    库A\n    库B"
+        },
+        {
+          "cause": "AI 编造了一个不存在的库名",
+          "probability": "中",
+          "check": "pio pkg search 搜不到就是编的",
+          "fix": "去 https://registry.platformio.org 手动搜关键字，用真存在的那个"
+        },
+        {
+          "cause": "版本号格式不对，比如写了 v1.2 或 ==1.2",
+          "probability": "低",
+          "check": "对照文档，格式是 库名@^1.2.0 或 库名@1.2.0",
+          "fix": "先不写版本号，能编过再说"
+        }
+      ],
+      "explain": "lib_deps 是给 pio 的采购单，名字必须和仓库货架上的标签完全一致。少一个字母、用了别名，仓管员就找不到。",
+      "ask_ai": "我的 platformio.ini 里 lib_deps 是：[粘贴]，pio 报 [粘贴报错]。请帮我核对每个库在 PlatformIO 注册表里的准确名字（不确定的请标注，别猜）。"
+    },
+    {
+      "id": "syntax_error_cpp",
+      "stage": "编译",
+      "symptom": "编译红字一大堆，说 expected 什么什么，或者 was not declared",
+      "signals": ["error: expected ';' before", "was not declared in this scope", "expected '}' at end of input", "stray '\\'", "undefined reference to"],
+      "causes": [
+        {
+          "cause": "漏了分号、括号不配对（往往是上一行漏的，报错却指向下一行）",
+          "probability": "高",
+          "check": "看报错指的行号，然后往上看一两行",
+          "fix": "补分号/括号。编辑器里把光标放在括号上，会高亮对应的另一半，靠这个数"
+        },
+        {
+          "cause": "变量/函数用在了定义之前，或者拼写不一致（大小写）",
+          "probability": "高",
+          "check": "报 was not declared 的那个名字，全文搜一下定义在哪",
+          "fix": "把定义挪到使用之前，或者在文件顶部加函数声明"
+        },
+        {
+          "cause": "从网页复制代码带进了中文引号、全角分号、不可见字符",
+          "probability": "中",
+          "check": "报 stray 的那行，把标点删了重新用英文输入法打",
+          "fix": "重新手打那一行的标点"
+        },
+        {
+          "cause": "undefined reference：函数声明了但没实现，或者库只装了头文件",
+          "probability": "低",
+          "check": "报错里的函数名，搜有没有函数体 {}",
+          "fix": "补实现；如果是库函数，确认 lib_deps 装的是完整库不是只有 .h"
+        }
+      ],
+      "explain": "编译器是极其死板的读者，一个标点不对整段都不读。它报错的位置是它「发现问题」的地方，不一定是「问题所在」的地方，通常往上看。",
+      "ask_ai": "STM32duino 编译报错，只看第一条 error：[粘贴报错含行号]。对应代码第 [N] 行前后 5 行是：[粘贴]。请指出具体哪个字符错了，不要重写整个文件。"
+    },
+    {
+      "id": "flash_overflow",
+      "stage": "编译",
+      "symptom": "编译最后一步说 region FLASH overflowed 或者内存不够",
+      "signals": ["region `FLASH' overflowed", "region `RAM' overflowed", "section .text will not fit", "overflowed by", "Error: Program size is greater than maximum allowed"],
+      "causes": [
+        {
+          "cause": "库太大。比如同时用了 U8g2 全字体 + 浮点 printf + 多个大库，64KB Flash 塞不下",
+          "probability": "高",
+          "check": "看编译输出末尾 RAM/Flash 使用百分比",
+          "fix": "换轻量库（U8g2 换 U8x8 或只用一种字体）；去掉没用的 Serial.print；build_flags 加 -Os"
+        },
+        {
+          "cause": "RAM 溢出：声明了很大的数组（比如 uint8_t buf[10000]），20KB RAM 装不下",
+          "probability": "中",
+          "check": "全文搜 [ 数字 ] 找大数组",
+          "fix": "改小；常量表加 const 让它放进 Flash 而不是 RAM"
+        },
+        {
+          "cause": "手里的芯片其实是 128KB 的（很多 C8T6 实际有 128KB），但板子配置按 64KB 算",
+          "probability": "低",
+          "check": "只有在差一点就能塞下时值得试",
+          "fix": "platformio.ini 改 board = bluepill_f103c8_128k（烧录后必须验证能跑，不保证）"
+        }
+      ],
+      "explain": "蓝药丸的 Flash 是 64KB 的小硬盘，RAM 是 20KB 的小桌面。程序是文件，得放得进硬盘；运行时的变量是摊在桌上的纸，桌子就那么大。",
+      "ask_ai": "STM32F103C8T6 编译报 region FLASH overflowed by [N] bytes。我用的库有：[列出 lib_deps]。请按体积从大到小告诉我哪些库最占空间，以及每个的轻量替代方案。"
+    },
+    {
+      "id": "wrong_board_in_ini",
+      "stage": "编译",
+      "symptom": "编译能过但烧进去完全不跑，或者编译提示 board 不存在",
+      "signals": ["Unknown board ID", "board = ", "genericSTM32F103C8", "bluepill_f103c8"],
+      "causes": [
+        {
+          "cause": "board 写错了，比如抄的是 Arduino IDE 的名字",
+          "probability": "高",
+          "check": "cat platformio.ini 看 board 那行",
+          "fix": "改成 board = bluepill_f103c8，platform = ststm32，framework = arduino"
+        },
+        {
+          "cause": "framework 写成了 stm32cube 或 libopencm3，但代码是 Arduino 风格的 setup/loop",
+          "probability": "中",
+          "check": "看 framework 那行",
+          "fix": "framework = arduino"
+        }
+      ],
+      "explain": "board 告诉编译器目标是哪块地皮、多大面积、门牌怎么编。写错了地皮，房子盖得再好也不在你那块地上。",
+      "ask_ai": "我用 STM32F103C8T6 蓝药丸 + ST-Link，想用 Arduino 框架，请给我一份最小可用的 platformio.ini（含 upload_protocol），每行注释解释。"
+    },
+    {
+      "id": "build_cache_stale",
+      "stage": "编译",
+      "symptom": "改了代码但烧进去还是老行为，或者莫名其妙的编译错误怎么改都在",
+      "signals": ["行为不变", "改了没反应", ".pio 目录", "老报错一直在"],
+      "causes": [
+        {
+          "cause": "编辑器没保存，或者编辑的是另一个副本文件",
+          "probability": "高",
+          "check": "在代码里加一句 Serial.println(\"v2\") 看烧进去后有没有出现",
+          "fix": "保存；确认编辑的路径和 pio run 的项目路径是同一个"
+        },
+        {
+          "cause": "增量编译缓存坏了",
+          "probability": "中",
+          "check": "pio run -t clean 之后重新 pio run",
+          "fix": "clean 无效就直接 rm -rf .pio 再编"
+        },
+        {
+          "cause": "烧录其实失败了，但输出被上面的信息淹没没看到",
+          "probability": "中",
+          "check": "滚到 pio run -t upload 输出最末尾，找 SUCCESS 还是 FAILED",
+          "fix": "看烧录章节排查"
+        }
+      ],
+      "explain": "pio 为了快，只重新编译改过的文件。偶尔它记错了「谁改过」，就会用旧零件拼新机器。clean 是让它忘掉记忆重头来。",
+      "ask_ai": "我改了 src/main.cpp 但烧录后行为不变。我已经确认保存了。pio run -t upload 的完整输出是：[粘贴]。请帮我判断是没编译、没烧录、还是烧了旧固件。"
+    },
+    {
+      "id": "stlink_not_detected",
+      "stage": "烧录",
+      "symptom": "插上 ST-Link，烧录说找不到设备/打不开",
+      "signals": ["Error: open failed", "no device found", "libusb_open() failed", "LIBUSB_ERROR_ACCESS", "Can't find a STLink", "unable to open ST-Link"],
+      "causes": [
+        {
+          "cause": "ST-Link 本身没被 macOS 识别（USB 线、口、或 ST-Link 是坏的）",
+          "probability": "高",
+          "check": "system_profiler SPUSBDataType | grep -i -A5 st-link，或者打开「系统信息 > USB」看有没有 STM32 STLink",
+          "fix": "换 USB 口、换线、去掉 USB Hub 直插；还是没有就是 ST-Link 硬件问题"
+        },
+        {
+          "cause": "ST-Link 识别了但是目标板没接好/没供电（这时报错往往是 target 相关，见下一条）",
+          "probability": "中",
+          "check": "ST-Link 上的灯是不是红色常亮（有的是蓝色）；板子上电源灯亮不亮",
+          "fix": "检查 SWDIO/SWCLK/GND/3.3V 四根线"
+        },
+        {
+          "cause": "另一个程序占着 ST-Link（比如开着 STM32CubeProgrammer、另一个终端的 openocd 没退）",
+          "probability": "中",
+          "check": "ps aux | grep -i openocd 看有没有僵尸进程",
+          "fix": "kill 掉，或者拔了 ST-Link 重插"
+        },
+        {
+          "cause": "platformio.ini 没写 upload_protocol = stlink，默认走了串口烧录",
+          "probability": "低",
+          "check": "看报错是不是提到 serial / /dev/cu.*",
+          "fix": "加一行 upload_protocol = stlink"
+        }
+      ],
+      "explain": "ST-Link 是电脑和芯片之间的翻译官。「open failed」是电脑连翻译官都没见到，这时候和芯片无关，先解决 USB 这一段。",
+      "ask_ai": "macOS 上 PlatformIO 用 ST-Link V2 烧录 STM32F103 报 [粘贴报错]。`system_profiler SPUSBDataType | grep -i -A8 stlink` 的输出是：[粘贴]。请告诉我问题在 USB 这段还是 SWD 这段。"
+    },
+    {
+      "id": "unknown_chip_id_clone",
+      "stage": "烧录",
+      "symptom": "ST-Link 识别了，但烧录报 unknown chip id 或者 UNEXPECTED idcode",
+      "signals": ["unknown chip id", "UNEXPECTED idcode: 0x2ba01477", "Warn : UNEXPECTED idcode", "expected 1 of 1: 0x1ba01477", "Error: init mode failed"],
+      "causes": [
+        {
+          "cause": "买到的是国产兼容芯片（CS32F103、GD32F103、APM32），OpenOCD 认不出 ID",
+          "probability": "高",
+          "check": "拿放大镜/手机拍芯片丝印，看写的是 STM32 还是 CS32/GD32/别的；报错里 idcode 是 0x2ba01477 基本就是 CS32",
+          "fix": "platformio.ini 加 upload_flags = -c set CPUTAPID 0x2ba01477（数字用报错里给的那个），有时还要加 debug_server 同样参数"
+        },
+        {
+          "cause": "假 ST-Link（大多数 20 块的都是）固件版本和 OpenOCD 配合不好",
+          "probability": "中",
+          "check": "换一种烧录工具：brew install stlink 然后 st-info --probe 看能不能读到",
+          "fix": "能读到就换用 st-flash 命令烧 .bin，或 platformio.ini 试 upload_protocol = stlink 换 openocd 配置"
+        },
+        {
+          "cause": "SWD 线接触不良导致读到乱 ID",
+          "probability": "低",
+          "check": "多试两次，ID 每次都不一样就是接线",
+          "fix": "杜邦线重插，或者换线"
+        }
+      ],
+      "explain": "每颗芯片出厂有个身份证号，烧录器先核对身份证再干活。国产兼容芯片功能一样但身份证号不同，烧录器一看不认识就不干了。告诉它「这个号也算」就行。",
+      "ask_ai": "STM32 蓝药丸用 ST-Link 烧录报 UNEXPECTED idcode: [粘贴数字]，芯片丝印是 [丝印]。请给我 platformio.ini 里 upload_flags 的确切写法，让 OpenOCD 接受这个 ID。"
+    },
+    {
+      "id": "target_not_found",
+      "stage": "烧录",
+      "symptom": "ST-Link 有了，但说找不到目标芯片 / 目标没响应",
+      "signals": ["Error: target not found", "no target", "Error: Target not examined yet", "Error: jtag status contains invalid mode value", "Polling target stm32f1x.cpu failed", "Error: couldn't bind", "0xFFFFFFFF"],
+      "causes": [
+        {
+          "cause": "SWD 四根线有一根没接好：SWDIO、SWCLK、GND、3.3V。杜邦线松、插错排",
+          "probability": "高",
+          "check": "对照蓝药丸顶部 4 针：从左到右一般是 GND / SWCLK / SWDIO / 3V3（板子上有丝印，认丝印不认顺序）；ST-Link 端也认丝印",
+          "fix": "重新一根一根对丝印插；换一组杜邦线"
+        },
+        {
+          "cause": "板子没上电。只接了 SWDIO/SWCLK/GND 没接 3.3V，板子又没插 USB",
+          "probability": "高",
+          "check": "板子电源灯（PWR）亮不亮",
+          "fix": "ST-Link 的 3.3V 接板子 3V3；或者给板子插 USB 供电（这时别再接 ST-Link 的 3.3V）"
+        },
+        {
+          "cause": "SWDIO 和 SWCLK 接反了",
+          "probability": "中",
+          "check": "两根线对调再试一次",
+          "fix": "对调"
+        },
+        {
+          "cause": "上一个程序把 PA13/PA14 改成了普通 GPIO，把 SWD 口关了",
+          "probability": "低",
+          "check": "按住板子 RESET 键的同时开始烧录，松开的瞬间能连上就是这个",
+          "fix": "upload_flags 加 -c reset_config srst_only srst_nogate connect_assert_srst；接 ST-Link 的 RST 到板子 R 引脚"
+        }
+      ],
+      "explain": "翻译官（ST-Link）到了，但电话打不通芯片。要么线没插好，要么芯片根本没通电。SWD 就两根信号线加地和电，问题几乎全在这四根线上。",
+      "ask_ai": "蓝药丸 + ST-Link V2 烧录报 target not found。我接了这几根线：[列出 ST-Link 哪个孔接板子哪个针]。板子 PWR 灯 [亮/不亮]。请帮我核对接线，并给出加 RST 引脚的 upload_flags。"
+    },
+    {
+      "id": "boot_jumper_wrong",
+      "stage": "烧录",
+      "symptom": "烧录成功但程序不跑；或者串口烧录（无 ST-Link）时一直连不上",
+      "signals": ["BOOT0", "跳线帽", "烧录成功但没反应", "Failed to init device", "stm32flash"],
+      "causes": [
+        {
+          "cause": "BOOT0 跳线在 1 的位置，芯片复位后进的是出厂 bootloader 而不是你的程序",
+          "probability": "高",
+          "check": "看板子上两个跳线帽，靠近 BOOT0 丝印的那个在 0 侧还是 1 侧",
+          "fix": "用 ST-Link 烧录：BOOT0=0、BOOT1=0，两个都靠板子边缘那侧。烧完按一下 RESET"
+        },
+        {
+          "cause": "用串口（USB-TTL）烧录时 BOOT0 必须先拨到 1 再复位，烧完再拨回 0",
+          "probability": "中",
+          "check": "你是不是没用 ST-Link 而是用 CH340 接 PA9/PA10 烧",
+          "fix": "烧录前 BOOT0=1 按 RESET，烧完 BOOT0=0 按 RESET。太麻烦，建议直接用 ST-Link，跳线永远不用动"
+        }
+      ],
+      "explain": "BOOT0 是一个开机选项开关：0 = 从你烧的程序启动，1 = 从芯片出厂自带的小程序启动（专门用来接收串口烧录）。用 ST-Link 的话，这个开关永远放 0 就行。",
+      "ask_ai": "蓝药丸的两个 BOOT 跳线我不确定放哪。我用 [ST-Link / USB 转串口] 烧录，请告诉我 BOOT0、BOOT1 各放哪一侧，以及烧录成功后需要不需要动。"
+    },
+    {
+      "id": "flash_write_protected",
+      "stage": "烧录",
+      "symptom": "连上了，但烧录写不进去，说被保护",
+      "signals": ["Error: stm32x device protected", "flash write protected", "Error: failed erasing sectors", "RDP", "readout protection", "stm32x_write_options"],
+      "causes": [
+        {
+          "cause": "芯片出厂或者被上一任主人开了读保护（RDP），二手/拆机片常见",
+          "probability": "高",
+          "check": "报错里有 protected 就是",
+          "fix": "解锁会清空整片 Flash，无所谓的话执行：pio 里 upload_flags 加 -c \"init; reset halt; stm32f1x unlock 0; reset halt\" 跑一次，然后去掉再正常烧；或者用 st-flash --reset erase / STM32CubeProgrammer 解 RDP"
+        },
+        {
+          "cause": "上一次烧录被拔线打断，Flash 处于半锁状态",
+          "probability": "中",
+          "check": "按住 RESET 重试烧录",
+          "fix": "同上，做一次 unlock + 全片擦除"
+        }
+      ],
+      "explain": "芯片有一把「防拷贝」的锁，锁上后外人既读不了也写不了。开锁的唯一方式是把里面的东西全部销毁——对你没影响，反正要烧新的。",
+      "ask_ai": "STM32F103 烧录报 device protected / RDP。我用 PlatformIO + ST-Link，请给我一条能在 macOS 终端里直接跑的 openocd 或 st-flash 命令来解除读保护并全片擦除。"
+    },
+    {
+      "id": "usb_cable_charge_only",
+      "stage": "烧录",
+      "symptom": "插上 USB 电源灯亮，但电脑完全看不到设备（ST-Link 或串口都不出现）",
+      "signals": ["电源灯亮", "USB 设备列表没有", "system_profiler 里找不到", "ls /dev/cu.* 没变化"],
+      "causes": [
+        {
+          "cause": "USB 线是充电线，里面只有两根电源线没有数据线（充电宝/风扇送的线大多是这种）",
+          "probability": "高",
+          "check": "换一根确定能传数据的线（比如手机原装线，能连电脑传照片的那种）",
+          "fix": "换线。以后专门留一根标记「数据线」"
+        },
+        {
+          "cause": "USB-C 转接头/Hub 不支持数据，或者供电不够",
+          "probability": "中",
+          "check": "去掉转接头直插电脑",
+          "fix": "换个带供电的 Hub，或者直插"
+        },
+        {
+          "cause": "蓝药丸板载的 micro USB 口本身不能烧录（原厂没 USB bootloader），只能供电",
+          "probability": "中",
+          "check": "你是不是想通过板子上的 USB 口直接烧？",
+          "fix": "这是正常的。烧录用 ST-Link，串口用 CH340 接 PA9/PA10，板子 USB 只当电源"
+        }
+      ],
+      "explain": "USB 线里有四根线：两根送电、两根送数据。便宜线省掉数据线，灯照样亮，但电脑什么都收不到。灯亮只证明有电，不证明有通信。",
+      "ask_ai": "我的 STM32 板子插 USB 电源灯亮但 macOS 完全不识别（system_profiler SPUSBDataType 里没有）。我用的是 [板子 USB 口 / ST-Link / CH340]。请按可能性列出原因和一分钟验证方法。"
+    },
+    {
+      "id": "serial_driver_missing",
+      "stage": "烧录",
+      "symptom": "CH340 串口模块插上，/dev 里没出现 cu.usbserial 或 cu.wchusbserial",
+      "signals": ["ls /dev/cu.* 只有 Bluetooth", "找不到 cu.usbserial", "cu.wchusbserial", "CH340 驱动", "CH34x"],
+      "causes": [
+        {
+          "cause": "线是充电线（见上一条）",
+          "probability": "高",
+          "check": "system_profiler SPUSBDataType | grep -i -B2 -A8 'ch34\\|1a86'，有条目说明 USB 层已识别，问题在驱动；没有就是线",
+          "fix": "换数据线"
+        },
+        {
+          "cause": "macOS 12+ 自带 CH340 驱动，但某些山寨 CH340 需要 WCH 官方驱动",
+          "probability": "中",
+          "check": "上一步 USB 层有设备但 /dev 没出现",
+          "fix": "去 WCH 官网下 CH34xVCPDriver（macOS 版），装完在「系统设置 > 隐私与安全性」允许，重启"
+        },
+        {
+          "cause": "CP2102 / FT232 而不是 CH340，认错了芯片",
+          "probability": "低",
+          "check": "看模块上芯片丝印",
+          "fix": "CP2102 macOS 原生支持，出现为 cu.usbserial-xxxx 或 cu.SLAB_USBtoUART；FT232 为 cu.usbserial-xxxx"
+        }
+      ],
+      "explain": "串口模块插进去，电脑要有对应的「说明书」（驱动）才能给它分配一个 /dev/cu.* 的门牌号。新 macOS 自带大部分说明书，但假芯片可能需要专门的。",
+      "ask_ai": "macOS 上 CH340 USB 转串口插上后 /dev/cu.* 没有新设备。`system_profiler SPUSBDataType` 相关段落是：[粘贴]。macOS 版本 [版本]。请判断是线、驱动还是硬件问题。"
+    },
+    {
+      "id": "upload_ok_then_verify_fail",
+      "stage": "烧录",
+      "symptom": "烧录过程走完了，最后说 verify 失败或者 checksum 不对",
+      "signals": ["Error: checksum mismatch", "verify failed", "Verification failed", "diff 0 address 0x08000000"],
+      "causes": [
+        {
+          "cause": "SWD 线太长或接触不良，写进去的数据出错",
+          "probability": "高",
+          "check": "换短线（<15cm）重试",
+          "fix": "换线；upload_flags 加 -c \"adapter speed 1000\" 降速"
+        },
+        {
+          "cause": "假 ST-Link 在高速下不稳定",
+          "probability": "中",
+          "check": "降速后就好了",
+          "fix": "把 adapter speed 固定为 1000 甚至 500"
+        },
+        {
+          "cause": "Flash 有坏块（极少）",
+          "probability": "低",
+          "check": "换一块板子对比",
+          "fix": "换板"
+        }
+      ],
+      "explain": "烧录完会读回来对答案。对不上说明传输过程中丢了字。像用很长的电话线听写，慢点说更清楚。",
+      "ask_ai": "STM32 用 ST-Link 烧录报 verify failed / checksum mismatch。请给我 platformio.ini 里降低 SWD 速度的 upload_flags 写法。"
+    },
+    {
+      "id": "led_not_blinking_after_upload",
+      "stage": "板子",
+      "symptom": "烧录显示 SUCCESS，但板载灯不闪，什么反应都没有",
+      "signals": ["SUCCESS", "灯不亮", "没反应", "烧完没变化"],
+      "causes": [
+        {
+          "cause": "代码用的是 LED_BUILTIN 或者 PC13 以外的引脚",
+          "probability": "高",
+          "check": "搜代码里 pinMode 的引脚名，蓝药丸板载 LED 在 PC13",
+          "fix": "改成 pinMode(PC13, OUTPUT)。PC13 是低电平点亮：digitalWrite(PC13, LOW) 才亮"
+        },
+        {
+          "cause": "烧完没复位，芯片还停在调试状态",
+          "probability": "高",
+          "check": "按一下板子上的 RESET 键",
+          "fix": "按 RESET；platformio.ini 加 upload_flags = -c \"reset run\" 或者接上 ST-Link 的 RST 线让它自动复位"
+        },
+        {
+          "cause": "BOOT0 跳线在 1（见烧录章节 boot_jumper_wrong）",
+          "probability": "中",
+          "check": "看跳线帽",
+          "fix": "BOOT0 拨到 0，按 RESET"
+        },
+        {
+          "cause": "delay 写太短或太长（比如写了 delay(1) 或 delay(100000)）",
+          "probability": "低",
+          "check": "看 loop 里 delay 的数字",
+          "fix": "delay(500)"
+        }
+      ],
+      "explain": "烧录成功只说明程序进了芯片的硬盘，不代表它在跑正确的东西。灯不亮的三个层次：程序没启动（复位/BOOT）、程序在跑但控制的不是这个灯（引脚）、控制了这个灯但电平反了（PC13 低电平亮）。",
+      "ask_ai": "蓝药丸 STM32F103C8T6，PlatformIO Arduino 框架烧录 SUCCESS 但板载 LED 不闪。代码：[粘贴]。BOOT0 在 [0/1]，我 [有/没有] 按过 RESET。请按顺序告诉我先查什么。"
+    },
+    {
+      "id": "pc13_active_low",
+      "stage": "板子",
+      "symptom": "写 HIGH 灯灭、写 LOW 灯亮，和教程说的反过来",
+      "signals": ["HIGH 灭", "LOW 亮", "反了", "PC13"],
+      "causes": [
+        {
+          "cause": "蓝药丸板载 LED 一端接 3.3V 一端接 PC13，PC13 输出低电平时电流才流过去",
+          "probability": "高",
+          "check": "digitalWrite(PC13, LOW) 亮就是正常的",
+          "fix": "这不是 bug。代码里写 LOW 表示亮就行，或者定义 #define LED_ON LOW"
+        }
+      ],
+      "explain": "灯像一个水龙头，一头接水塔（3.3V）。PC13 这一头放低（接地）水才流，放高（也是 3.3V）两头一样高水不动。教程里外接 LED 通常是反着接的，所以 HIGH 亮。",
+      "ask_ai": "蓝药丸 PC13 板载 LED 为什么 LOW 才亮？如果我要外接一个 LED 到 PA0，怎么接才能让 HIGH 亮？画一下接法（电阻用多大）。"
+    },
+    {
+      "id": "runs_only_with_stlink_attached",
+      "stage": "板子",
+      "symptom": "接着 ST-Link 时程序能跑，拔掉 ST-Link 单独 USB 供电就不跑了",
+      "signals": ["拔掉 ST-Link 就停", "复位后不跑", "只在调试时工作"],
+      "causes": [
+        {
+          "cause": "程序开头有 while(!Serial); 等 USB 串口连接，没接电脑串口就永远卡在那",
+          "probability": "高",
+          "check": "搜代码里 while (!Serial)",
+          "fix": "删掉这行，或者改成带超时：unsigned long t=millis(); while(!Serial && millis()-t<2000);"
+        },
+        {
+          "cause": "BOOT0 跳线在 1，复位后进 bootloader（ST-Link 烧录时可以强行跑，复位后就不行）",
+          "probability": "中",
+          "check": "看跳线",
+          "fix": "BOOT0=0"
+        },
+        {
+          "cause": "USB 口供电不稳或线不好，板子实际没起来",
+          "probability": "低",
+          "check": "PWR 灯亮不亮；换 USB 口",
+          "fix": "换线/换口"
+        }
+      ],
+      "explain": "程序开头在等一个「电脑已经连上串口」的信号才继续，就像门口保安等到你刷卡才开门。没电脑就没人刷卡，程序一直站在门外。",
+      "ask_ai": "STM32 蓝药丸程序接 ST-Link 时正常，拔掉后 USB 供电不跑。代码开头是：[粘贴 setup() 前 15 行]。请帮我看有没有阻塞在等待串口的地方。"
+    },
+    {
+      "id": "board_hot",
+      "stage": "板子",
+      "symptom": "板子摸着很热，或者有的芯片烫手",
+      "signals": ["发热", "烫", "冒烟", "有焦味"],
+      "causes": [
+        {
+          "cause": "3.3V 稳压芯片（板上那个小方片）在带大负载，比如舵机/屏幕都从 3V3 取电",
+          "probability": "高",
+          "check": "拔掉所有外设，只留板子，还热吗？",
+          "fix": "外设改从 5V 或独立电源取电，3V3 只给 STM32 和小传感器"
+        },
+        {
+          "cause": "某个引脚短路到 GND 或电源（杜邦线碰到一起、面包板插错行）",
+          "probability": "高",
+          "check": "立刻断电。检查面包板上有没有两根线插在同一列",
+          "fix": "断电重新接线"
+        },
+        {
+          "cause": "5V 直接接到了 3V3 引脚",
+          "probability": "中",
+          "check": "回忆/看接线，电源接的哪个针",
+          "fix": "断电。5V 只能接标 5V 的针。芯片可能已损坏，重烧测试"
+        },
+        {
+          "cause": "GPIO 直接驱动电机/继电器（见执行器章节）",
+          "probability": "中",
+          "check": "有没有电机类东西直接接 GPIO",
+          "fix": "断开，加驱动"
+        }
+      ],
+      "explain": "微微温热正常，烫到不敢摸就是有地方电流过大。电就像水，哪里漏了哪里就热。第一反应是断电，再排查，别想着「再观察一下」。",
+      "ask_ai": "STM32 蓝药丸 [哪个位置] 发热严重。我接了这些东西：[列出外设和接哪个引脚]。已经断电。请帮我判断哪个连接最可能出问题、以及芯片可能坏没坏怎么测。"
+    },
+    {
+      "id": "board_random_reset",
+      "stage": "板子",
+      "symptom": "程序跑一会儿自己重启，串口输出一直重复 setup 里的内容",
+      "signals": ["反复重启", "setup 重复执行", "串口输出循环", "看门狗", "brown-out"],
+      "causes": [
+        {
+          "cause": "供电不足。外设一动（舵机转、电机启动、屏幕刷新）电压跌下去芯片就复位",
+          "probability": "高",
+          "check": "拔掉大功率外设看还重启不",
+          "fix": "外设独立供电、共地；电源两端加 100uF 以上电容"
+        },
+        {
+          "cause": "代码里数组越界/空指针，程序跑飞进 HardFault 后复位",
+          "probability": "中",
+          "check": "串口在崩之前打的最后一行是什么，定位到哪段代码",
+          "fix": "检查那段的数组下标和指针"
+        },
+        {
+          "cause": "开了看门狗（IWDG）但没喂",
+          "probability": "低",
+          "check": "搜代码 IWatchdog",
+          "fix": "loop 里定期 IWatchdog.reload()，或者暂时去掉"
+        }
+      ],
+      "explain": "芯片有个「低压保护」，电压掉到某个值就自动重启保护自己。电机一启动就像开水龙头的瞬间水压骤降，芯片被「饿」一下就重启。",
+      "ask_ai": "STM32 程序反复重启。串口输出模式是：[粘贴]。外设有：[列出]，供电方式是 [USB/其他]。请帮我判断是供电问题还是代码问题，各给一个验证方法。"
+    },
+    {
+      "id": "millis_delay_weird",
+      "stage": "板子",
+      "symptom": "delay 时间不对，1 秒闪成 8 秒，或者串口时间戳很奇怪",
+      "signals": ["delay 变慢", "时间不准", "HSE", "时钟", "8MHz"],
+      "causes": [
+        {
+          "cause": "国产兼容芯片或克隆板晶振和默认时钟配置不匹配",
+          "probability": "中",
+          "check": "写一个每秒闪一次的程序，用手机秒表对 10 次",
+          "fix": "确认 board = bluepill_f103c8；build_flags 加 -D HSE_VALUE=8000000U（板上晶振丝印 8.000）"
+        },
+        {
+          "cause": "用了 delayMicroseconds 传太大的数溢出",
+          "probability": "低",
+          "check": "参数超过 16383 就不准",
+          "fix": "大于 16ms 的用 delay()"
+        }
+      ],
+      "explain": "芯片靠的节拍器（晶振）频率要和程序以为的一致，否则所有和时间有关的东西都成比例地快或慢。",
+      "ask_ai": "STM32F103 蓝药丸的 delay(1000) 实际用了 [N] 秒。板上晶振丝印是 [丝印]。请给我 platformio.ini 里设置 HSE_VALUE 的写法，以及怎么验证时钟对了。"
+    },
+    {
+      "id": "serial_garbage_baud",
+      "stage": "串口",
+      "symptom": "串口监视器一堆乱码、问号、方块",
+      "signals": ["乱码", "???", "⸮", "方块", "不认识的字符"],
+      "causes": [
+        {
+          "cause": "波特率不一致：代码 Serial.begin(115200) 但监视器是 9600（或反过来）",
+          "probability": "高",
+          "check": "对比代码里 Serial.begin 的数字和 pio device monitor 的 -b 参数",
+          "fix": "platformio.ini 加 monitor_speed = 115200，与代码一致"
+        },
+        {
+          "cause": "时钟不对导致实际波特率偏（见 millis_delay_weird）",
+          "probability": "中",
+          "check": "LED 闪的节拍是否也不对",
+          "fix": "先修时钟"
+        },
+        {
+          "cause": "开头几个字符乱码，后面正常——复位瞬间的噪声",
+          "probability": "低",
+          "check": "只有开头一两行乱",
+          "fix": "正常现象，setup 里加 delay(100) 再 begin 会好点"
+        }
+      ],
+      "explain": "波特率是双方约定的「说话速度」。你按 115200 说、对方按 9600 听，听到的就是一串杂音。两边数字一样就好了。",
+      "ask_ai": "STM32duino 串口全是乱码。代码 Serial.begin([数字])，platformio.ini 里 monitor_speed 是 [数字或没写]。用的是 [PA9/PA10 接 CH340 / 板载 USB]。请告诉我哪里不一致。"
+    },
+    {
+      "id": "serial_tx_rx_not_crossed",
+      "stage": "串口",
+      "symptom": "串口监视器什么都不显示，一片空白，波特率确认对了",
+      "signals": ["空白", "没输出", "monitor 卡着", "TX RX"],
+      "causes": [
+        {
+          "cause": "TX 接了 TX、RX 接了 RX。正确是板子 TX(PA9) → 模块 RX，板子 RX(PA10) → 模块 TX",
+          "probability": "高",
+          "check": "看接线。TX 对 TX 就是错的",
+          "fix": "对调 TX/RX 两根线"
+        },
+        {
+          "cause": "代码用的是 Serial 但 STM32duino 里 Serial 默认可能是 USB CDC（板载 USB），不是 PA9/PA10",
+          "probability": "高",
+          "check": "你接的是 CH340 到 PA9/PA10，代码写的是 Serial 还是 Serial1",
+          "fix": "PA9/PA10 用 Serial1.begin()；或者 platformio.ini 加 build_flags = -D SERIAL_UART_INSTANCE=1"
+        },
+        {
+          "cause": "没共地。CH340 的 GND 没接板子 GND",
+          "probability": "中",
+          "check": "数一下 CH340 到板子有几根线，至少要 3 根（TX RX GND）",
+          "fix": "接 GND"
+        },
+        {
+          "cause": "监视器打开的端口不对",
+          "probability": "中",
+          "check": "ls /dev/cu.* 看有几个，pio device list",
+          "fix": "platformio.ini 加 monitor_port = /dev/cu.wchusbserialXXXX"
+        }
+      ],
+      "explain": "TX 是嘴、RX 是耳朵。两个人对话要嘴对耳朵，嘴对嘴谁也听不到。GND 是共同的参考线，没有它双方连「高低」都说不清。",
+      "ask_ai": "蓝药丸 + CH340 串口什么都不显示。接线：板子 [针] → CH340 [针]（共 [N] 根）。代码用的是 Serial[数字].begin。请检查接线和 Serial 实例是否匹配。"
+    },
+    {
+      "id": "serial_no_common_ground",
+      "stage": "串口",
+      "symptom": "串口时好时坏，偶尔有字，或者用手碰一下线就变",
+      "signals": ["时好时坏", "偶尔乱码", "碰一下就变", "断断续续"],
+      "causes": [
+        {
+          "cause": "没共地，或者地线接触不良",
+          "probability": "高",
+          "check": "GND 到 GND 的那根线拔了重插，或换一根",
+          "fix": "确保 CH340 GND 和板子 GND 有一根实实在在的线连着"
+        },
+        {
+          "cause": "杜邦线坏了（内部断线，外面看不出）",
+          "probability": "中",
+          "check": "换线",
+          "fix": "扔掉可疑的线，别留着"
+        }
+      ],
+      "explain": "两个设备各有自己的「零点」，不连起来的话，一方说的「3.3V」在另一方看来可能是 1V 也可能是 5V，全看运气。地线就是把两个零点对齐。",
+      "ask_ai": "串口输出时好时坏。我接了 [N] 根线：[列出]。请确认我有没有漏共地，以及怎么用一分钟验证是接线问题还是别的。"
+    },
+    {
+      "id": "serial_port_busy",
+      "stage": "串口",
+      "symptom": "打开串口监视器说端口被占用 / 资源忙",
+      "signals": ["Resource busy", "could not open port", "Device or resource busy", "[Errno 16]", "Permission denied: '/dev/cu."],
+      "causes": [
+        {
+          "cause": "另一个终端/程序还开着这个串口（上一个 pio device monitor 没关、Arduino IDE、screen）",
+          "probability": "高",
+          "check": "lsof | grep cu.usb 或 lsof | grep wchusb 看谁占着",
+          "fix": "关掉那个程序；找不到就 kill 掉 lsof 列出的 PID；再不行拔插 USB"
+        },
+        {
+          "cause": "烧录和监视器同时开着抢同一个口（串口烧录时）",
+          "probability": "中",
+          "check": "你是用串口烧录的？",
+          "fix": "烧录前先 Ctrl+C 关监视器"
+        }
+      ],
+      "explain": "串口是一条独木桥，一次只能一个程序过。上一个程序没下桥，下一个就只能等。",
+      "ask_ai": "macOS 上 pio device monitor 报 Resource busy。`lsof | grep -i usb` 输出：[粘贴]。请告诉我怎么释放端口。"
+    },
+    {
+      "id": "serial_port_not_listed",
+      "stage": "串口",
+      "symptom": "pio device list 里没有我的串口，或者有一堆不知道哪个是",
+      "signals": ["cu.Bluetooth-Incoming-Port", "cu.debug-console", "没有 usbserial", "哪个是我的"],
+      "causes": [
+        {
+          "cause": "只有 Bluetooth 那些是系统自带的，你的设备根本没识别（线/驱动，见烧录章节）",
+          "probability": "高",
+          "check": "拔掉串口模块再 ls /dev/cu.*，插上再 ls，多出来的那个就是你的",
+          "fix": "多出来的名字写进 monitor_port"
+        },
+        {
+          "cause": "ST-Link 本身不提供串口，你把 ST-Link 当串口用了",
+          "probability": "中",
+          "check": "只插了 ST-Link？",
+          "fix": "ST-Link V2（白色小 U 盘那种）没有串口功能，需要额外 CH340 接 PA9/PA10"
+        },
+        {
+          "cause": "想用板载 USB 当串口但没开 USB CDC",
+          "probability": "低",
+          "check": "platformio.ini 有没有 -D USBCON -D USBD_USE_CDC",
+          "fix": "build_flags 加 -D PIO_FRAMEWORK_ARDUINO_ENABLE_CDC -D USBCON -D USBD_VID=0x0483 -D USBD_PID=0x5740。注意板载 USB 上拉电阻常常是错的（R10 用 10K 而非 1.5K），不一定能用"
+        }
+      ],
+      "explain": "/dev/cu.* 是电脑上所有「串口门牌」的列表。Bluetooth 那几个是系统自带的常驻户，你的设备插上应该多一个门牌。没多，就是没进门。",
+      "ask_ai": "macOS 上 `ls /dev/cu.*` 输出：[粘贴]。我插着 [ST-Link / CH340 / 板子 USB]。哪个是我的串口？如果没有，最可能的原因是什么？"
+    },
+    {
+      "id": "serial_print_float_or_chinese",
+      "stage": "串口",
+      "symptom": "打印浮点数只显示整数或问号；打印中文乱码",
+      "signals": ["浮点变成 ?", "小数没了", "中文乱码", "printf %f"],
+      "causes": [
+        {
+          "cause": "用了 Serial.printf(\"%f\") 但默认没开浮点格式支持",
+          "probability": "高",
+          "check": "改用 Serial.println(x, 2) 试试有没有小数",
+          "fix": "用 Serial.print(x, 2)；或 build_flags 加 -Wl,-u,_printf_float（会多占几 KB Flash）"
+        },
+        {
+          "cause": "中文乱码：终端和源文件编码不一致，或监视器不支持 UTF-8",
+          "probability": "中",
+          "check": "换 pio device monitor 看看（默认 UTF-8）",
+          "fix": "确认源文件是 UTF-8；platformio.ini 加 monitor_filters = default, time；调试阶段建议先用英文"
+        }
+      ],
+      "explain": "为了省空间，嵌入式的 printf 默认不带「小数打印」这个功能模块，得手动开。像买了打印机不带彩色墨盒。",
+      "ask_ai": "STM32duino 里 Serial.printf(\"%f\") 打印不出小数。请给我最省 Flash 的解决方案，以及 build_flags 版本的写法。"
+    },
+    {
+      "id": "button_bounce",
+      "stage": "GPIO",
+      "symptom": "按一次按键，计数器加了好几下，或者 LED 状态乱跳",
+      "signals": ["按一次算多次", "抖动", "计数不准", "翻转两次"],
+      "causes": [
+        {
+          "cause": "机械按键按下的瞬间会弹跳几毫秒，程序读到几十次高低变化",
+          "probability": "高",
+          "check": "按下按键后 Serial.println 每次读到的值，看是不是一串 0101",
+          "fix": "软件去抖：检测到变化后 delay(20) 再读一次确认；或用 millis() 记录上次变化时间，50ms 内忽略"
+        },
+        {
+          "cause": "没上拉/悬空导致随机跳（见 gpio_floating）",
+          "probability": "中",
+          "check": "不碰按键时值稳不稳",
+          "fix": "pinMode(pin, INPUT_PULLUP)"
+        },
+        {
+          "cause": "把「按下时」和「按着」混了，loop 每圈都算一次",
+          "probability": "中",
+          "check": "长按一下，计数一直加就是这个",
+          "fix": "记录上一次的状态，只在「上次没按、这次按了」时算一次（边沿检测）"
+        }
+      ],
+      "explain": "按键的金属片碰上的瞬间会像乒乓球一样弹几下，几毫秒内通断好几次。人感觉是一次，芯片每微秒都在看，看到的是好几次。去抖就是「看到变化后等一等再确认」。",
+      "ask_ai": "STM32duino 按键接 [引脚]，按一次计数加多次。请给我一个用 millis() 的非阻塞去抖 + 边沿检测代码，用 INPUT_PULLUP，按下接 GND。"
+    },
+    {
+      "id": "gpio_floating",
+      "stage": "GPIO",
+      "symptom": "没按按键的时候读数随机变，手靠近就变",
+      "signals": ["随机变", "手靠近就变", "悬空", "读数不稳", "忽 0 忽 1"],
+      "causes": [
+        {
+          "cause": "引脚配成 INPUT 但没接上拉/下拉，按键松开时引脚什么都不接（悬空），像天线一样接收干扰",
+          "probability": "高",
+          "check": "pinMode 那行是不是 INPUT 而不是 INPUT_PULLUP",
+          "fix": "改 INPUT_PULLUP，按键一端接引脚一端接 GND。逻辑变成：按下 = LOW"
+        },
+        {
+          "cause": "接了上拉但按键另一端接的不是 GND（接了 3.3V），按下时短路上拉",
+          "probability": "低",
+          "check": "看按键另一端接哪",
+          "fix": "上拉配 GND，下拉配 VCC，二选一"
+        }
+      ],
+      "explain": "一根什么都不接的线就是一根天线，周围手机、灯、你的手都在往上感应电压。上拉电阻像一根细绳把它「轻轻拉到 3.3V」，按键按下才用力拉到 GND。",
+      "ask_ai": "STM32 按键读数悬空乱跳。我 pinMode 用的是 [INPUT/INPUT_PULLUP]，按键接 [引脚] 和 [GND/3.3V]。请给我正确的接法和代码，说明按下时读到的是 HIGH 还是 LOW。"
+    },
+    {
+      "id": "gpio_reads_inverted",
+      "stage": "GPIO",
+      "symptom": "按下读到 0，松开读到 1，和我预期反了",
+      "signals": ["按下是 0", "反了", "LOW 是按下"],
+      "causes": [
+        {
+          "cause": "用了 INPUT_PULLUP 接 GND，按下就是 LOW，这是正确且推荐的接法",
+          "probability": "高",
+          "check": "看 pinMode",
+          "fix": "不用改硬件，代码判断 if (digitalRead(pin) == LOW) 表示按下；或者 bool pressed = !digitalRead(pin)"
+        }
+      ],
+      "explain": "上拉接法下「按下 = 接地 = 0」是电路界的默认习惯，不是错。就像有些国家开关往下是开。习惯它，或者用一个变量翻过来。",
+      "ask_ai": "为什么 INPUT_PULLUP 接法下按键按下读到 LOW？帮我写一个 isPressed() 函数封装掉这个反逻辑。"
+    },
+    {
+      "id": "gpio_5v_tolerance",
+      "stage": "GPIO",
+      "symptom": "接了 5V 传感器的输出到 STM32 引脚，担心/已经烧了",
+      "signals": ["5V", "3.3V", "FT", "耐压", "会不会烧"],
+      "causes": [
+        {
+          "cause": "蓝药丸大部分数字引脚是 5V 容忍的（FT），但 PA0-PA7、PB0/PB1 这些带 ADC 的不是",
+          "probability": "高",
+          "check": "查 bluepill-pins.json 里那个引脚有没有 FT 标记",
+          "fix": "5V 数字信号接标 FT 的引脚（如 PB5-PB15、PA8-PA15）；接 ADC 引脚必须分压到 3.3V 以下"
+        },
+        {
+          "cause": "引脚配成了输出（OUTPUT）又接了外部电压",
+          "probability": "中",
+          "check": "看 pinMode",
+          "fix": "接外部信号的引脚一律 INPUT"
+        }
+      ],
+      "explain": "芯片是 3.3V 的。有些引脚穿了「防水衣」能扛 5V（FT），有些没穿。ADC 引脚都没穿，5V 直接接上去就是往它身上倒开水。",
+      "ask_ai": "我想把一个 5V 输出的 [传感器名] 信号接到 STM32F103C8T6，请告诉我哪些引脚是 5V 容忍的，以及如果非要接 ADC 引脚用什么阻值分压。"
+    },
+    {
+      "id": "servo_jitter",
+      "stage": "PWM",
+      "symptom": "舵机抖、嗡嗡响、位置不稳",
+      "signals": ["抖动", "嗡嗡", "来回颤", "不稳"],
+      "causes": [
+        {
+          "cause": "供电不足。舵机从板子 3V3 或 USB 的 5V 取电，电流不够，电压一跌舵机就重新找位置",
+          "probability": "高",
+          "check": "舵机换用独立 5V 电源（4 节电池或 5V 2A 适配器），GND 和板子共地",
+          "fix": "独立供电 + 共地，信号线还接板子"
+        },
+        {
+          "cause": "信号线和电源线杜邦线接触不良",
+          "probability": "中",
+          "check": "捏一下接头看抖动是否变化",
+          "fix": "换线，或者焊"
+        },
+        {
+          "cause": "代码里 loop 太快，反复 write 同一个角度，或者 delay 太短",
+          "probability": "中",
+          "check": "只 write 一次角度然后 delay(2000)，还抖吗",
+          "fix": "只在角度变化时 write"
+        },
+        {
+          "cause": "便宜舵机（SG90）本身死区小，到位后来回找",
+          "probability": "低",
+          "check": "换一个舵机对比",
+          "fix": "到位后 servo.detach() 断掉信号"
+        }
+      ],
+      "explain": "舵机像个很饿的大力士，一动就要大口喝电。板子的 3V3 是根细吸管，供不上他就开始哆嗦。给他单独接根粗水管（独立电源），再把地线接一起让大家用同一个「零点」。",
+      "ask_ai": "SG90 舵机接 STM32 蓝药丸 [引脚] 抖动。舵机供电来自 [板子 3V3 / 板子 5V / 独立电源]。请给我正确的供电接法图（文字描述）和一段用 Servo 库的最小代码。"
+    },
+    {
+      "id": "servo_not_moving",
+      "stage": "PWM",
+      "symptom": "舵机完全不动，也不响",
+      "signals": ["不动", "没反应", "servo.attach"],
+      "causes": [
+        {
+          "cause": "信号线接的引脚不支持定时器 PWM，或者 Servo 库不认",
+          "probability": "高",
+          "check": "换到 PA8 或 PB6 试",
+          "fix": "用带 TIM 复用的引脚：PA0-PA3、PA6-PA10、PB0/PB1、PB6-PB9。查 bluepill-pins.json"
+        },
+        {
+          "cause": "舵机三根线接反了：棕/黑 = GND，红 = 5V，橙/黄 = 信号",
+          "probability": "高",
+          "check": "对颜色",
+          "fix": "按颜色重接"
+        },
+        {
+          "cause": "没供电或供电只有 3.3V（多数舵机要 4.8V+）",
+          "probability": "中",
+          "check": "红线接的是 5V 还是 3V3",
+          "fix": "接 5V"
+        },
+        {
+          "cause": "代码 attach 了但没 write，或者 write 的角度和当前一样",
+          "probability": "低",
+          "check": "写一个 0 → 90 → 180 循环",
+          "fix": "改代码"
+        }
+      ],
+      "explain": "舵机需要三件事：够劲的电、正确的地、一根每 20ms 来一个脉冲的信号线。三缺一都不动。先查电和地（万用表或换灯泡），再查信号引脚是不是能出 PWM。",
+      "ask_ai": "舵机接蓝药丸 [引脚]，电源接 [哪里]，完全不动。代码：[粘贴]。请先确认这个引脚在 STM32duino 里能不能用 Servo 库，再检查接线。"
+    },
+    {
+      "id": "pwm_pin_not_supported",
+      "stage": "PWM",
+      "symptom": "analogWrite 没效果，LED 不变亮度，或者只有全亮/全灭",
+      "signals": ["analogWrite 无效", "不变亮度", "只有开关", "PWM"],
+      "causes": [
+        {
+          "cause": "引脚没有定时器输出功能（比如 PC13、PC14、PC15、PA13/PA14）",
+          "probability": "高",
+          "check": "换 PA8 或 PB6 试",
+          "fix": "用带 TIMx_CHy 的引脚（查 bluepill-pins.json）"
+        },
+        {
+          "cause": "没 pinMode(pin, OUTPUT)（STM32duino 的 analogWrite 有时会自动，有时不会）",
+          "probability": "中",
+          "check": "加上 pinMode",
+          "fix": "加"
+        },
+        {
+          "cause": "值范围错了，默认 0-255；写了 1023 就等于全亮",
+          "probability": "中",
+          "check": "写 analogWrite(pin, 30) 看有没有变暗",
+          "fix": "0-255；要 12 位用 analogWriteResolution(12)"
+        }
+      ],
+      "explain": "PWM 是快速地开关灯让人眼看成半亮。能做这件事的是芯片里的「定时器」，但定时器只连到了部分引脚。没连的引脚只能开或关。",
+      "ask_ai": "STM32F103C8T6 用 STM32duino，哪些引脚支持 analogWrite（PWM）？我想接 [N] 个 LED 和 [N] 个舵机，请分配引脚并避开冲突的定时器。"
+    },
+    {
+      "id": "pwm_frequency_wrong",
+      "stage": "PWM",
+      "symptom": "蜂鸣器音调不对、电机有尖叫声、LED 肉眼可见闪",
+      "signals": ["尖叫", "音调不对", "肉眼闪", "频率"],
+      "causes": [
+        {
+          "cause": "PWM 频率太低（默认 1kHz），电机能听到，LED 靠近会闪",
+          "probability": "高",
+          "check": "analogWriteFrequency(20000) 试",
+          "fix": "电机用 20kHz 以上；LED 1kHz 够；蜂鸣器用 tone(pin, 频率)"
+        },
+        {
+          "cause": "无源蜂鸣器用 digitalWrite 只会咔一声，需要方波",
+          "probability": "中",
+          "check": "tone(pin, 1000) 有没有声",
+          "fix": "用 tone()/noTone()"
+        }
+      ],
+      "explain": "PWM 的开关速度就是它的「音调」。1000 次/秒在人耳可听范围里，电机线圈会把它唱出来。提到 20000 次/秒人就听不见了。",
+      "ask_ai": "STM32duino 里怎么设置 analogWrite 的 PWM 频率？我在 [引脚] 驱动 [电机/蜂鸣器/LED]，希望 [无噪音/正确音调]。"
+    },
+    {
+      "id": "adc_reading_jumps",
+      "stage": "ADC",
+      "symptom": "analogRead 的值一直跳，没接东西也有读数",
+      "signals": ["跳动", "不稳定", "没接也有值", "噪声", "浮动"],
+      "causes": [
+        {
+          "cause": "引脚悬空，读的是空气里的噪声，这是正常的",
+          "probability": "高",
+          "check": "用一根线把引脚接 GND，读数应该接近 0；接 3V3 接近 4095",
+          "fix": "接上真正的传感器再看；悬空引脚读数无意义"
+        },
+        {
+          "cause": "传感器信号本身有噪声（电位器接触、长线）",
+          "probability": "中",
+          "check": "连读 16 次取平均",
+          "fix": "多次采样平均；信号线短一点；传感器电源加 0.1uF 电容"
+        },
+        {
+          "cause": "电源不干净（USB 供电波动）",
+          "probability": "中",
+          "check": "拔掉别的耗电外设看是否好转",
+          "fix": "3V3 和 GND 之间加 10uF 电容；参考电压不稳时读数整体漂"
+        },
+        {
+          "cause": "以为是 0-1023，实际 STM32 是 12 位 0-4095",
+          "probability": "低",
+          "check": "接 3V3 看最大是不是 4095",
+          "fix": "按 4095 换算：电压 = 读数 / 4095.0 * 3.3"
+        }
+      ],
+      "explain": "ADC 像一把很精细的尺子，量空气它也会给你个数。不稳定不代表坏，代表被量的东西本身在动。多量几次取平均，就像称体重站稳了再看。",
+      "ask_ai": "STM32F103 analogRead([引脚]) 读 [传感器] 数值抖动 ±[N]。请给我一段滑动平均滤波代码，以及告诉我多大的抖动是正常的。"
+    },
+    {
+      "id": "adc_5v_out_of_range",
+      "stage": "ADC",
+      "symptom": "传感器输出 0-5V，ADC 读数卡在最大值不变，或者担心烧引脚",
+      "signals": ["4095 不动", "满量程", "5V 传感器", "超量程"],
+      "causes": [
+        {
+          "cause": "STM32 ADC 最大只能量 3.3V，5V 进去一律读满，而且长期会损坏引脚（ADC 引脚不是 5V 容忍的）",
+          "probability": "高",
+          "check": "传感器手册看输出范围",
+          "fix": "分压：信号 → 10K → ADC 引脚 → 20K → GND（5V 变 3.33V，有点贴边，用 10K/15K 更稳变 3V）。换算时乘回系数"
+        },
+        {
+          "cause": "传感器接的是 5V 供电但信号其实是 3.3V 逻辑，没事",
+          "probability": "中",
+          "check": "手册里 output voltage 那行",
+          "fix": "不用分压，直接接"
+        }
+      ],
+      "explain": "ADC 的尺子最长只有 3.3V，拿去量 5V 的东西只能读到「超过尺子」。分压就是把 5V 按比例缩小到尺子量得到的范围，读完再按比例放大回去。",
+      "ask_ai": "我有一个输出 0-5V 的 [传感器]，想接 STM32F103 的 ADC。请给我分压电阻的值和接法，以及 analogRead 读数换算回原电压的公式。"
+    },
+    {
+      "id": "adc_vref_wrong",
+      "stage": "ADC",
+      "symptom": "算出来的电压和万用表对不上，整体偏大或偏小",
+      "signals": ["电压不准", "偏了 10%", "3.3 还是 3.0", "参考电压"],
+      "causes": [
+        {
+          "cause": "板子 3V3 实际不是 3.3V（USB 供电下常在 3.2-3.3 之间），公式却按 3.3 算",
+          "probability": "高",
+          "check": "用万用表量板子 3V3 和 GND 之间的电压",
+          "fix": "公式里用量到的实际值；或者读内部参考电压 analogRead(AVREF) 动态校正"
+        },
+        {
+          "cause": "分辨率设成了 10 位却按 4095 算（或反过来）",
+          "probability": "中",
+          "check": "搜 analogReadResolution",
+          "fix": "统一：默认 12 位 → 4095"
+        }
+      ],
+      "explain": "ADC 是拿 3V3 引脚的电压当「一米标尺」的。标尺本身短了 5%，量出来的所有数就都偏 5%。",
+      "ask_ai": "STM32F103 ADC 读数换算的电压比万用表偏 [N]%。板子 3V3 引脚实测 [电压]。请帮我修正公式，并说明怎么用内部 VREFINT 自动校正。"
+    },
+    {
+      "id": "i2c_scanner_finds_nothing",
+      "stage": "I2C",
+      "symptom": "I2C 扫描程序一个地址都找不到",
+      "signals": ["No I2C devices found", "扫不到", "0 devices", "Wire"],
+      "causes": [
+        {
+          "cause": "SDA/SCL 接反或接错引脚。蓝药丸默认 I2C1：SCL=PB6、SDA=PB7",
+          "probability": "高",
+          "check": "对着模块丝印 SDA→PB7、SCL→PB6",
+          "fix": "重接；或者代码指定 Wire.setSDA(PB9); Wire.setSCL(PB8); 前提是接那里"
+        },
+        {
+          "cause": "模块没供电或供电电压不对（有的 OLED 要 5V，有的只能 3.3V）",
+          "probability": "高",
+          "check": "模块 VCC 接的哪，模块上有没有电源指示或稳压芯片",
+          "fix": "看模块说明；不确定先 3.3V"
+        },
+        {
+          "cause": "没有上拉电阻。大部分模块自带，但裸芯片或某些便宜模块没有",
+          "probability": "中",
+          "check": "模块背面找有没有标 4.7K/10K 的小电阻",
+          "fix": "SDA、SCL 各接一个 4.7K 到 3.3V"
+        },
+        {
+          "cause": "没共地",
+          "probability": "中",
+          "check": "数线：VCC、GND、SDA、SCL 四根",
+          "fix": "接 GND"
+        },
+        {
+          "cause": "扫描程序本身用的是 Serial 但你接的 Serial1，输出你看不到",
+          "probability": "低",
+          "check": "扫描程序开头有没有打出 Scanning...",
+          "fix": "见串口章节"
+        }
+      ],
+      "explain": "I2C 是两根线的公交线路，所有设备挂在同一条线上，各有门牌号（地址）。扫描就是挨个喊门牌看谁应。一个都不应，通常是线没接对或者车（电）没开。",
+      "ask_ai": "STM32 蓝药丸 I2C 扫描找不到设备。接线：模块 SDA→[引脚]，SCL→[引脚]，VCC→[电压]，GND→GND。模块是 [型号]。请核对引脚并给我一个 STM32duino 的 I2C 扫描程序。"
+    },
+    {
+      "id": "i2c_wrong_address",
+      "stage": "I2C",
+      "symptom": "扫描能扫到地址，但库初始化失败/屏幕不亮",
+      "signals": ["0x3C", "0x3D", "0x27", "0x3F", "begin() failed", "SSD1306 allocation failed"],
+      "causes": [
+        {
+          "cause": "库默认地址和实际不一样。OLED 常见 0x3C（有的 0x3D），LCD1602 背板常见 0x27（有的 0x3F）",
+          "probability": "高",
+          "check": "扫描程序扫到的地址是多少，和代码里 begin() 的参数比",
+          "fix": "把扫到的地址填进去：display.begin(SSD1306_SWITCHCAPVCC, 0x3C) / LiquidCrystal_I2C lcd(0x27, 16, 2)"
+        },
+        {
+          "cause": "SSD1306 allocation failed 是 RAM 不够，不是地址问题",
+          "probability": "中",
+          "check": "编译输出 RAM 使用率",
+          "fix": "减小其他数组；或换 U8x8 这类不需要帧缓存的库"
+        },
+        {
+          "cause": "模块背面的地址跳线（A0/A1/A2 焊点）被改过",
+          "probability": "低",
+          "check": "看背面焊点",
+          "fix": "以扫到的为准"
+        }
+      ],
+      "explain": "扫到了说明公交线路通了、设备在，但库敲的门牌号不对，所以没人开门。把扫到的门牌号告诉库就行。",
+      "ask_ai": "I2C 扫描扫到 0x[地址]，我用的是 [模块型号] + [库名]，begin 失败。请告诉我怎么在这个库里指定地址，以及 allocation failed 是不是内存问题。"
+    },
+    {
+      "id": "i2c_wire_too_long",
+      "stage": "I2C",
+      "symptom": "I2C 设备近了能用，线一长（>30cm）就时好时坏",
+      "signals": ["线长就坏", "偶尔读错", "NACK", "timeout", "花屏偶发"],
+      "causes": [
+        {
+          "cause": "I2C 本来就是板内短距离总线，线长电容大，信号边沿变钝",
+          "probability": "高",
+          "check": "用 15cm 的线试",
+          "fix": "缩短线；或者 Wire.setClock(100000) 降到 100kHz；或者上拉换小一点（2.2K）"
+        },
+        {
+          "cause": "上拉电阻太大（10K）拉不动长线",
+          "probability": "中",
+          "check": "模块上上拉是多少",
+          "fix": "并一个 4.7K"
+        },
+        {
+          "cause": "线和电机/电源线绑在一起走，被干扰",
+          "probability": "中",
+          "check": "把 I2C 线和其他线分开走",
+          "fix": "分开；用双绞"
+        }
+      ],
+      "explain": "I2C 的信号像在软水管里推水，管子越长推起来越费劲、越慢。降速是让每一下推得更久，换小上拉是换更有劲的手。",
+      "ask_ai": "I2C 设备 [型号] 接 STM32 用 [N]cm 的线不稳定。请给我 STM32duino 里降低 I2C 时钟的代码，以及上拉电阻的推荐值。"
+    },
+    {
+      "id": "i2c_bus_stuck",
+      "stage": "I2C",
+      "symptom": "I2C 一开始好用，某次复位后就完全不响应，断电重上电又好",
+      "signals": ["复位后 I2C 死", "断电才恢复", "SDA 一直低", "bus busy"],
+      "causes": [
+        {
+          "cause": "复位发生在一次 I2C 传输中间，从设备还在等剩下的时钟，把 SDA 拉着不放",
+          "probability": "高",
+          "check": "复现：正在读传感器时按 RESET",
+          "fix": "setup 里 Wire.begin() 前先把 SCL 当 GPIO 敲 9 个脉冲释放总线；或者最简单：复位时也给模块断电"
+        },
+        {
+          "cause": "从设备（某些便宜传感器）自身死锁",
+          "probability": "中",
+          "check": "只有某一个模块会这样",
+          "fix": "给那个模块的 VCC 加个 GPIO 控制的开关，出问题就重启它"
+        }
+      ],
+      "explain": "两个人对话，一方话说一半突然失忆重启，另一方还在等下一句，就这么一直等着不说话也不挂电话。敲 9 个时钟是替对方把这句话说完。",
+      "ask_ai": "STM32duino 下 I2C 总线在复位后卡死（SDA 被拉低），断电重上电才恢复。请给我 setup 里恢复 I2C 总线的代码（9 个 SCL 脉冲那种）。"
+    },
+    {
+      "id": "spi_display_white_screen",
+      "stage": "SPI",
+      "symptom": "SPI 屏幕（TFT）通电白屏或全亮，不显示任何内容",
+      "signals": ["白屏", "全白", "背光亮没内容", "TFT_eSPI", "ST7735", "ST7789", "ILI9341"],
+      "causes": [
+        {
+          "cause": "库里的引脚定义和实际接线不一致（CS、DC、RST 尤其）",
+          "probability": "高",
+          "check": "打开库配置（如 TFT_eSPI 的 User_Setup.h 或代码里的构造函数）一根一根对",
+          "fix": "对齐。蓝药丸硬件 SPI1：SCK=PA5、MISO=PA6、MOSI=PA7；CS/DC/RST 任选 GPIO 但要写对"
+        },
+        {
+          "cause": "驱动型号选错（ST7735 vs ST7789 vs ILI9341，外观很像）",
+          "probability": "高",
+          "check": "看卖家页面或屏幕排线上的丝印",
+          "fix": "改库配置里的 driver define"
+        },
+        {
+          "cause": "RST 没接或没接对，屏幕控制器没复位",
+          "probability": "中",
+          "check": "RST 接到一个 GPIO 并在代码里指定",
+          "fix": "接上；或接 3.3V（有的屏能用）"
+        },
+        {
+          "cause": "SPI 速度太高（默认 27MHz+），线一长就不行",
+          "probability": "中",
+          "check": "SPI_FREQUENCY 降到 8000000",
+          "fix": "降速"
+        }
+      ],
+      "explain": "白屏是屏幕的「出厂待机」：背光亮了，但控制芯片没收到任何听得懂的指令。要么指令送错了门（引脚），要么说的是另一种方言（驱动型号）。",
+      "ask_ai": "[屏幕型号] SPI 屏接 STM32 蓝药丸白屏。接线：SCK→[]，MOSI→[]，CS→[]，DC→[]，RST→[]，BL→[]。用的库是 [库名]。请给我这个库对应的引脚配置代码，并确认驱动型号。"
+    },
+    {
+      "id": "spi_display_garbled",
+      "stage": "SPI",
+      "symptom": "屏幕能亮有内容但花屏、偏移、颠倒、颜色反",
+      "signals": ["花屏", "雪花", "偏移", "颠倒", "颜色反", "镜像"],
+      "causes": [
+        {
+          "cause": "驱动型号对了但是变种不对（比如 ST7735 有 GREENTAB/REDTAB/BLACKTAB，偏移不同）",
+          "probability": "高",
+          "check": "库配置里试不同的 TAB 变种",
+          "fix": "逐个试，直到不偏"
+        },
+        {
+          "cause": "分辨率填错（128x160 填成 128x128）",
+          "probability": "中",
+          "check": "量一下屏幕，对照卖家页",
+          "fix": "改配置"
+        },
+        {
+          "cause": "SPI 速度太高导致随机花点",
+          "probability": "中",
+          "check": "降到 8MHz",
+          "fix": "降速；缩短线"
+        },
+        {
+          "cause": "颜色反：需要 invertDisplay(true) 或 RGB/BGR 顺序设置",
+          "probability": "低",
+          "check": "红色显示成蓝色就是 RGB/BGR",
+          "fix": "改配置里的颜色顺序"
+        }
+      ],
+      "explain": "同一款驱动芯片的屏幕，不同厂家会从像素阵列的不同位置开始算「第一行」。库需要知道具体是哪种偏移，否则画出来的图整体挪了一块。",
+      "ask_ai": "[屏幕型号] 在 STM32 上能显示但 [花屏/偏移 N 像素/颠倒/颜色反]。用的库是 [库名]。请列出这个库里所有影响偏移/旋转/颜色顺序的配置项。"
+    },
+    {
+      "id": "spi_sd_card_fail",
+      "stage": "SPI",
+      "symptom": "SD 卡模块初始化失败 SD.begin() 返回 false",
+      "signals": ["SD.begin failed", "initialization failed", "Card Mount Failed", "SD 卡"],
+      "causes": [
+        {
+          "cause": "CS 引脚没传给 SD.begin(csPin)",
+          "probability": "高",
+          "check": "看 SD.begin 有没有参数",
+          "fix": "SD.begin(PA4) 之类，和接线一致"
+        },
+        {
+          "cause": "SD 卡格式不对（exFAT / 64GB 以上），库只认 FAT16/FAT32",
+          "probability": "高",
+          "check": "在电脑上看卡的格式",
+          "fix": "用 32GB 以下的卡格式成 FAT32"
+        },
+        {
+          "cause": "模块是 5V 的（带电平转换），接了 3.3V 供电",
+          "probability": "中",
+          "check": "模块上有没有 5V 标记和一颗电平转换芯片",
+          "fix": "VCC 接 5V"
+        },
+        {
+          "cause": "SPI 初始化速度太高",
+          "probability": "低",
+          "check": "SD.begin(cs, SPI_HALF_SPEED)",
+          "fix": "降速"
+        }
+      ],
+      "explain": "SD 卡说话前要先握手，握手对速度、格式、供电都挑。大多失败是卡格式不对或者 CS 没告诉库。",
+      "ask_ai": "SD 卡模块接 STM32 蓝药丸 SD.begin 失败。CS 接 [引脚]，模块供电 [电压]，SD 卡 [容量]、格式 [格式]。请按可能性排查。"
+    },
+    {
+      "id": "dht_reads_nan",
+      "stage": "传感器",
+      "symptom": "DHT11/DHT22 温湿度读出 NaN 或 -999 或 Failed to read",
+      "signals": ["nan", "NaN", "-999", "Failed to read from DHT sensor", "DHT"],
+      "causes": [
+        {
+          "cause": "读得太频繁。DHT11 至少间隔 1 秒，DHT22 至少 2 秒",
+          "probability": "高",
+          "check": "loop 里的 delay 是多少",
+          "fix": "delay(2000)"
+        },
+        {
+          "cause": "上电后马上读，传感器还没准备好",
+          "probability": "高",
+          "check": "setup 里 dht.begin() 后有没有 delay(2000)",
+          "fix": "加 delay"
+        },
+        {
+          "cause": "数据线没上拉（裸传感器 4 脚的那种需要 10K 上拉；3 脚模块一般自带）",
+          "probability": "中",
+          "check": "是 3 脚模块还是 4 脚裸件",
+          "fix": "4 脚的在 DATA 和 VCC 之间加 10K"
+        },
+        {
+          "cause": "型号选错：代码写 DHT22 实际是 DHT11（或反过来）",
+          "probability": "中",
+          "check": "外壳颜色：DHT11 蓝色，DHT22 白色",
+          "fix": "改 #define DHTTYPE"
+        },
+        {
+          "cause": "线太长或接触不良",
+          "probability": "低",
+          "check": "换短线",
+          "fix": "换"
+        }
+      ],
+      "explain": "DHT 是个慢性子传感器，每次量完要休息一两秒才能再量，你催它它就给你个 NaN（不知道）。",
+      "ask_ai": "DHT[11/22] 接 STM32 [引脚] 一直读 NaN。是 [3 脚模块/4 脚裸件]，用的库 [库名]，loop delay [N]ms。请给我一个正确的读取节奏和接法。"
+    },
+    {
+      "id": "ds18b20_needs_pullup",
+      "stage": "传感器",
+      "symptom": "DS18B20 读出 -127 或 85 度",
+      "signals": ["-127", "85.00", "DEVICE_DISCONNECTED", "No more addresses", "OneWire"],
+      "causes": [
+        {
+          "cause": "-127 = 没找到设备，最常见是没接 4.7K 上拉电阻（DATA 到 VCC）",
+          "probability": "高",
+          "check": "看 DATA 和 VCC 之间有没有电阻",
+          "fix": "加 4.7K 上拉。防水封装的三根线：红 VCC、黑/黄 GND、黄/白 DATA（颜色有变种，认卖家说明）"
+        },
+        {
+          "cause": "85 = 上电后还没转换完就读了",
+          "probability": "中",
+          "check": "只有第一次读是 85",
+          "fix": "sensors.requestTemperatures() 后 delay(750) 再 getTempC"
+        },
+        {
+          "cause": "接错引脚或 OneWire 初始化的引脚不对",
+          "probability": "中",
+          "check": "对比代码 OneWire oneWire(引脚) 和实际",
+          "fix": "改"
+        },
+        {
+          "cause": "假芯片（很多便宜的是），行为古怪",
+          "probability": "低",
+          "check": "换一个",
+          "fix": "换"
+        }
+      ],
+      "explain": "DS18B20 用一根线既送电又传数据，靠的是那个上拉电阻把线「默认拉高」。没电阻线一直是低，芯片当没人在。-127 是库的「没人应」暗号，85 是芯片的「还没量完」暗号。",
+      "ask_ai": "DS18B20 接 STM32 [引脚] 读 [-127/85]。我 [有/没有] 加 4.7K 上拉。线的颜色是 [列出]。请给我接法和 DallasTemperature 库的最小代码。"
+    },
+    {
+      "id": "ultrasonic_5v_echo",
+      "stage": "传感器",
+      "symptom": "HC-SR04 超声波读数一直 0 或不稳定，或者担心 5V 回波烧板子",
+      "signals": ["距离 0", "读数乱", "HC-SR04", "Echo 5V", "pulseIn 超时"],
+      "causes": [
+        {
+          "cause": "HC-SR04 要 5V 供电，接了 3.3V 不工作或距离很短",
+          "probability": "高",
+          "check": "VCC 接的哪",
+          "fix": "VCC 接 5V"
+        },
+        {
+          "cause": "Echo 输出 5V，接到了非 5V 容忍引脚（尤其 PA0-PA7）",
+          "probability": "高",
+          "check": "Echo 接的哪个引脚，查 bluepill-pins.json 的 FT 标记",
+          "fix": "Echo 接 FT 引脚（如 PB5-PB15），或者串 1K + 2K 分压"
+        },
+        {
+          "cause": "pulseIn 没设超时，没回波时卡 1 秒",
+          "probability": "中",
+          "check": "loop 明显卡顿",
+          "fix": "pulseIn(echo, HIGH, 30000)"
+        },
+        {
+          "cause": "Trig 脉冲太短或没先拉低",
+          "probability": "低",
+          "check": "标准序列：LOW 2us → HIGH 10us → LOW",
+          "fix": "按标准写"
+        }
+      ],
+      "explain": "超声波模块是 5V 世界的居民：要喝 5V 的电，说话也用 5V 的音量。STM32 是 3.3V 世界的，听 5V 的话得选耳朵扛得住的（FT 引脚），或者加个减音器（分压）。",
+      "ask_ai": "HC-SR04 接 STM32 蓝药丸。VCC→[]，Trig→[]，Echo→[]。请确认 Echo 引脚是否 5V 容忍，并给我带超时的测距代码。"
+    },
+    {
+      "id": "sensor_module_polarity",
+      "stage": "传感器",
+      "symptom": "某个传感器模块接上后板子重启/发热，或者模块一直没读数",
+      "signals": ["接上就重启", "模块发热", "VCC GND 反", "极性"],
+      "causes": [
+        {
+          "cause": "VCC 和 GND 接反了",
+          "probability": "高",
+          "check": "立刻断电。对照模块丝印重新看",
+          "fix": "重接。很多模块反接一次就废，重接后不工作就换"
+        },
+        {
+          "cause": "模块 VCC 接了 5V 但它只能 3.3V（或反过来）",
+          "probability": "中",
+          "check": "模块页面/手册 Operating Voltage",
+          "fix": "按手册"
+        },
+        {
+          "cause": "模块引脚顺序和你想的不一样（GND-VCC-SDA-SCL 和 VCC-GND-SCL-SDA 都常见）",
+          "probability": "中",
+          "check": "别按位置接，按丝印接",
+          "fix": "认丝印"
+        }
+      ],
+      "explain": "模块引脚顺序没有行业标准，同一功能的模块不同厂家能排出四五种顺序。永远看丝印，永远断电接线，永远上电前再看一遍。",
+      "ask_ai": "我接了 [模块型号] 到 STM32 后板子 [重启/发热/模块不响应]。模块引脚丝印从左到右是 [列出]，我接的是 [列出]。请核对。"
+    },
+    {
+      "id": "motor_direct_gpio_burn",
+      "stage": "执行器",
+      "symptom": "电机直接接 GPIO 不转/转一下就停，或者那个引脚之后就坏了",
+      "signals": ["电机不转", "引脚坏了", "直接接 GPIO", "转一下停"],
+      "causes": [
+        {
+          "cause": "GPIO 最大只能出 ~20mA，小电机启动要几百 mA。直接接要么不转要么把引脚烧了",
+          "probability": "高",
+          "check": "有没有驱动芯片/MOS 管/三极管在中间",
+          "fix": "加驱动：小直流电机用 L9110S/TB6612/L298N 模块；或者 NPN 三极管 + 二极管。电机电源独立，和板子共地"
+        },
+        {
+          "cause": "加了驱动但驱动的 VCC/电机电源没接",
+          "probability": "中",
+          "check": "驱动模块上电源灯",
+          "fix": "驱动模块的电机电源（VM）要接够劲的电源"
+        },
+        {
+          "cause": "引脚已经烧了",
+          "probability": "中",
+          "check": "拿这个引脚点 LED，能亮吗",
+          "fix": "换引脚。以后 GPIO 只接「信号」不接「负载」"
+        }
+      ],
+      "explain": "GPIO 是一根手指，只能按按钮，不能拎水桶。电机是水桶，得雇一个大力士（驱动芯片）来拎，你的手指只负责指挥大力士。",
+      "ask_ai": "我想用 STM32 蓝药丸控制一个 [电压/型号] 的直流电机，手上有 [驱动模块型号/没有驱动]。请给我接线（含电源怎么走、共地）和控制正反转的代码。"
+    },
+    {
+      "id": "relay_not_switching",
+      "stage": "执行器",
+      "symptom": "继电器模块灯亮但听不到咔哒声，或者根本不动",
+      "signals": ["继电器不吸合", "没有咔哒", "灯亮不动作", "高电平触发 低电平触发"],
+      "causes": [
+        {
+          "cause": "继电器线圈要 5V，模块 VCC 接了 3.3V，或者 3.3V 的 GPIO 驱动不动 5V 模块的光耦",
+          "probability": "高",
+          "check": "模块 VCC 接 5V 试；不行就看模块有没有 JD-VCC 跳线",
+          "fix": "VCC 接 5V；有 JD-VCC 的把跳线帽拔了，JD-VCC 接 5V，VCC 接 3.3V"
+        },
+        {
+          "cause": "模块是低电平触发的，你写 HIGH 想让它吸合",
+          "probability": "高",
+          "check": "写 LOW 试",
+          "fix": "按模块标注（Low Level Trigger）反过来写"
+        },
+        {
+          "cause": "USB 供电不够，继电器一吸板子就复位",
+          "probability": "中",
+          "check": "串口有没有反复 setup",
+          "fix": "继电器模块独立 5V 供电"
+        }
+      ],
+      "explain": "继电器里是一块电磁铁，要吸住金属片得吃够 5V 的电。3.3V 只能让指示灯亮，电磁铁没劲。",
+      "ask_ai": "[N] 路继电器模块接 STM32 蓝药丸不吸合。模块标注 [高/低电平触发]，VCC 接 [电压]，IN 接 [引脚]。请给我接法和测试代码。"
+    },
+    {
+      "id": "motor_noise_resets_board",
+      "stage": "执行器",
+      "symptom": "电机/舵机一启动，板子就重启，串口乱码，或者别的传感器读数乱",
+      "signals": ["电机一动就重启", "串口乱", "干扰", "传感器跟着乱"],
+      "causes": [
+        {
+          "cause": "电机和板子共用一个电源，电机启动瞬间把电压拉下去",
+          "probability": "高",
+          "check": "电机换独立电源（保留共地），还重启吗",
+          "fix": "独立供电 + 共地"
+        },
+        {
+          "cause": "电机线上的火花/反电动势通过地线传回来",
+          "probability": "中",
+          "check": "电机两端有没有并电容",
+          "fix": "电机两端并 0.1uF 电容；直流电机加续流二极管；电源入口加 100uF+0.1uF"
+        },
+        {
+          "cause": "信号线和电机线捆在一起走",
+          "probability": "低",
+          "check": "分开走线",
+          "fix": "分开；信号线短"
+        }
+      ],
+      "explain": "电机启动像有人在同一根水管上猛开一个大龙头，你这边的水压瞬间掉到零。给电机一根自己的水管（独立电源），只把「排水沟」（GND）连起来。",
+      "ask_ai": "STM32 板子在 [电机/舵机/继电器] 动作时重启或干扰其他传感器。目前供电：[描述]。请给我推荐的供电拓扑（文字图）和需要加哪些电容/二极管。"
+    },
+    {
+      "id": "led_strip_no_resistor",
+      "stage": "执行器",
+      "symptom": "LED 很暗、或者很亮一下就坏了、或者 LED 灯带只亮第一颗",
+      "signals": ["LED 太暗", "LED 烧了", "WS2812 只亮第一颗", "灯带"],
+      "causes": [
+        {
+          "cause": "普通 LED 没串限流电阻，电流过大烧了",
+          "probability": "高",
+          "check": "LED 和引脚之间有没有电阻",
+          "fix": "串 220Ω-1K 电阻"
+        },
+        {
+          "cause": "WS2812 灯带的数据线要 5V 逻辑，3.3V 边缘能不能用看运气",
+          "probability": "中",
+          "check": "只亮第一颗或颜色乱",
+          "fix": "数据线加一个 74HCT125 电平转换；或者第一颗 LED 用 3.7V 供电当「转换器」"
+        },
+        {
+          "cause": "灯带电源从板子 5V 取，多颗全亮时电流几安，供不上",
+          "probability": "中",
+          "check": "只亮几颗还是全部？亮白色会不会变色",
+          "fix": "独立 5V 电源，每米按 3A 估"
+        }
+      ],
+      "explain": "LED 是个不知道节制的东西，给多少电吃多少，直到吃死。电阻是给它限量的勺子。",
+      "ask_ai": "我想在 STM32 上接 [普通 LED / WS2812 灯带 N 颗]。请给我电阻/电平转换/电源的具体方案，以及最小代码。"
+    },
+    {
+      "id": "usb_power_insufficient",
+      "stage": "电源",
+      "symptom": "一切正常，但接上某个外设就全乱了：重启、暗、串口断",
+      "signals": ["USB 供电不够", "接上就不行", "电压掉", "PWR 灯变暗"],
+      "causes": [
+        {
+          "cause": "电脑 USB 口只给 500mA，扣掉板子自己，外设能用的很少",
+          "probability": "高",
+          "check": "拔外设看恢复没；万用表量板子 5V 引脚在外设工作时的电压（低于 4.5V 就有问题）",
+          "fix": "外设独立供电，共地。或者用带外接电源的 USB Hub"
+        },
+        {
+          "cause": "蓝药丸板载 3V3 稳压器只能出 ~300mA（有些山寨板更少），从 3V3 引脚取电带屏幕+传感器就超了",
+          "probability": "高",
+          "check": "外设接的是 3V3 还是 5V",
+          "fix": "能用 5V 的外设改接 5V；3V3 只留给小传感器"
+        },
+        {
+          "cause": "USB 线太细太长，压降大",
+          "probability": "中",
+          "check": "换短粗的线",
+          "fix": "换"
+        }
+      ],
+      "explain": "USB 口是一根细水管，板子的 3V3 稳压器是水管上再接的一根更细的管。舵机、屏幕、灯带都是大桶，从细管接水一定不够。",
+      "ask_ai": "我的 STM32 项目外设有 [列出，含大概电流]，目前全靠 USB 供电。请帮我算一下电流预算，给出供电方案（哪些走 5V、哪些走 3V3、哪些要独立电源）。"
+    },
+    {
+      "id": "no_common_ground_between_supplies",
+      "stage": "电源",
+      "symptom": "用了两个电源（USB 给板子、电池给电机），信号完全不听话",
+      "signals": ["双电源", "不听指令", "共地", "GND 没连"],
+      "causes": [
+        {
+          "cause": "两个电源的 GND 没连在一起，板子说的「高电平」对外设来说没有参照",
+          "probability": "高",
+          "check": "数一下两个电源的负极之间有没有线",
+          "fix": "两个 GND 用一根线连起来。只连 GND，不连正极"
+        },
+        {
+          "cause": "连了 GND 但线太细，电机的大电流走这根线导致地电位漂",
+          "probability": "中",
+          "check": "GND 线是不是普通杜邦线",
+          "fix": "电机回路用粗线；信号地和功率地在电源处汇合（星形接地）"
+        }
+      ],
+      "explain": "两个电源就像两个不同海拔的村子，「3.3 米高」在两个村里指的高度不一样。把两个村的地面连起来（共地），高度才有统一参照。",
+      "ask_ai": "我用 USB 给 STM32 供电、[电池/适配器] 给 [外设] 供电。请画一个文字接线图，说明 GND 怎么连、正极为什么不能连。"
+    },
+    {
+      "id": "sim_unsupported_syntax",
+      "stage": "模拟器",
+      "symptom": "代码在虚拟板子上跑不了或报错，但看着没问题",
+      "signals": ["模拟器不支持", "Unsupported", "虚拟板子报错", "真板能跑模拟器不能"],
+      "causes": [
+        {
+          "cause": "模拟器只实现了一个 Arduino API 子集（pinMode/digitalWrite/delay/Serial.print 之类），高级功能（定时器中断、HAL 直接调用、DMA）不支持",
+          "probability": "高",
+          "check": "看模拟器文档的「支持列表」，或者把代码删到只剩闪灯看能不能跑",
+          "fix": "调试阶段用支持的子集；高级功能上真板试"
+        },
+        {
+          "cause": "用了 STM32 特有引脚名或宏（PC13、LED_BUILTIN）模拟器不认",
+          "probability": "中",
+          "check": "报错里是不是 undefined 某个引脚名",
+          "fix": "查模拟器认哪些名字"
+        },
+        {
+          "cause": "库依赖：模拟器没有你 lib_deps 里的库",
+          "probability": "中",
+          "check": "报错是 No such file .h",
+          "fix": "去掉库先跑核心逻辑"
+        }
+      ],
+      "explain": "虚拟板子是个练习用的沙盘，画了道路和房子，但不会真的下雨刮风。能在沙盘上练走路，练不了游泳。",
+      "ask_ai": "我在 [模拟器名] 上跑 STM32 代码报 [报错]。代码用到的 API 有：[列出]。请告诉我哪些可能不被模拟器支持，以及如何把代码拆成「可模拟部分」和「真板部分」。"
+    },
+    {
+      "id": "sim_works_board_doesnt",
+      "stage": "模拟器",
+      "symptom": "虚拟板子上一切正常，烧到真板子就不行",
+      "signals": ["模拟器正常", "真板不行", "时序", "硬件差异"],
+      "causes": [
+        {
+          "cause": "模拟器不模拟电气问题：没上拉、没共地、供电不足、5V 打 3.3V 引脚，这些真板全会暴露",
+          "probability": "高",
+          "check": "回到硬件章节按接线一条条查",
+          "fix": "把「代码问题」和「接线问题」分开：先烧一个只闪灯的程序确认板子活着"
+        },
+        {
+          "cause": "模拟器时间是理想的，真板 delay/millis 受时钟配置影响",
+          "probability": "中",
+          "check": "闪灯节拍对不对",
+          "fix": "见 millis_delay_weird"
+        },
+        {
+          "cause": "模拟器里传感器返回理想值，真传感器要预热、要延时、会 NaN",
+          "probability": "中",
+          "check": "串口打原始读数看",
+          "fix": "加超时/重试/合理性检查"
+        }
+      ],
+      "explain": "模拟器是「理想物理」，真板子是「有摩擦力的世界」。逻辑对了只是第一步，电、线、时间这三样是模拟器永远不会教的。",
+      "ask_ai": "代码在模拟器正常，真板子 [现象]。代码：[粘贴]，接线：[描述]。请只从「模拟器不会模拟的硬件因素」角度列出可能原因。"
+    },
+    {
+      "id": "ai_wrong_pin_name",
+      "stage": "AI",
+      "symptom": "AI 给的代码编译报某个引脚名 not declared，或者用了 D13 / A0 这种名字",
+      "signals": ["'D13' was not declared", "'A0' was not declared", "LED_BUILTIN", "GPIO_PIN_13 (Arduino 框架里)", "13 (纯数字)"],
+      "causes": [
+        {
+          "cause": "AI 默认按 Arduino UNO 写，用了 D13/A0/13。STM32duino 里引脚名是 PA0、PB12、PC13 这样",
+          "probability": "高",
+          "check": "搜代码里所有 pinMode/digitalWrite/analogRead 的第一个参数",
+          "fix": "改成 Pxn 格式。告诉 AI「板子是 STM32F103C8T6 蓝药丸，用 STM32duino，引脚用 PA0/PC13 这种写法」"
+        },
+        {
+          "cause": "AI 混进了 HAL/CubeMX 风格（GPIO_PIN_13、GPIOC）和 Arduino 风格",
+          "probability": "中",
+          "check": "有没有 HAL_GPIO_WritePin 之类",
+          "fix": "只用一种风格；教学阶段全用 Arduino 风格"
+        },
+        {
+          "cause": "AI 假设 LED_BUILTIN 就是板载灯，STM32duino 里 bluepill 的 LED_BUILTIN 确实是 PC13 但有些配置不是",
+          "probability": "低",
+          "check": "直接写 PC13 最保险",
+          "fix": "写死 PC13"
+        }
+      ],
+      "explain": "AI 见过的 Arduino 代码里 UNO 占绝大多数，不特别说它就默认你也是 UNO。每次提问开头带上板子型号和框架，就像告诉出租车司机你在哪个城市。",
+      "ask_ai": "板子是 STM32F103C8T6 蓝药丸，PlatformIO + Arduino 框架（STM32duino）。引脚请全部用 PA0/PB12/PC13 这种写法，不要用 D13/A0/数字。板载 LED 是 PC13 低电平点亮。请写 [需求]。"
+    },
+    {
+      "id": "ai_hallucinated_library",
+      "stage": "AI",
+      "symptom": "AI 让我装的库 pio 搜不到，或者库里根本没有它说的那个函数",
+      "signals": ["Could not find the package", "no member named", "编造", "库不存在", "函数不存在"],
+      "causes": [
+        {
+          "cause": "AI 编了一个听起来合理但不存在的库名或函数名",
+          "probability": "高",
+          "check": "pio pkg search 关键字；或者去 registry.platformio.org 搜",
+          "fix": "把搜索结果贴回给 AI：「注册表里只有这几个，用哪个？」"
+        },
+        {
+          "cause": "库是真的，但 AI 记的是老版本 API，新版本改名了",
+          "probability": "中",
+          "check": "打开 .pio/libdeps/*/库名/ 下的 .h 文件搜函数名",
+          "fix": "把头文件里的函数列表贴给 AI，让它按真实 API 改"
+        },
+        {
+          "cause": "库是 ESP32/AVR 专属的，STM32 用不了",
+          "probability": "中",
+          "check": "库页面的 Platforms 标签",
+          "fix": "让 AI 推荐标注支持 ststm32 的替代品"
+        }
+      ],
+      "explain": "AI 是靠记忆写代码的，记忆里的库名和函数可能是拼凑的。它说的每一个库名都要去货架上核对一下，核对方法就一条命令：pio pkg search。",
+      "ask_ai": "你推荐的库 [库名] 在 PlatformIO 注册表里搜不到。`pio pkg search [关键字]` 的结果是：[粘贴]。请从这些真实存在的库里选一个支持 ststm32 平台的，并只使用它头文件里真实存在的函数（不确定就说不确定）。"
+    },
+    {
+      "id": "ai_overconfident_fix",
+      "stage": "AI",
+      "symptom": "按 AI 说的改了三轮，问题还在，每次它都很确定",
+      "signals": ["改了没用", "AI 反复确定", "越改越乱", "循环"],
+      "causes": [
+        {
+          "cause": "AI 没拿到关键信息（完整报错、接线、platformio.ini），在猜",
+          "probability": "高",
+          "check": "回看你给它的内容，有没有：完整报错原文、platformio.ini、接线清单、板子型号",
+          "fix": "一次性给全。特别是报错要原文全贴，不要自己概括"
+        },
+        {
+          "cause": "问题其实是硬件（线、电、跳线），AI 只能看到代码，怎么改代码都没用",
+          "probability": "高",
+          "check": "烧一个只闪 PC13 的最小程序，能闪吗？不能闪就不是代码问题",
+          "fix": "先用最小程序把硬件链路（烧录 → 复位 → 闪灯 → 串口）一段段验证通，再回来改功能代码"
+        },
+        {
+          "cause": "一次改了多个地方，不知道哪个起了作用/坏了事",
+          "probability": "中",
+          "check": "回想上一轮改了几处",
+          "fix": "一轮只改一处，改完立刻验证，记录结果"
+        }
+      ],
+      "explain": "AI 像一个只能通过电话帮你修车的师傅，你说「不动」他只能猜。你得告诉他仪表盘上每个灯、每个声音。而且有些事——比如油箱空了——不是修发动机能解决的。",
+      "ask_ai": "我们已经试了 [N] 轮没解决。请先别给方案，先列出你为了定位这个问题「必须知道但我还没告诉你」的信息清单，我一条条补给你。目前已知：板子 STM32F103C8T6 蓝药丸，PlatformIO + STM32duino，现象 [描述]，完整报错 [粘贴]，platformio.ini [粘贴]，接线 [描述]。"
+    }
+  ]
+}
