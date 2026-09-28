@@ -1,9 +1,62 @@
 import { marked } from 'marked'
-import { useMemo } from 'react'
+import hljs from 'highlight.js/lib/core'
+import cpp from 'highlight.js/lib/languages/cpp'
+import bash from 'highlight.js/lib/languages/bash'
+import ini from 'highlight.js/lib/languages/ini'
+import { useEffect, useMemo, useRef } from 'react'
+import { Canvas, parseCanvas } from './canvases'
+
+hljs.registerLanguage('cpp', cpp); hljs.registerLanguage('c', cpp); hljs.registerLanguage('bash', bash); hljs.registerLanguage('sh', bash); hljs.registerLanguage('ini', ini)
 
 marked.setOptions({ gfm: true, breaks: false })
+marked.use({
+  renderer: {
+    code({ text, lang }) {
+      const l = (lang ?? '').trim()
+      const html = l && hljs.getLanguage(l) ? hljs.highlight(text, { language: l }).value : escapeHtml(text)
+      const label = l === 'bash' || l === 'sh' ? '终端' : l || 'text'
+      return `<div class="codeblock"><div class="codeblock-head"><span>${label}</span><button class="copy" data-copy>⎘ 复制</button></div><pre><code class="hljs language-${l}">${html}</code></pre></div>`
+    },
+  },
+})
+function escapeHtml(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+
+// 把正文切成 [markdown | canvas] 段
+type Seg = { kind: 'md'; text: string } | { kind: 'canvas'; block: string }
+function split(text: string): Seg[] {
+  const segs: Seg[] = []
+  const re = /^```canvas\s*\n([\s\S]*?)^```\s*$/gm
+  let last = 0, m: RegExpExecArray | null
+  while ((m = re.exec(text))) {
+    if (m.index > last) segs.push({ kind: 'md', text: text.slice(last, m.index) })
+    segs.push({ kind: 'canvas', block: m[1] })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) segs.push({ kind: 'md', text: text.slice(last) })
+  return segs
+}
 
 export function Markdown({ text }: { text: string }) {
-  const html = useMemo(() => marked.parse(text) as string, [text])
-  return <article className="md" dangerouslySetInnerHTML={{ __html: html }} />
+  const segs = useMemo(() => split(text), [text])
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = ref.current
+    if (!root) return
+    const onClick = async (e: Event) => {
+      const btn = (e.target as HTMLElement).closest('button[data-copy]') as HTMLButtonElement | null
+      if (!btn) return
+      const code = btn.closest('.codeblock')?.querySelector('code')?.textContent ?? ''
+      await navigator.clipboard.writeText(code)
+      btn.textContent = '✔ 已复制'; setTimeout(() => (btn.textContent = '⎘ 复制'), 1200)
+    }
+    root.addEventListener('click', onClick)
+    return () => root.removeEventListener('click', onClick)
+  }, [])
+  return (
+    <div ref={ref} className="md">
+      {segs.map((s, i) => s.kind === 'md'
+        ? <article key={i} dangerouslySetInnerHTML={{ __html: marked.parse(s.text) as string }} />
+        : <Canvas key={i} spec={parseCanvas(s.block)} />)}
+    </div>
+  )
 }

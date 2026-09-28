@@ -75,3 +75,47 @@ frontmatter: title / goal / hardware / time / status
 2. 任务 0-2：填 `content/hardware/board.md`、`kit-inventory.md`
 3. 任务 0-3：烧 `firmware/01-blink`
 4. 写 Day 1 日志
+
+---
+
+## 9. v0.2 追加：Canvas（实验台）框架 · 2026-09-28 下午
+
+### 为什么
+任务卡是文字，门外汉需要**能动手的东西**。而且板子没到之前也应该能练。所以平台内置"canvas"：嵌在任务卡里的交互实验。
+
+### 借鉴
+用户自己在 companydata 项目里做过一套"技能实验室"（职业实操模拟）。最值得搬过来的四个模式：
+1. **Canvas = 数据定义的规格 + 确定性引擎 + 事件流。** 规格写在 markdown 里，引擎是纯函数，跑出来的是事件流而不是一个分数。
+2. **采过程不采结论。** 引脚翻转序列、串口输出、警告，都进事件流；AI 评审看的是代码 + 事件流。
+3. **目标（goals）和规则（rules）分开。** goals 是"做到了什么"，rules 是"不该做什么"（比如没 pinMode 就 digitalWrite）。
+4. **专家轨迹做标尺**（下一步）：同一个任务留一份参考实现的事件流，和学员的对照。
+
+### 现在有的 canvas
+| type | 干什么 | 用在 |
+|---|---|---|
+| `board` | 虚拟蓝药丸：CodeMirror 编辑器 + Arduino 子集转译成 JS 在 Web Worker 里跑 + SVG 板子（LED、按键、引脚灯）+ 串口监视器（双向）+ 目标检查 + AI 评审 | 0-3、1-1、1-2、1-3、2-1、2-2 |
+| `pinout` | 交互引脚图，按功能过滤，悬停看说明，标注"是否亲测" | 0-2 |
+| `pullup` | 上拉电阻：有/无上拉、按/不按、悬空干扰 | 1-2 |
+| `led-circuit` | 拖电阻看电流，理解限流 | 1-1 |
+| `resistor-color` | 拨色环读阻值 | 1-1 |
+
+### 怎么嵌
+markdown 里一个 ` ```canvas ` 代码块，`key: value` 写属性，`---` 之后是初始代码。平台的 `Markdown.tsx` 把正文切成 [markdown | canvas] 段，canvas 交给 `canvases/index.tsx` 的注册表渲染。**加一种新 canvas = 写一个 React 组件 + 注册一行。**
+
+### 模拟器的边界（诚实说明）
+- 不是编译器。是对"初学者会写的 Arduino 子集"做源码变换：去类型、函数变 async、`delay` 前加 `await`。
+- 支持：`pinMode / digitalWrite / digitalRead / analogWrite / analogRead / delay / millis / Serial.*`、if/for/while、用户自定义函数、`#define`。
+- 不支持：指针、struct、char 数组、switch、中断。碰到会明确报"模拟器暂不支持，真板子可以"。
+- 时序是浏览器的 setTimeout，不是硬件精度。用来理解逻辑够了，不能用来调时序。
+
+### AI 评审
+`platform/server/index.mjs` 本地小服务，用 Anthropic SDK 调 `claude-opus-5`，system prompt 是"有耐心的嵌入式导师"，输入是任务 + 验收标准 + 代码 + 事件流摘要。没配密钥时退化为"复制提示词，自己去问 AI"，功能不断。
+
+### 状态条
+平台顶部实时显示：板子插上没（扫 /dev/cu.* 和 USB 列表）、PlatformIO 装了没、AI 配了没。目的：把"环境"这层门槛变成一眼能看到的三盏灯。
+
+### 下一步候选
+- `wiring` canvas：ST-Link 四根线怎么接，点线高亮
+- `board` 加 OLED（I2C 模拟）和电位器（ADC 输入滑块），覆盖模块 3
+- 专家轨迹对照：每个 board 任务带一份参考实现，事件流做 diff
+- AI 生成任务卡 → 在模拟器里验收 → 通过才入库（lab 里 designBench 那套闭环）

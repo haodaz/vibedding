@@ -10,6 +10,11 @@
 - `firmware/` 每个 PlatformIO 工程独立，`platformio.ini` 里多 env 对应不同板子
 - `platform/` Vite + React + TS，`src/content.ts` 用 import.meta.glob 读 `../../content/**/*.md`，hash 路由
 
+## Canvas（实验）
+- 任务卡里 ```canvas 代码块嵌实验，属性 `key: value`，`---` 后是初始代码。类型见 `platform/src/canvases/index.tsx`
+- `board` 的 goals 检查器在 `canvases/board/goals.ts`；模拟器只支持 Arduino 教学子集，见 `transpile.ts` 顶部注释
+- 新加 canvas：写组件 + 在 index.tsx 注册 + CANVAS_META 加一行
+
 ## 约定
 - 教学口吻：讲人话，先比喻再术语，每个新概念都写"常见坑"
 - 给出引脚号、库名、寄存器名时，提醒用户核对，不要装作确定

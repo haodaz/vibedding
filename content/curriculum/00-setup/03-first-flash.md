@@ -7,6 +7,32 @@ status: todo
 ---
 ## 要做什么
 
+真板子没到之前，先在这块虚拟板子上"烧"一次，熟悉一下：点 **▶ 烧录并运行**，看灯眨、看串口出字，再点 **■ 停止** 看目标检查。这里跑的就是 `firmware/01-blink/src/main.cpp` 的代码。
+
+```canvas
+type: board
+id: first-flash
+goals: pinmode:PC13, blink:PC13:500, serial:hello from stm32
+task: 把 firmware/01-blink 原样跑起来：PC13 每 500ms 翻转，串口打印 hello from stm32
+rubric: 有 pinMode(PC13, OUTPUT)；LED 周期约 1 秒；串口能看到 hello from stm32
+---
+#include <Arduino.h>
+
+void setup() {
+  pinMode(PC13, OUTPUT);
+  Serial.begin(115200);
+  Serial.println("hello from stm32");
+}
+
+void loop() {
+  digitalWrite(PC13, LOW);   // 蓝药丸的 LED 是低电平点亮
+  delay(500);
+  digitalWrite(PC13, HIGH);
+  delay(500);
+}
+```
+
+
 把 `firmware/01-blink` 烧进去。这一步不改代码，只走通链路。
 
 ## 步骤

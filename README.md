@@ -18,7 +18,9 @@ embeded/
 │   ├── prompts/        提示词库：怎么向 AI 问硬件问题
 │   └── hardware/       我的板子、套件、接线（只记亲测过的）
 ├── firmware/           固件项目，每个任务一个 PlatformIO 工程
-├── platform/           本地网页（Vite + React），渲染 content/
+├── platform/           本地网页（Vite + React），渲染 content/；内置实验台（虚拟板子、引脚图、电路小实验）
+│   ├── src/canvases/   每种实验一个目录，注册在 index.tsx
+│   └── server/         本地小服务：AI 评审、板子/工具链状态
 ├── tools/              脚本：装环境、体检、烧录、串口
 └── docs/               平台自身的设计文档
 ```
@@ -28,6 +30,8 @@ embeded/
 ```bash
 cd platform && npm install && npm run dev
 ```
+打开 http://localhost:5173 。`npm run dev` 同时起网页和一个本地小服务（AI 评审、板子状态）。
+AI 评审要密钥：把 `platform/.env.example` 复制成 `platform/.env` 填上 `ANTHROPIC_API_KEY`。不填也能用，会退化成"复制提示词自己去问"。
 嵌入式工具链（板子到了再装）：
 ```bash
 bash tools/setup-mac.sh
