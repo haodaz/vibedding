@@ -53,6 +53,7 @@ export const docs: Doc[] = Object.entries(raw)
       body,
     }
   })
+  .filter((d) => !d.slug.startsWith('_'))   // _template.md 之类的不显示
   .sort((a, b) => a.path.localeCompare(b.path))
 
 export function byPath(path: string): Doc | undefined {
