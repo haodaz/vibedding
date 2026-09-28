@@ -11,6 +11,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { rekey } from './rekey.mjs'
+import dns from 'node:dns'
+dns.setDefaultResultOrder('ipv4first')   // 阿里云的 IPv6 地址在有些网络下连不上，优先 IPv4
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(here, '..')
