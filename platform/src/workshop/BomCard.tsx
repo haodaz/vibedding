@@ -24,25 +24,26 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
   return (
     <div className={'bom' + (done ? ' done' : '')}>
       <div className="bom-head"><span className="hcard-kind">🛒 采购清单</span><b>{ask.title}</b></div>
-      <table className="bom-table">
-        <thead><tr><th></th><th>件</th><th>用途</th><th>单价</th><th>数量</th><th>已有</th><th>不要</th></tr></thead>
-        <tbody>
-          {ask.items.map((it, i) => {
-            const sprite = it.id && partByName(it.id) ? it.id : null
-            return (
-              <tr key={i} className={(have[i] ? 'have ' : '') + (skip[i] ? 'skip' : '')}>
-                <td className="bom-img">{sprite ? <PartImg name={sprite} /> : <span className="bom-noimg">▫</span>}</td>
-                <td><b>{it.name}</b>{it.optional && <span className="tag opt">可选</span>}{it.catalog === false && <span className="tag warn" title="不在知识库里，下单前核对">需核对</span>}<div className="muted small">搜「{it.buy}」{it.why ? ' · ' + it.why : ''}</div></td>
-                <td className="bom-role">{it.role}</td>
-                <td className="mono">¥{it.price}</td>
-                <td className="mono">{it.qty}</td>
-                <td><input type="checkbox" checked={have[i]} disabled={done} onChange={(e) => setHave(have.map((h, j) => (j === i ? e.target.checked : h)))} /></td>
-                <td><input type="checkbox" checked={skip[i]} disabled={done} onChange={(e) => setSkip(skip.map((h, j) => (j === i ? e.target.checked : h)))} /></td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <div className="bom-list">
+        {ask.items.map((it, i) => {
+          const sprite = it.id && partByName(it.id) ? it.id : null
+          return (
+            <div key={i} className={'bom-item' + (have[i] ? ' have' : '') + (skip[i] ? ' skip' : '')}>
+              <div className="bom-img">{sprite ? <PartImg name={sprite} /> : <span className="bom-noimg">▫</span>}</div>
+              <div className="bom-main">
+                <div className="bom-name"><b>{it.name}</b>{it.optional && <span className="tag opt">可选</span>}{it.catalog === false && <span className="tag warn" title="不在知识库里，下单前核对">需核对</span>}</div>
+                <div className="bom-role">{it.role}</div>
+                <div className="muted small">搜「{it.buy}」{it.why ? ' · ' + it.why : ''}</div>
+              </div>
+              <div className="bom-right">
+                <div className="mono">¥{it.price}{it.qty > 1 ? ` × ${it.qty}` : ''}</div>
+                <label><input type="checkbox" checked={have[i]} disabled={done} onChange={(e) => setHave(have.map((h, j) => (j === i ? e.target.checked : h)))} />已有</label>
+                <label><input type="checkbox" checked={skip[i]} disabled={done} onChange={(e) => setSkip(skip.map((h, j) => (j === i ? e.target.checked : h)))} />不要</label>
+              </div>
+            </div>
+          )
+        })}
+      </div>
       {ask.note && <p className="hcard-expect">⚠ {ask.note}</p>}
       <div className="bom-foot">
         <div className="bom-total">要买 <b>{toBuy.length}</b> 件 · 预算约 <b>¥{total.toFixed(0)}</b><span className="muted small">（按区间中值估）</span></div>
