@@ -27,7 +27,7 @@ export function Workshop() {
       <div className="ws-chat">
         <div className="ws-head">
           <div className="eyebrow">// MAKE</div>
-          <div className="ws-title"><h1>直接做</h1>{a.items.length > 0 && <button className="chip" onClick={() => { if (confirm('清空这段对话？项目文件不会删。')) a.reset() }}>＋ 新对话</button>}</div>
+          <div className="ws-title"><h1>直接做</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
           <p>说你要什么，我来写代码、跑、烧。我够不着的（插线、按键、跑命令）会弹卡片请你搭把手。{a.mock && <span className="ws-mock">现在是演示剧本（还没配 AI 密钥），只会演"要有光"。</span>}</p>
         </div>
         <div className="ws-log">
@@ -68,6 +68,15 @@ export function Workshop() {
       </aside>
     </div>
   )
+}
+
+// 不用浏览器的 confirm 弹窗（内嵌浏览器里可能被拦掉），改成点两次确认
+function ResetButton({ onReset }: { onReset: () => void }) {
+  const [arm, setArm] = useState(false)
+  useEffect(() => { if (!arm) return; const t = setTimeout(() => setArm(false), 3000); return () => clearTimeout(t) }, [arm])
+  return arm
+    ? <button className="chip warn" onClick={() => { setArm(false); onReset() }}>再点一次清空（项目文件不会删）</button>
+    : <button className="chip" onClick={() => setArm(true)}>＋ 新对话</button>
 }
 
 function Projects() {
