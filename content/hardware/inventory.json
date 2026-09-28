@@ -1,0 +1,17 @@
+{
+  "note": "我已有的元件。id 对应 parts-catalog.json；不在目录里的写 name。AI 出采购清单前会先看这里。",
+  "have": [
+    {
+      "id": "bluepill",
+      "name": "STM32 蓝药丸",
+      "qty": 1,
+      "note": "用户已有"
+    },
+    {
+      "id": "stlink",
+      "name": "ST-Link V2 烧录器",
+      "qty": 1,
+      "note": "用户已有"
+    }
+  ]
+}

@@ -18,7 +18,9 @@
 ## 直接做（agent）
 - 入口 `#/make`，代码在 `platform/src/workshop/`。循环在浏览器里跑：`/api/agent/step` 调一次模型，服务端工具走 `/api/tool`，`sim_run` 和 `ask_human` 在浏览器执行
 - 工具定义在 `platform/server/tools.mjs`，系统提示在 `agent.mjs`。写文件只允许 firmware/、content/journal、content/hardware
-- 没配 ANTHROPIC_API_KEY 时自动用 `mock.mjs` 的"要有光"剧本演示；`AGENT_MOCK=1` 强制演示
+- 模型提供方由 `platform/.env` 决定：有 OPENAI_API_KEY 走 OpenAI Responses API（默认 gpt-5.6-luna），否则 ANTHROPIC_API_KEY 走 Claude，都没有用 `mock.mjs` 的剧本演示。`AGENT_PROVIDER` / `AGENT_MODEL` 可覆盖
+- 元件知识库 `content/hardware/parts-catalog.json`（AI 可 add_part 收录，只收电子件）；库存 `content/hardware/inventory.json`（聊天中 update_inventory 慢慢攒）；项目 `content/projects/<slug>/{brief,bom,plan}.md`
+- 对话存在浏览器 localStorage（ws:session），"新对话"清空
 - 引脚数据的唯一来源是 `content/hardware/bluepill-pins.json`（平台引脚图和 read_pinout 工具共用）
 
 ## 约定

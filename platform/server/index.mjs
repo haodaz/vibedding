@@ -9,7 +9,7 @@ import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { runTool } from './tools.mjs'
-import { step, agentModel } from './agent.mjs'
+import { step, agentModel, provider } from './agent.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const envFile = path.join(here, '..', '.env')
@@ -47,7 +47,7 @@ function status() {
     node: process.version,
     ports,
     usb,
-    ai: hasCredentials() ? MODEL : null,
+    ai: provider() === 'mock' ? null : agentModel(),
     time: new Date().toISOString(),
   }
 }
@@ -100,7 +100,7 @@ http.createServer(async (req, res) => {
       let raw = ''
       for await (const chunk of req) raw += chunk
       const body = JSON.parse(raw)
-      const mock = !hasCredentials() || body.mock
+      const mock = provider() === 'mock' || !!body.mock
       return json(res, 200, { ...(await step({ messages: body.messages, mock })), mock, agentModel: mock ? 'mock' : agentModel() })
     }
     if (req.url === '/api/tool' && req.method === 'POST') {
@@ -121,4 +121,4 @@ http.createServer(async (req, res) => {
     console.error(e)
     json(res, 500, { error: e.message })
   }
-}).listen(5174, () => console.log('  ➜  embeded server: http://localhost:5174  (ai: ' + (hasCredentials() ? MODEL : '未配置') + ')'))
+}).listen(5174, () => console.log('  ➜  embeded server: http://localhost:5174  (agent: ' + (provider() === 'mock' ? '演示剧本' : provider() + ' / ' + agentModel()) + ')'))

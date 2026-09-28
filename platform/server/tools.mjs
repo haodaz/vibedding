@@ -9,8 +9,13 @@ import { fileURLToPath } from 'node:url'
 const exec = promisify(execFile)
 const here = path.dirname(fileURLToPath(import.meta.url))
 export const ROOT = path.join(here, '..', '..')            // embeded/
-const ALLOWED_WRITE = ['firmware', 'content/journal', 'content/hardware']
+const ALLOWED_WRITE = ['firmware', 'content/journal', 'content/hardware', 'content/projects']
 const ALLOWED_READ = ['firmware', 'content', 'tools', 'docs']
+const CATALOG = path.join(ROOT, 'content/hardware/parts-catalog.json')
+const INVENTORY = path.join(ROOT, 'content/hardware/inventory.json')
+const PROJECTS = path.join(ROOT, 'content/projects')
+const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'project'
+const readJson = async (f) => JSON.parse(await fs.readFile(f, 'utf8'))
 
 function safe(rel, allowed) {
   const p = path.normalize(rel).replace(/^(\.\.(\/|\\|$))+/, '')
@@ -122,6 +127,85 @@ export const TOOLS = [
       return '已记录'
     },
   },
+  // ---------- 元件知识库 / 库存 ----------
+  {
+    name: 'search_parts', description: '在元件知识库里搜（名字、类别、接口、用途关键词）。出采购清单前用它确认每件东西的价格区间、接口、电压、要用的库。空查询 = 列全部。',
+    input_schema: { type: 'object', properties: { query: { type: 'string', description: '如 "温湿度" / "I2C" / "电机" / "传感器"' } } },
+    run: async ({ query = '' }) => {
+      const { parts } = await readJson(CATALOG)
+      const q = query.trim().toLowerCase()
+      const hit = parts.filter((p) => !q || [p.id, p.name, p.cat, p.iface, p.note, p.buy, p.lib].join(' ').toLowerCase().includes(q))
+      if (!hit.length) return `知识库里没有和"${query}"相关的条目（共 ${parts.length} 条）。可以照常推荐，但标 catalog=false 并提醒用户核对；确认后用 add_part 收录。`
+      return hit.map((p) => `[${p.id}] ${p.name} · ${p.cat} · 接口 ${p.iface} · ${p.volt} · ¥${p.price} · 搜"${p.buy}" · 库: ${p.lib}${p.note ? ' · ' + p.note : ''}`).join('\n')
+    },
+  },
+  {
+    name: 'add_part', description: '把一个新元件收进知识库（用户确认过、或你很确定的）。以后所有人都能查到。',
+    input_schema: { type: 'object', properties: { id: { type: 'string', description: '英文短 id，如 sht40' }, name: { type: 'string' }, cat: { type: 'string', description: '主控/工具/被动/输入/传感器/显示/输出/执行/通信/存储/电源' }, iface: { type: 'string' }, volt: { type: 'string' }, price: { type: 'string', description: '元，区间如 "5-10"' }, buy: { type: 'string', description: '淘宝搜索词' }, lib: { type: 'string', description: 'Arduino 库或 API' }, note: { type: 'string' } }, required: ['id', 'name', 'cat', 'iface', 'volt', 'price', 'buy'] },
+    run: async (p) => {
+      const j = await readJson(CATALOG)
+      if (j.parts.some((x) => x.id === p.id)) return `已有 ${p.id}，没有重复添加`
+      j.parts.push({ lib: '', note: '', ...p })
+      await fs.writeFile(CATALOG, JSON.stringify(j, null, 2) + '\n')
+      return `已收录 ${p.name}（${p.id}）`
+    },
+  },
+  {
+    name: 'read_inventory', description: '看用户已经有哪些元件。出采购清单前必须先看，已有的不要让人重复买。',
+    input_schema: { type: 'object', properties: {} },
+    run: async () => { const j = await readJson(INVENTORY); return j.have.length ? j.have.map((h) => `${h.id ?? ''} ${h.name ?? ''} x${h.qty ?? 1}${h.note ? ' — ' + h.note : ''}`.trim()).join('\n') : '库存是空的（还没聊出来用户有什么）' },
+  },
+  {
+    name: 'update_inventory', description: '用户提到自己有/买了/坏了某个元件，就更新库存。add=加，remove=删。',
+    input_schema: { type: 'object', properties: { action: { type: 'string', enum: ['add', 'remove'] }, id: { type: 'string', description: '知识库 id，没有就留空' }, name: { type: 'string' }, qty: { type: 'number' }, note: { type: 'string' } }, required: ['action', 'name'] },
+    run: async ({ action, id, name, qty = 1, note = '' }) => {
+      const j = await readJson(INVENTORY)
+      if (action === 'remove') j.have = j.have.filter((h) => h.id !== id && h.name !== name)
+      else { const cur = j.have.find((h) => (id && h.id === id) || h.name === name); if (cur) { cur.qty = qty; cur.note = note || cur.note } else j.have.push({ id: id || undefined, name, qty, note }) }
+      await fs.writeFile(INVENTORY, JSON.stringify(j, null, 2) + '\n')
+      return `库存已更新：${action} ${name} x${qty}`
+    },
+  },
+  // ---------- 项目 ----------
+  {
+    name: 'save_project', description: '把一个需求存成项目（content/projects/<slug>/）：brief.md 需求与方案、bom.md 采购清单、plan.md 步骤与进度。已存在就覆盖对应文件（只传要更新的字段）。',
+    input_schema: { type: 'object', properties: { slug: { type: 'string', description: '英文短名，如 auto-watering' }, title: { type: 'string' }, brief: { type: 'string', description: 'markdown：一句话需求、方案、约束' }, bom: { type: 'string', description: 'markdown 表格：件 / 数量 / 为什么 / 价格 / 搜索词 / 状态(已有|待买|已到)' }, plan: { type: 'string', description: 'markdown：- [ ] 步骤，完成的打 [x]' } }, required: ['slug', 'title'] },
+    run: async ({ slug, title, brief, bom, plan }) => {
+      const dir = path.join(PROJECTS, slugify(slug)); await fs.mkdir(dir, { recursive: true })
+      const fm = (extra = '') => `---\ntitle: ${title}\nupdated: ${new Date().toISOString().slice(0, 10)}\n${extra}---\n`
+      if (brief !== undefined) await fs.writeFile(path.join(dir, 'brief.md'), fm() + brief + '\n')
+      if (bom !== undefined) await fs.writeFile(path.join(dir, 'bom.md'), fm() + bom + '\n')
+      if (plan !== undefined) await fs.writeFile(path.join(dir, 'plan.md'), fm() + plan + '\n')
+      return `项目已保存到 content/projects/${slugify(slug)}/（${[brief !== undefined && 'brief', bom !== undefined && 'bom', plan !== undefined && 'plan'].filter(Boolean).join(', ')}）`
+    },
+  },
+  {
+    name: 'list_projects', description: '列出已有项目和各自进度（plan.md 里 [x] 的比例）。用户说"继续上次的"时先看这个。',
+    input_schema: { type: 'object', properties: {} },
+    run: async () => {
+      const dirs = await fs.readdir(PROJECTS, { withFileTypes: true }).catch(() => [])
+      const out = []
+      for (const d of dirs) {
+        if (!d.isDirectory()) continue
+        const plan = await fs.readFile(path.join(PROJECTS, d.name, 'plan.md'), 'utf8').catch(() => '')
+        const brief = await fs.readFile(path.join(PROJECTS, d.name, 'brief.md'), 'utf8').catch(() => '')
+        const title = (brief.match(/^title:\s*(.+)$/m) ?? plan.match(/^title:\s*(.+)$/m))?.[1] ?? d.name
+        const done = (plan.match(/- \[x\]/gi) ?? []).length, total = (plan.match(/- \[[ x]\]/gi) ?? []).length
+        out.push(`${d.name}: ${title}${total ? ` · ${done}/${total} 步` : ''}`)
+      }
+      return out.length ? out.join('\n') : '还没有项目'
+    },
+  },
+  {
+    name: 'read_project', description: '读一个项目的 brief / bom / plan。',
+    input_schema: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] },
+    run: async ({ slug }) => {
+      const dir = path.join(PROJECTS, slugify(slug))
+      const parts = []
+      for (const f of ['brief.md', 'bom.md', 'plan.md']) { const t = await fs.readFile(path.join(dir, f), 'utf8').catch(() => null); if (t) parts.push(`## ${f}\n${t}`) }
+      return parts.length ? parts.join('\n\n') : `没有项目 ${slug}`
+    },
+  },
 ]
 
 // 客户端工具：在浏览器里执行
@@ -149,6 +233,25 @@ export const CLIENT_TOOLS = [
     },
   },
 ]
+
+CLIENT_TOOLS.push({
+  name: 'propose_bom', description: '给用户展示一张采购清单卡片（可勾选"已有"），等用户确认。先 read_inventory 和 search_parts，再调这个。返回用户勾选后的结果：哪些已有、哪些要买、总预算。确认后记得 save_project 存 bom 并 update_inventory。',
+  input_schema: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: '项目名' },
+      items: { type: 'array', items: { type: 'object', properties: {
+        id: { type: 'string', description: '知识库 id，没有留空' }, name: { type: 'string' }, qty: { type: 'number' },
+        role: { type: 'string', description: '在这个项目里干什么，一句话' }, why: { type: 'string', description: '为什么选它 / 替代品' },
+        price: { type: 'string', description: '单价区间，元' }, buy: { type: 'string', description: '淘宝搜索词' },
+        have: { type: 'boolean', description: '用户库存里已经有' }, catalog: { type: 'boolean', description: '是否在知识库里（不在要提醒核对）' },
+        optional: { type: 'boolean', description: '可选件' },
+      }, required: ['name', 'qty', 'role', 'price', 'buy'] } },
+      note: { type: 'string', description: '整体提醒：供电、5V/3.3V、先买什么后买什么' },
+    },
+    required: ['title', 'items'],
+  },
+})
 
 export const toolDefs = () => [...TOOLS, ...CLIENT_TOOLS].map(({ name, description, input_schema }) => ({ name, description, input_schema }))
 export async function runTool(name, input) {

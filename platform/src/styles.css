@@ -385,3 +385,21 @@ input[type=range] { accent-color: var(--amber); width: 100%; }
 .hcard-actions input { flex: 1; min-width: 200px; background: #0a0f1e; border: 1px solid var(--border-2); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-family: var(--font); }
 .hcard-answer { font-size: 13.5px; color: var(--accent); }
 @media (max-width: 900px) { .ws { grid-template-columns: 1fr; height: auto; } .bubble { max-width: 100%; } }
+
+/* 采购清单卡 */
+.bom { border: 1px solid rgba(57,197,255,.45); background: linear-gradient(180deg, rgba(57,197,255,.08), rgba(10,14,30,.6)); border-radius: 14px; padding: 14px 16px; }
+.bom.done { border-color: rgba(61,220,132,.4); }
+.bom-head { display: flex; flex-direction: column; margin-bottom: 8px; } .bom-head .hcard-kind { color: var(--cyan); } .bom-head b { font-size: 16px; }
+.bom-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.bom-table th { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border-2); font-weight: 500; }
+.bom-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.bom-table tr.have td { opacity: .55; } .bom-table tr.skip td { opacity: .35; text-decoration: line-through; }
+.bom-img { width: 52px; } .bom-img .part-img { width: 44px; height: 44px; } .bom-noimg { display: inline-block; width: 44px; text-align: center; color: var(--dim); }
+.bom-role { color: var(--muted); max-width: 200px; }
+.bom-table .mono { font-family: var(--mono); color: var(--amber); white-space: nowrap; }
+.bom-table input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.tag.opt { color: var(--muted); border-color: var(--border-2); margin-left: 6px; } .tag.warn { color: var(--amber); border-color: var(--amber); margin-left: 6px; }
+.bom-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.bom-total { font-size: 14px; } .bom-total b { color: var(--cyan); font-family: var(--mono); }
+.ws-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ws-projects ul li { font-family: var(--mono); font-size: 12px; }
