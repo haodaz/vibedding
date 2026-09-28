@@ -141,7 +141,7 @@ export const TOOLS = [
   },
   {
     name: 'add_part', description: '把一个新元件收进知识库（用户确认过、或你很确定的）。以后所有人都能查到。',
-    input_schema: { type: 'object', properties: { id: { type: 'string', description: '英文短 id，如 sht40' }, name: { type: 'string' }, cat: { type: 'string', description: '主控/工具/被动/输入/传感器/显示/输出/执行/通信/存储/电源' }, iface: { type: 'string' }, volt: { type: 'string' }, price: { type: 'string', description: '元，区间如 "5-10"' }, buy: { type: 'string', description: '淘宝搜索词' }, lib: { type: 'string', description: 'Arduino 库或 API' }, note: { type: 'string' } }, required: ['id', 'name', 'cat', 'iface', 'volt', 'price', 'buy'] },
+    input_schema: { type: 'object', properties: { id: { type: 'string', description: '英文短 id，如 sht40' }, name: { type: 'string' }, cat: { type: 'string', description: '主控/工具/被动/输入/传感器/显示/输出/执行/通信/存储/电源/机械耗材' }, iface: { type: 'string' }, volt: { type: 'string' }, price: { type: 'string', description: '元，区间如 "5-10"' }, buy: { type: 'string', description: '淘宝搜索词' }, lib: { type: 'string', description: 'Arduino 库或 API' }, note: { type: 'string' } }, required: ['id', 'name', 'cat', 'iface', 'volt', 'price', 'buy'] },
     run: async (p) => {
       const j = await readJson(CATALOG)
       if (j.parts.some((x) => x.id === p.id)) return `已有 ${p.id}，没有重复添加`

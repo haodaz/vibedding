@@ -55,7 +55,7 @@ export function Workshop() {
           <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />
           <pre className="serial-out ws-serial">{live.serial || '（AI 跑 sim_run 时这里会动）'}</pre>
         </div>
-        <Projects />
+        <Projects key={a.items.length} />
         <div className="ws-tools">
           <div className="canvas-head"><span className="canvas-title">▣ 我有的工具</span></div>
           <ul>
