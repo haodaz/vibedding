@@ -3,7 +3,7 @@ title: 0-1 装工具链
 goal: 一条命令能编译出 .bin 文件
 hardware: 不需要板子
 time: 30 分钟
-status: doing
+status: done
 ---
 ## 要做什么
 
