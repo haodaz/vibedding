@@ -119,3 +119,11 @@ markdown 里一个 ` ```canvas ` 代码块，`key: value` 写属性，`---` 之�
 - `board` 加 OLED（I2C 模拟）和电位器（ADC 输入滑块），覆盖模块 3
 - 专家轨迹对照：每个 board 任务带一份参考实现，事件流做 diff
 - AI 生成任务卡 → 在模拟器里验收 → 通过才入库（lab 里 designBench 那套闭环）
+
+## 10. v0.3 追加：画面 · 2026-09-28 晚
+"深色"不等于黑乎乎。参考 companydata 技能实验室的做法：**AI 生成场景图 + NPC 立绘 + 玻璃卡片 + 漂移光斑**。
+- `content/art/manifest.json`：11 张场景（首页、7 个模块、实验台、日志、提示词）+ 1 个导师立绘，每张一段中文提示词和统一风格串
+- `tools/gen-art.mjs`：通义万相文生图 → jpg；立绘绿幕抠图 → 透明 png。`npm run art` 跑，已存在的跳过
+- `platform/src/components/Scene.tsx`：图没生成时用程序画的"电路夜景"顶上，平台永远不会一片黑
+- 模块 index.md 的 `art:` 字段指定用哪张图，任务卡默认继承所属模块的图
+- AI 评审改成导师对话框（立绘 + 对话），评审是"有人在跟你说话"，不是一段灰字

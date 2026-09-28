@@ -1,5 +1,6 @@
 ---
 title: 模块 5 · 剥洋葱
+art: mod5_onion
 summary: 同一个 Blink，用 HAL 库写一遍、用寄存器写一遍。看清 Arduino 框架帮你藏了什么。开始读数据手册。
 ---
 # 模块 5 · 剥洋葱

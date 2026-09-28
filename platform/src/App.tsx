@@ -5,6 +5,7 @@ import { href, useHashRoute } from './router'
 import { StatusBar } from './components/StatusBar'
 import { Boot } from './components/Boot'
 import { Canvas, CANVAS_META, DEFAULT_CODE } from './canvases'
+import { Scene } from './components/Scene'
 
 const NAV = [
   { path: '/', key: '01', label: '学习路径', hint: 'PATH' },
@@ -24,6 +25,7 @@ export default function App() {
   if (!booted) return <Boot onDone={() => { try { sessionStorage.setItem('booted', '1') } catch { /* */ } setBooted(true) }} />
   return (
     <div className="shell">
+      <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
       <StatusBar done={done} total={all.length} />
       <div className="layout">
         <aside className="sidebar">
@@ -64,8 +66,8 @@ function Page({ route }: { route: string }) {
   if (route === '/') return <Curriculum />
   if (route === '/lab') return <Lab />
   if (route === '/journal') return <Journal />
-  if (route === '/prompts') return <List title="提示词库" subtitle="怎么向 AI 问硬件问题，才能少踩坑。每张卡都是踩过坑后总结的。" items={prompts} />
-  if (route === '/hardware') return <List title="我的硬件" subtitle="板子、模块、线怎么接。只记录亲手验证过的东西，不抄手册。" items={hardware} />
+  if (route === '/prompts') return <List title="提示词库" subtitle="怎么向 AI 问硬件问题，才能少踩坑。每张卡都是踩过坑后总结的。" items={prompts} art="prompts_ai" />
+  if (route === '/hardware') return <List title="我的硬件" subtitle="板子、模块、线怎么接。只记录亲手验证过的东西，不抄手册。" items={hardware} art="mod0_setup" />
   if (route === '/about') return <About />
   if (route.startsWith('/doc/')) return <DocPage path={route.slice('/doc/'.length)} />
   return <Empty title="404 · 页面不存在" />
@@ -74,21 +76,24 @@ function Page({ route }: { route: string }) {
 function Curriculum() {
   return (
     <>
-      <header className="page-head">
+      <Scene name="hero_home" className="hero">
         <div className="eyebrow">// LEARNING PATH</div>
         <h1>学习路径</h1>
         <p className="mission">把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。</p>
         <p>每个任务都以"做出一个看得见的东西"结束。顺序是建议，不是规定。卡住了就写日志，然后问 AI。</p>
-      </header>
+      </Scene>
       {modules.map((m, mi) => (
         <section key={m.dir} className="module">
-          <div className="module-head">
-            <span className="module-idx">0x{mi.toString(16).padStart(2, '0')}</span>
-            <div>
-              <h2>{m.index ? <a href={href('/doc/' + m.index.path)}>{m.title}</a> : m.title}</h2>
+          <a className="module-head" href={m.index ? href('/doc/' + m.index.path) : undefined}>
+            <Scene name={m.index?.fm.art ?? 'mod' + mi} className="module-art">
+              <span className="module-idx">0x{mi.toString(16).padStart(2, '0')}</span>
+            </Scene>
+            <div className="module-text">
+              <h2>{m.title}</h2>
               {m.index?.fm.summary && <p>{m.index.fm.summary}</p>}
+              <div className="module-stats">{m.missions.filter((x) => x.status === 'done').length}/{m.missions.length} 完成 · {m.missions.filter((x) => /```canvas/.test(x.body)).length} 个实验</div>
             </div>
-          </div>
+          </a>
           <div className="cards">
             {m.missions.map((ms) => (
               <a key={ms.path} href={href('/doc/' + ms.path)} className={'card status-' + ms.status}>
@@ -117,11 +122,11 @@ function Lab() {
   const types = Object.keys(CANVAS_META)
   return (
     <>
-      <header className="page-head">
+      <Scene name="lab_bench" className="hero small">
         <div className="eyebrow">// LAB</div>
         <h1>实验台</h1>
         <p>板子没到也能动手。这里的每个实验都可以嵌进任何一张任务卡（写一个 <code>```canvas</code> 代码块）。</p>
-      </header>
+      </Scene>
       <div className="lab-tabs">
         {types.map((t) => <button key={t} className={'chip' + (open === t ? ' on' : '')} onClick={() => setOpen(t)}>{CANVAS_META[t].name}</button>)}
       </div>
@@ -138,11 +143,11 @@ function Lab() {
 function Journal() {
   return (
     <>
-      <header className="page-head">
+      <Scene name="journal_night" className="hero small">
         <div className="eyebrow">// LOG</div>
         <h1>学习日志</h1>
         <p>按天记。记"我以为 / 实际发生 / 学到了什么"，比记代码更有用。这些日志以后会被提炼成课程。</p>
-      </header>
+      </Scene>
       <div className="timeline">
         {journal.map((d) => (
           <a key={d.path} href={href('/doc/' + d.path)} className="entry">
@@ -160,14 +165,14 @@ function Journal() {
   )
 }
 
-function List({ title, subtitle, items }: { title: string; subtitle: string; items: Doc[] }) {
+function List({ title, subtitle, items, art }: { title: string; subtitle: string; items: Doc[]; art: string }) {
   return (
     <>
-      <header className="page-head">
+      <Scene name={art} className="hero small">
         <div className="eyebrow">// {title}</div>
         <h1>{title}</h1>
         <p>{subtitle}</p>
-      </header>
+      </Scene>
       <div className="cards">
         {items.map((d) => (
           <a key={d.path} href={href('/doc/' + d.path)} className="card">
@@ -185,9 +190,12 @@ function DocPage({ path }: { path: string }) {
   const doc = byPath(path)
   if (!doc) return <Empty title="找不到这篇文档" />
   const backTo = doc.kind === 'curriculum' ? '/' : '/' + doc.kind
+  const mod = modules.find((m) => m.dir === doc.dir)
+  const art = doc.fm.art ?? mod?.index?.fm.art ?? (doc.kind === 'journal' ? 'journal_night' : doc.kind === 'prompts' ? 'prompts_ai' : doc.kind === 'hardware' ? 'mod0_setup' : 'hero_home')
   return (
     <>
       <a className="back" href={href(backTo)}>← 返回</a>
+      <Scene name={art} className="doc-art" />
       <header className="page-head doc-head">
         <div className="eyebrow">// {doc.path}</div>
         <h1>{doc.fm.status && <span className={'badge ' + doc.fm.status}><i />{STATUS_LABEL[doc.fm.status as Mission['status']] ?? doc.fm.status}</span>}{doc.fm.title ?? doc.slug}</h1>

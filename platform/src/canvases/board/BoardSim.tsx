@@ -3,7 +3,7 @@ import { Editor } from './Editor'
 import { BoardSvg, type PinState } from './BoardSvg'
 import { transpile } from './transpile'
 import { checkGoals, type GoalResult, type SimEvent } from './goals'
-import { Markdown } from '../../Markdown'
+import { Mentor } from '../../components/Mentor'
 
 export interface BoardSimProps {
   id: string
@@ -137,19 +137,7 @@ export function BoardSim({ id, code: initial, goals = [], task = '', rubric = ''
           {goalResults.map((g) => <div key={g.id} className={'goal ' + (g.ok ? 'ok' : 'no')}><span>{g.ok ? '✔' : '✘'}</span><b>{g.label}</b><span className="muted">{g.detail}</span></div>)}
         </div>
       )}
-      {review.state !== 'idle' && (
-        <div className="review">
-          {review.state === 'loading' && <div className="muted">AI 正在读你的代码和运行记录……</div>}
-          {review.state === 'done' && review.text && <Markdown text={review.text} />}
-          {review.state === 'error' && <div className="sim-error">{review.text}</div>}
-          {review.state === 'nokey' && (
-            <div>
-              <p className="muted">{review.text ?? '本地还没配 AI 密钥（platform/.env 里的 ANTHROPIC_API_KEY）。没关系，先用"复制提示词"，把它贴给任何一个 AI。'}</p>
-              <button className="chip" onClick={copyPrompt}>⎘ 复制评审提示词</button>
-            </div>
-          )}
-        </div>
-      )}
+      {review.state !== 'idle' && <Mentor state={review.state} text={review.text} onCopy={copyPrompt} />}
     </div>
   )
 }
