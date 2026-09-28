@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <RTClib.h>
-#include <Servo.h>
 
 // 已按蓝药丸引脚表规划：I2C1 PB6/PB7，舵机信号 PA0，按键 PA1
 constexpr uint8_t SERVO_PIN = PA0;
@@ -18,24 +17,43 @@ constexpr uint8_t EVENING_HOUR = 19;
 constexpr uint8_t EVENING_MINUTE = 0;
 
 RTC_DS3231 rtc;
-Servo gateServo;
 int lastAutomaticDay = -1;
 bool dispensing = false;
 uint32_t dispenseStarted = 0;
 bool lastButton = HIGH;
 uint32_t lastButtonChange = 0;
+uint32_t lastServoPulse = 0;
+uint16_t servoPulseUs = 1000;
+
+uint16_t angleToPulse(uint8_t angle) {
+  return map(angle, 0, 180, 500, 2500);
+}
+
+void setGateAngle(uint8_t angle) {
+  servoPulseUs = angleToPulse(angle);
+}
+
+void refreshServo() {
+  // 舵机通常每约20ms接收一次高电平脉冲
+  if (micros() - lastServoPulse >= 20000) {
+    lastServoPulse = micros();
+    digitalWrite(SERVO_PIN, HIGH);
+    delayMicroseconds(servoPulseUs);
+    digitalWrite(SERVO_PIN, LOW);
+  }
+}
 
 void startDispense(const char* reason) {
   if (dispensing) return;
   Serial.print("出粮: "); Serial.println(reason);
-  gateServo.write(OPEN_ANGLE);
+  setGateAngle(OPEN_ANGLE);
   dispensing = true;
   dispenseStarted = millis();
   digitalWrite(LED_PIN_LOCAL, LOW);
 }
 
 void finishDispense() {
-  gateServo.write(CLOSED_ANGLE);
+  setGateAngle(CLOSED_ANGLE);
   dispensing = false;
   digitalWrite(LED_PIN_LOCAL, HIGH);
   Serial.println("舱门关闭");
@@ -49,7 +67,10 @@ void checkButton() {
   }
   if (now == LOW && millis() - lastButtonChange > 30) {
     startDispense("手动按键");
-    while (digitalRead(BUTTON_PIN) == LOW) delay(1);
+    while (digitalRead(BUTTON_PIN) == LOW) {
+      refreshServo();
+      delay(1);
+    }
     lastButton = HIGH;
   }
 }
@@ -65,6 +86,7 @@ void checkSchedule(const DateTime& now) {
 
 void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(SERVO_PIN, OUTPUT);
   pinMode(LED_PIN_LOCAL, OUTPUT);
   digitalWrite(LED_PIN_LOCAL, HIGH);
   Serial.begin(115200);
@@ -74,15 +96,15 @@ void setup() {
   }
   // 首次使用时取消下一行注释并烧录一次，再注释回去重新烧录，避免每次重启重置时间。
   // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  gateServo.attach(SERVO_PIN);
-  gateServo.write(CLOSED_ANGLE);
+  setGateAngle(CLOSED_ANGLE);
   Serial.println("自动喂食器启动");
 }
 
 void loop() {
+  refreshServo();
   if (dispensing && millis() - dispenseStarted >= DISPENSE_MS) finishDispense();
   checkButton();
   DateTime now = rtc.now();
   checkSchedule(now);
-  delay(20);
+  delay(2);
 }

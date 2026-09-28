@@ -234,6 +234,17 @@ export const CLIENT_TOOLS = [
   },
 ]
 
+// 知识库检索工具：在浏览器里执行（知识库打包进前端，纯静态部署也能用）。实现见 platform/src/workshop/knowledge.ts
+CLIENT_TOOLS.push(
+  { name: 'search_projects', description: '在项目食谱库里找和用户需求最像的项目（零件、接线、分步、代码骨架、常见坑）。用户提出想做什么之后**第一步**先查这个，有相近的就以它为底稿改，不要从零瞎编。', input_schema: { type: 'object', properties: { query: { type: 'string', description: '关键词，如 "浇花 湿度 水泵"' }, max: { type: 'number' } }, required: ['query'] } },
+  { name: 'search_troubleshooting', description: '排障库：症状/报错关键字 → 按概率排序的原因、一分钟验证法、解决办法。编译/烧录失败、灯不亮、串口乱码、传感器读不到时先查。', input_schema: { type: 'object', properties: { query: { type: 'string', description: '现象或报错关键字，如 "unknown chip id" / "串口乱码" / "舵机抖"' }, max: { type: 'number' } }, required: ['query'] } },
+  { name: 'explain_concept', description: '术语表：一个概念的比喻、准确定义、常见误解、平台上的例子。给用户解释 PWM/上拉/I2C 这类词时用它，口径统一。', input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+  { name: 'get_snippet', description: '代码片段库：按主题（GPIO/PWM/ADC/UART/I2C/舵机/定时/中断/状态机…）取一段可编译的最小程序和逐段解释。写固件前先取相近片段当底稿。', input_schema: { type: 'object', properties: { query: { type: 'string', description: '如 "按键去抖" / "OLED 显示" / "舵机"' }, max: { type: 'number' } }, required: ['query'] } },
+  { name: 'list_boards', description: '列出平台支持的开发板（蓝药丸、Nucleo、ESP32、UNO…）和各自适合谁。用户手里不是蓝药丸时先看。', input_schema: { type: 'object', properties: {} } },
+  { name: 'read_board_profile', description: '读某块板子的档案：platformio 配置、板载 LED、总线引脚、怎么烧录、坑、完整引脚表。用户用的不是蓝药丸时，引脚必须查这个而不是 read_pinout。', input_schema: { type: 'object', properties: { board: { type: 'string', description: 'bluepill / nucleo_f103rb / nucleo_f411re / esp32_devkit / arduino_uno' }, filter: { type: 'string', description: '可选，只看某类功能' } }, required: ['board'] } },
+  { name: 'part_detail', description: '一个元件的完整档案：引脚标签、怎么接蓝药丸、最小代码、坑。写接线卡和代码前查。', input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } },
+)
+
 CLIENT_TOOLS.push({
   name: 'propose_bom', description: '给用户展示一张采购清单卡片（可勾选"已有"），等用户确认。先 read_inventory 和 search_parts，再调这个。返回用户勾选后的结果：哪些已有、哪些要买、总预算。确认后记得 save_project 存 bom 并 update_inventory。',
   input_schema: {

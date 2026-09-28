@@ -8,7 +8,7 @@ import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
 
 const SUGGEST = ['要有光', '让板载的灯眨起来', '我想做一个自动浇花的东西', '做一个桌面温湿度小站', '继续上次的项目']
-const TOOL_LABEL: Record<string, string> = { search_parts: '查元件库', add_part: '收录元件', read_inventory: '看库存', update_inventory: '更新库存', save_project: '保存项目', list_projects: '列项目', read_project: '读项目', read_pinout: '查引脚表', read_board: '读板子档案', list_parts: '看套件清单', check_env: '检查环境', read_file: '读文件', list_files: '列目录', write_firmware: '写固件', pio_build: '编译', pio_upload: '烧录', serial_read: '读串口', append_journal: '记日志', record_ai_mistake: '记错误', sim_run: '虚拟板子运行' }
+const TOOL_LABEL: Record<string, string> = { search_projects: '查项目食谱', search_troubleshooting: '查排障库', explain_concept: '查术语表', get_snippet: '取代码片段', list_boards: '看板子列表', read_board_profile: '读板子档案', part_detail: '查元件档案', search_parts: '查元件库', add_part: '收录元件', read_inventory: '看库存', update_inventory: '更新库存', save_project: '保存项目', list_projects: '列项目', read_project: '读项目', read_pinout: '查引脚表', read_board: '读板子档案', list_parts: '看套件清单', check_env: '检查环境', read_file: '读文件', list_files: '列目录', write_firmware: '写固件', pio_build: '编译', pio_upload: '烧录', serial_read: '读串口', append_journal: '记日志', record_ai_mistake: '记错误', sim_run: '虚拟板子运行' }
 
 export function Workshop() {
   const [, tick] = useState(0)
@@ -16,7 +16,7 @@ export function Workshop() {
   const agent = useRef<Agent | null>(null)
   if (!agent.current) agent.current = new Agent(() => tick((n) => n + 1), setLive)
   const a = agent.current
-  const [text, setText] = useState('')
+  const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [a.items.length, a.busy])
 
@@ -59,7 +59,7 @@ export function Workshop() {
         <div className="ws-tools">
           <div className="canvas-head"><span className="canvas-title">▣ 我有的工具</span></div>
           <ul>
-            <li><b>查</b> 引脚表 · 板子档案 · 套件清单 · 环境</li>
+            <li><b>查</b> 项目食谱 · 元件库 · 代码片段 · 排障库 · 术语表 · 板子档案</li>
             <li><b>做</b> 写固件 · 编译 · 烧录 · 读串口 · 虚拟板子</li>
             <li><b>记</b> 日志 · 我犯过的错</li>
             <li><b>请你</b> 接线 · 按键 · 粘贴运行 · 观察</li>

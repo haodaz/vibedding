@@ -1,6 +1,7 @@
 // 浏览器驱动的 agent 循环。服务端只负责调一次模型 + 跑服务端工具。
 import { runSim, type SimLive } from './sim'
 import type { BomAsk } from './BomCard'
+import { KNOWLEDGE_TOOLS } from './knowledge'
 
 export type Block =
   | { type: 'text'; text: string }
@@ -98,7 +99,9 @@ export class Agent {
     const item: Extract<Item, { kind: 'tool' }> = { kind: 'tool', id: u.id, name: u.name, input: u.input, running: true }
     this.items.push(item); this.emit()
     let out: { text: string; error?: boolean }
-    if (u.name === 'sim_run') {
+    if (KNOWLEDGE_TOOLS[u.name]) {
+      try { out = { text: KNOWLEDGE_TOOLS[u.name](u.input) } } catch (e) { out = { text: '检索失败：' + (e as Error).message, error: true } }
+    } else if (u.name === 'sim_run') {
       const { code, seconds } = u.input as { code: string; seconds?: number }
       const r = await runSim(code, Math.min(Math.max(seconds ?? 3, 1), 15), this.onLive)
       out = { text: r.summary, error: !r.ok && r.summary.startsWith('模拟器不能跑') }

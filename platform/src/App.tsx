@@ -7,15 +7,17 @@ import { Boot } from './components/Boot'
 import { Canvas, CANVAS_META, DEFAULT_CODE } from './canvases'
 import { Scene } from './components/Scene'
 import { Workshop } from './workshop/Workshop'
+import { Knowledge } from './components/Knowledge'
 
 const NAV = [
   { path: '/make', key: '00', label: '直接做', hint: 'MAKE' },
   { path: '/', key: '01', label: '学习路径', hint: 'PATH' },
   { path: '/lab', key: '02', label: '实验台', hint: 'LAB' },
-  { path: '/journal', key: '03', label: '学习日志', hint: 'LOG' },
-  { path: '/prompts', key: '04', label: '提示词库', hint: 'PROMPTS' },
-  { path: '/hardware', key: '05', label: '我的硬件', hint: 'HW' },
-  { path: '/about', key: '06', label: '关于平台', hint: 'ABOUT' },
+  { path: '/kb', key: '03', label: '知识库', hint: 'KB' },
+  { path: '/journal', key: '04', label: '学习日志', hint: 'LOG' },
+  { path: '/prompts', key: '05', label: '提示词库', hint: 'PROMPTS' },
+  { path: '/hardware', key: '06', label: '我的硬件', hint: 'HW' },
+  { path: '/about', key: '07', label: '关于平台', hint: 'ABOUT' },
 ]
 const STATUS_LABEL: Record<Mission['status'], string> = { todo: 'TODO', doing: 'DOING', done: 'DONE' }
 
@@ -66,7 +68,8 @@ function isActive(route: string, path: string) {
 
 function Page({ route }: { route: string }) {
   if (route === '/') return <Curriculum />
-  if (route === '/make') return <Workshop />
+  if (route.startsWith('/make')) return <Workshop />
+  if (route === '/kb') return <Knowledge />
   if (route === '/lab') return <Lab />
   if (route === '/journal') return <Journal />
   if (route === '/prompts') return <List title="提示词库" subtitle="怎么向 AI 问硬件问题，才能少踩坑。每张卡都是踩过坑后总结的。" items={prompts} art="prompts_ai" />
