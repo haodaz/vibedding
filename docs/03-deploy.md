@@ -84,4 +84,4 @@ git clone git@github.com:haodaz/vibedding.git && cd vibedding/platform && npm in
 - `compile-server/` 是一个独立的小服务（Node + PlatformIO，Dockerfile 已写好，镜像里预装了 STM32 和 ESP32 工具链）。部署到 Railway：New Project → GitHub 仓库 → Root Directory 填 `compile-server` → Variables 加 `COMPILE_TOKEN`。第一次构建约 10 分钟。
 - 拿到域名后在 Vercel 加 `COMPILE_URL`、`COMPILE_TOKEN`，Redeploy。`/api/compile` 会验证登录再转发，浏览器拿不到编译服务的令牌。
 - 之后 AI 在网页版有 `cloud_build`（云编译）和 `web_flash`（浏览器烧录卡）两个工具：STM32 走串口引导程序（BOOT0=1，USB-TTL 接 PA9/PA10，Chrome 的 Web Serial），ESP32 走 esptool-js。本地模式 `web_flash` 直接烧 `pio_build` 的产物。
-- 本地测试编译服务：`COMPILE_TOKEN=dev node compile-server/server.mjs`，然后 `platform/.env` 里 `COMPILE_URL=http://localhost:8787`、`COMPILE_TOKEN=dev`（本地模式其实用 pio_build，这个只是测接口）。
+- 本地测试编译服务：`COMPILE_TOKEN=dev node compile-server/server.mjs`，然后 `platform/.env` 里 `COMPILE_URL=http://localhost:8080`、`COMPILE_TOKEN=dev`（本地模式其实用 pio_build，这个只是测接口）。

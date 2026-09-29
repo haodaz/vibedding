@@ -5,7 +5,7 @@
 ## 本地试跑
 ```bash
 COMPILE_TOKEN=dev node compile-server/server.mjs
-curl -s localhost:8787/health
+curl -s localhost:8080/health
 ```
 
 ## 部署（Railway 最省事）
