@@ -5,6 +5,8 @@ import { HumanCard } from './HumanCard'
 import { BomCard } from './BomCard'
 import { FlashCard } from './FlashCard'
 import { BoardSvg, type PinState } from '../canvases/board/BoardSvg'
+import { BoardEsp32Svg } from '../canvases/board/BoardEsp32Svg'
+import { byPath } from '../content'
 import { Markdown } from '../Markdown'
 import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
@@ -25,6 +27,18 @@ const TOOL_LABEL: Record<string, [string, string]> = {
 const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
 
 type Tab = 'board' | 'assembly' | 'code' | 'serial' | 'project'
+
+// 图片缩到最长边 1024、JPEG 0.8 再发给模型；缩略图存会话（小，避免撑爆 localStorage）
+async function shrinkImage(file: File): Promise<{ dataUrl: string; media_type: string; data: string }> {
+  const bmp = await createImageBitmap(file)
+  const max = 1024, k = Math.min(1, max / Math.max(bmp.width, bmp.height))
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
+  const full = c.toDataURL('image/jpeg', 0.8)
+  const k2 = Math.min(1, 480 / Math.max(c.width, c.height)); const t2 = document.createElement('canvas'); t2.width = Math.round(c.width * k2); t2.height = Math.round(c.height * k2)
+  t2.getContext('2d')!.drawImage(c, 0, 0, t2.width, t2.height)
+  return { dataUrl: t2.toDataURL('image/jpeg', 0.7), media_type: 'image/jpeg', data: full.split(',')[1] }
+}
 
 // 形象姿态：待机 / 工作（跑工具）/ 思考（等模型）/ 庆祝（成功烧录或目标达成）/ 为难（出错）
 export function mentorPose(items: Item[], busy: boolean): string {
@@ -52,7 +66,11 @@ export function Workshop() {
   const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [a.items.length, a.busy])
-  const submit = (s: string) => { if (!s.trim() || a.busy) return; setText(''); a.send(s.trim()) }
+  const [imgs, setImgs] = useState<{ dataUrl: string; media_type: string; data: string }[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
+  const addFiles = async (files: FileList | File[]) => { const out = await Promise.all(Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 4).map(shrinkImage)); setImgs((x) => [...x, ...out].slice(0, 4)) }
+  const onPaste = (e: React.ClipboardEvent) => { const fs = Array.from(e.clipboardData.files); if (fs.length) { e.preventDefault(); addFiles(fs) } }
+  const submit = (s: string) => { if ((!s.trim() && !imgs.length) || a.busy) return; const im = imgs; setText(''); setImgs([]); a.send(s.trim(), im) }
 
   // 工作区：自动跟着最近发生的事切标签
   const [tab, setTab] = useState<Tab>('board')
@@ -85,8 +103,11 @@ export function Workshop() {
     <div className="ws-start">
       <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{t('ws.start.title')}</h1><p className="muted">{t('ws.start.sub')}</p></div></div>
       <StarterCards onPick={submit} />
-      <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('ws.placeholder')} autoFocus />
+      <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }} onPaste={onPaste} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files) }}>
+        {imgs.length > 0 && <div className="ws-attach">{imgs.map((im, i) => <span key={i} className="ws-thumb"><img src={im.dataUrl} alt="" /><button type="button" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>×</button></span>)}</div>}
+        <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} autoFocus />
         <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
       </form>
     </div>
@@ -104,9 +125,12 @@ export function Workshop() {
           {a.busy && !a.items.some((i) => (i.kind === 'human' || i.kind === 'bom' || i.kind === 'flash') && i.answer === undefined) && <div className="ws-thinking"><span className="dots" />{a.model && <em>{a.model}</em>}</div>}
           <div ref={endRef} />
         </div>
-        <form className="ws-input" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={a.busy ? t('ws.busy') : t('ws.placeholder')} disabled={a.busy} autoFocus />
-          <button className="chip primary" disabled={a.busy || !text.trim()}>{t('ws.send')}</button>
+        <form className="ws-input" onSubmit={(e) => { e.preventDefault(); submit(text) }} onPaste={onPaste} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files) }}>
+          {imgs.length > 0 && <div className="ws-attach">{imgs.map((im, i) => <span key={i} className="ws-thumb"><img src={im.dataUrl} alt="" /><button type="button" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>×</button></span>)}</div>}
+          <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={a.busy ? t('ws.busy') : imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} disabled={a.busy} autoFocus />
+          <button className="chip primary" disabled={a.busy || (!text.trim() && !imgs.length)}>{t('ws.send')}</button>
         </form>
       </div>
       <div className="ws-divider" onMouseDown={() => (dragging.current = true)} />
@@ -128,7 +152,7 @@ export function Workshop() {
                 <span className={'st ' + (env && (env.usb.length || env.ports.length) ? 'ok' : 'off')}><i />{env && (env.usb.length || env.ports.length) ? `${t('st.board.on')} ${env.usb[0] ?? env.ports[0]}` : t('st.board.off')}</span>
                 <span className={'st ' + (env?.pio ? 'ok' : 'warn')}><i />{env?.pio ? 'PlatformIO ' + env.pio.replace(/^PlatformIO Core, version /, '') : (mode?.mode === 'local' ? t('st.pio.off') : t('st.static'))}</span>
               </div>
-              <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />
+              {/^esp32/.test(byPath('hardware/board.md')?.fm.board ?? '') ? <BoardEsp32Svg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} /> : <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />}
               <div className="serial-head"><span>Serial <em>115200</em></span><span className={'led ' + (live.running ? 'on' : '')} /></div>
               <pre className="serial-out ws-serial">{live.serial || t('ws.serial.idle')}</pre>
             </div>
@@ -225,7 +249,7 @@ function Projects({ mode }: { mode: string }) {
 
 function Row({ it, onAnswer }: { it: Item; onAnswer: (id: string, s: string) => void }) {
   const [open, setOpen] = useState(false)
-  if (it.kind === 'user') return <div className="ws-row user"><div className="bubble">{it.text}</div></div>
+  if (it.kind === 'user') return <div className="ws-row user"><div className="bubble">{it.images && it.images.length > 0 && <div className="bubble-imgs">{it.images.map((src, i) => <img key={i} src={src} alt="" />)}</div>}{it.text}</div></div>
   if (it.kind === 'assistant') return <div className="ws-row ai"><div className="ai-text"><Markdown text={it.text} /></div></div>
   if (it.kind === 'system') return <div className="ws-row sys">{it.text}</div>
   if (it.kind === 'human') return <div className="ws-row cardrow"><HumanCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>

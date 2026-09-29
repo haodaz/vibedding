@@ -103,6 +103,7 @@ const D: Record<string, [string, string]> = {
   'flash.esp.1': ['用数据线把 ESP32 插到电脑上（有的板子要按住 BOOT 键再点连接）', 'Plug the ESP32 in with a data cable (some boards need BOOT held while connecting)'],
   'flash.esp.2': ['点下面的按钮，在弹窗里选串口', 'Click the button below and pick the port'],
   'flash.go': ['连接并烧录', 'Connect & flash'], 'flash.busy': ['烧录中…', 'Flashing…'], 'flash.skip': ['先不烧', 'Not now'],
+  'ws.attach': ['发照片', 'Attach a photo'], 'ws.placeholder.img': ['对这张图想问什么？', 'What about this photo?'],
   'ws.clearchat': ['清空对话', 'Clear chat'],
   'ws.newproject': ['新项目', 'New project'], 'proj.new': ['新项目', 'New'], 'proj.today': ['今天', 'today'], 'proj.daysago': ['天前', 'days ago'], 'proj.steps': ['步', 'steps'], 'proj.delete': ['删除这个项目的对话', 'Delete this project chat'],
   'proj.empty': ['还没有项目。说一句你想做什么，就是第一个。', 'No projects yet. Say what you want to build — that is your first one.'],

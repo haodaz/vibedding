@@ -201,6 +201,20 @@
       "prompt": "一根黑色的Micro USB数据线，一端是USB-A接头，另一端是Micro USB接头，线缆盘成一个松松的圈",
       "what": "给板子供电、走串口。注意有的线只能充电不能传数据",
       "task": "0-2"
+    },
+    {
+      "name": "part_lcd1602",
+      "label": "LCD1602 液晶屏（I2C）",
+      "prompt": "一块绿色的LCD1602字符液晶屏模块，16x2字符，屏幕亮着显示两行文字，背面焊着一块小的I2C转接板，四根排针（GND VCC SDA SCL）朝向一侧，正面略斜视角",
+      "what": "两行 16 字符的小屏，I2C 四根线就能驱动",
+      "task": "3-3"
+    },
+    {
+      "name": "part_esp32_wrover",
+      "label": "Freenove ESP32-WROVER 主板",
+      "prompt": "一块黑色的ESP32-WROVER开发板，板上有一个银色屏蔽罩的模组，一个小型摄像头模块用排线连接在板上，USB-C接口，两排排针，俯视视角",
+      "what": "主控。自带 WiFi、蓝牙、摄像头，USB-C 直接烧录",
+      "task": "0-2"
     }
   ]
 }

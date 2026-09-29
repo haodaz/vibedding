@@ -677,3 +677,10 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .proj-starters { grid-column: 1 / -1; }
 .proj-starters .start-cards { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .proj-starters .start-art { height: 140px; }
+
+.ws-input { flex-wrap: wrap; align-items: center; }
+.ws-attach { width: 100%; display: flex; gap: 8px; margin-bottom: 6px; }
+.ws-thumb { position: relative; } .ws-thumb img { height: 64px; border-radius: 8px; border: 1px solid var(--border-2); display: block; }
+.ws-thumb button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: var(--red); color: #fff; font-size: 12px; cursor: pointer; line-height: 1; }
+.chip.attach { padding: 8px 10px; display: grid; place-items: center; }
+.bubble-imgs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; } .bubble-imgs img { max-height: 160px; max-width: 100%; border-radius: 8px; border: 1px solid var(--border-2); }

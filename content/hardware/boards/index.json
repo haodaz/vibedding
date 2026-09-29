@@ -2,6 +2,14 @@
   "note": "开发板一览。每块板的详细档案在同目录 <id>.json，字段同蓝药丸引脚表。price 为常见国内电商价格区间，仅供参考",
   "boards": [
     {
+      "id": "esp32_wrover",
+      "name": "Freenove ESP32-WROVER（带摄像头）",
+      "mcu": "ESP32-WROVER",
+      "level": "入门",
+      "price": "80-120（套件）",
+      "why": "手里这块。USB-C 直烧，带 WiFi/蓝牙/摄像头"
+    },
+    {
       "id": "bluepill",
       "name": "蓝药丸 STM32F103C8T6",
       "mcu": "STM32F103C8T6",

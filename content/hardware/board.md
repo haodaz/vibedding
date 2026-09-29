@@ -1,5 +1,6 @@
 ---
 title: 我的主板
+board: esp32_wrover
 summary: Freenove ESP32-WROVER（带摄像头），2026-09-29 到货。USB-C 直接烧录，不需要 ST-Link。
 ---
 ## 基本信息

@@ -2,6 +2,14 @@
   "note": "Board overview. Each board's full profile lives in <id>.json in this folder, using the same fields as the Blue Pill pin table. price is a rough USD range at typical US retailers (Amazon, Adafruit, SparkFun, DigiKey), for budgeting only",
   "boards": [
     {
+      "id": "esp32_wrover",
+      "name": "Freenove ESP32-WROVER (with camera)",
+      "mcu": "ESP32-WROVER",
+      "level": "Beginner",
+      "price": "40-60 (kit)",
+      "why": "The board in this kit. USB-C flashing, WiFi/BLE/camera"
+    },
+    {
       "id": "bluepill",
       "name": "Blue Pill STM32F103C8T6",
       "mcu": "STM32F103C8T6",

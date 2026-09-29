@@ -15,7 +15,7 @@ export type Block =
 export interface HumanAsk { kind: 'wire' | 'press' | 'paste' | 'observe'; title: string; why?: string; steps: string[]; parts?: string[]; wires?: string; paste?: string; expect?: string; safety?: string; options?: string[] }
 
 export type Item =
-  | { kind: 'user'; text: string }
+  | { kind: 'user'; text: string; images?: string[] }   // images: data URL 缩略图
   | { kind: 'assistant'; text: string }
   | { kind: 'tool'; id: string; name: string; input: Record<string, unknown>; result?: string; error?: boolean; running: boolean }
   | { kind: 'human'; id: string; ask: HumanAsk; answer?: string }
@@ -68,10 +68,15 @@ export class Agent {
     this.onChange()
   }
 
-  async send(text: string) {
+  async send(text: string, images: { dataUrl: string; media_type: string; data: string }[] = []) {
     if (this.busy) return
-    this.items.push({ kind: 'user', text })
-    this.messages.push({ role: 'user', content: text })
+    if (images.length) {
+      this.items.push({ kind: 'user', text, images: images.map((i) => i.dataUrl) })
+      this.messages.push({ role: 'user', content: [...images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.media_type, data: i.data } })), { type: 'text', text: text || '（看图）' }] })
+    } else {
+      this.items.push({ kind: 'user', text })
+      this.messages.push({ role: 'user', content: text })
+    }
     await this.loop()
   }
 
