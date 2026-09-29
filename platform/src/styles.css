@@ -612,13 +612,15 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .history a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
 .history a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .history a .ico { color: var(--dim); flex-shrink: 0; }
 .history a:hover { background: var(--panel); color: var(--text); } .history a.on { background: var(--panel); color: var(--text); border: 1px solid var(--border-2); }
-.ws-start { max-width: 980px; margin: 0 auto; padding: 10px 0 40px; }
+.ws-start { max-width: 980px; margin: 0 auto; padding: 10px 0 110px; }
+.start-input { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(980px, calc(100vw - 64px - 44px)); z-index: 5; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
 .ws-start-head { display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: center; margin-bottom: 22px; }
 .ws-empty-npc.big { height: 170px; }
 .ws-start-head h1 { margin: 0 0 6px; font-size: 34px; }
-.start-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.start-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px; }
+.start-art { height: 170px; }
 .start-card { text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; padding: 0; cursor: pointer; color: var(--text); font-family: var(--font); transition: transform .15s, border-color .15s; }
 .start-card:hover { transform: translateY(-3px); border-color: var(--accent); }
 .start-art { height: 130px; border-radius: 0; }
 .start-text { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 3px; } .start-text b { font-size: 16.5px; }
-.start-input { border: 1px solid var(--border-2); border-radius: 14px; background: var(--panel); }
+.start-input { border: 1px solid var(--border-2); border-radius: 14px; background: rgba(14,20,40,.95); backdrop-filter: blur(14px); }

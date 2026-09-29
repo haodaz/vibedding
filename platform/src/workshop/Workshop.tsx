@@ -24,7 +24,7 @@ const TOOL_LABEL: Record<string, [string, string]> = {
 const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
 
 type Tab = 'board' | 'assembly' | 'code' | 'serial' | 'project'
-const STARTERS = [{ art: 'mod1_blink' }, { art: 'mod4_time' }, { art: 'mod6_capstone' }, { art: 'mod3_sense' }, { art: 'journal_night' }]
+const STARTERS = [{ art: 'start_light' }, { art: 'start_blink' }, { art: 'start_water' }, { art: 'start_station' }]
 
 // 形象姿态：待机 / 工作（跑工具）/ 思考（等模型）/ 庆祝（成功烧录或目标达成）/ 为难（出错）
 export function mentorPose(items: Item[], busy: boolean): string {
@@ -79,7 +79,7 @@ export function Workshop() {
     const pct = Math.min(70, Math.max(28, ((e.clientX - box.left) / box.width) * 100))
     setSplit(pct); try { localStorage.setItem('vb:split', String(pct)) } catch { /* */ }
   }
-  const suggest = [1, 2, 3, 4, 5].map((i) => t('ws.suggest.' + i, lang))
+  const suggest = [1, 2, 3, 4].map((i) => t('ws.suggest.' + i, lang))
   const started = a.items.length > 0
 
   if (!started) return (

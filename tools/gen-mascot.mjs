@@ -6,15 +6,18 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import dns from 'node:dns'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 dns.setDefaultResultOrder('ipv4first')
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = path.join(ROOT, 'platform', 'public', 'art')
+const sharp = createRequire(path.join(ROOT, 'platform', 'package.json'))('sharp')
+const shrink = (png) => sharp(png).resize({ width: 768 }).png({ compressionLevel: 9 }).toBuffer()
 const env = Object.fromEntries((await fs.readFile(path.join(ROOT, 'platform', '.env'), 'utf8')).split('\n').map((l) => l.match(/^([A-Z_]+)=(.*)$/)).filter(Boolean).map((m) => [m[1], m[2].trim()]))
 const KEY = env.OPENAI_API_KEY; if (!KEY) { console.error('缺 OPENAI_API_KEY'); process.exit(1) }
 const MODEL = process.env.MASCOT_MODEL || 'gpt-image-1'
 const BASE = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
 
-const CHARACTER = `Pixar/Disney style 3D cartoon character, sticker-style cutout ISOLATED on a fully transparent background: no backdrop, no wall, no floor, no environment, no shadow on the ground, nothing behind the character at all. High quality render, subsurface skin. A charming cute young woman, about 18-19, shoulder-length wavy blonde hair, big bright blue eyes, a pair of vintage brass-rimmed clear science goggles pushed up on her forehead, wearing a navy blue work jacket over a white t-shirt with a small screwdriver in the chest pocket. Half-body, character fully in frame, no text, no logo.`
+const CHARACTER = `Pixar/Disney style 3D cartoon character, sticker-style cutout ISOLATED on a fully transparent background: no backdrop, no wall, no floor, no environment, no shadow on the ground, nothing behind the character at all. High quality render, subsurface skin. The SAME recurring character every time: a charming cute young woman, about 18-19, shoulder-length wavy golden-blonde bob, big bright blue eyes, small nose, light freckles, a pair of vintage brass-rimmed clear science goggles pushed up on her forehead, wearing a navy blue work jacket over a white t-shirt with a small screwdriver in the chest pocket. Half-body, character fully in frame, no text, no logo.`
 const POSES = {
   idle: 'Relaxed standing pose, hands at her sides, head slightly tilted, warm confident smile, facing slightly to the side.',
   working: 'Focused, looking down, goggles pulled over her eyes, holding a small blue circuit board in one hand and tweezers in the other, wiring it, concentrated expression.',
@@ -40,18 +43,11 @@ async function edit(refPng, prompt) {
 }
 
 await fs.mkdir(OUT, { recursive: true })
-const idlePath = path.join(OUT, 'mentor_idle.png')
-let ref = null
-if (want.includes('idle') || !(await fs.stat(idlePath).catch(() => null))) {
-  console.log('生成 idle …')
-  ref = await generate(`${CHARACTER} ${POSES.idle}`)
-  await fs.writeFile(idlePath, ref); console.log('✔ mentor_idle')
-} else ref = await fs.readFile(idlePath)
-for (const k of want.filter((k) => k !== 'idle')) {
+for (const k of want) {
   try {
     console.log('生成', k, '…')
-    const png = await edit(ref, `Same character, same face, same outfit, same Pixar 3D style as the reference image. Sticker-style cutout isolated on a fully transparent background: no backdrop, no environment, nothing behind her. Half-body, no text. New pose: ${POSES[k]}`)
-    await fs.writeFile(path.join(OUT, `mentor_${k}.png`), png); console.log('✔ mentor_' + k)
+    const png = await generate(`${CHARACTER} ${POSES[k]}`)
+    await fs.writeFile(path.join(OUT, `mentor_${k}.png`), await shrink(png)); console.log('✔ mentor_' + k)
   } catch (e) { console.error('✘', k, e.message) }
 }
 console.log('完成')
