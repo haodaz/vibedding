@@ -15,7 +15,7 @@ import { PartImg } from '../canvases/parts/PartImg'
 import { partByName } from '../canvases/parts/catalog'
 import { Wiring, parseWires } from '../canvases/parts/Wiring'
 import { Icon } from '../components/Icon'
-import { Scene } from '../components/Scene'
+import { StarterCards } from './StarterCards'
 
 const TOOL_LABEL: Record<string, [string, string]> = {
   search_projects: ['查项目食谱', 'search recipes'], search_troubleshooting: ['查排障库', 'search troubleshooting'], explain_concept: ['查术语表', 'glossary'], get_snippet: ['取代码片段', 'get snippet'], list_boards: ['看板子列表', 'list boards'], read_board_profile: ['读板子档案', 'board profile'], part_detail: ['查元件档案', 'part detail'],
@@ -25,7 +25,6 @@ const TOOL_LABEL: Record<string, [string, string]> = {
 const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
 
 type Tab = 'board' | 'assembly' | 'code' | 'serial' | 'project'
-const STARTERS = [{ art: 'start_light' }, { art: 'start_blink' }, { art: 'start_water' }, { art: 'start_station' }]
 
 // 形象姿态：待机 / 工作（跑工具）/ 思考（等模型）/ 庆祝（成功烧录或目标达成）/ 为难（出错）
 export function mentorPose(items: Item[], busy: boolean): string {
@@ -80,20 +79,12 @@ export function Workshop() {
     const pct = Math.min(70, Math.max(28, ((e.clientX - box.left) / box.width) * 100))
     setSplit(pct); try { localStorage.setItem('vb:split', String(pct)) } catch { /* */ }
   }
-  const suggest = [1, 2, 3, 4].map((i) => t('ws.suggest.' + i, lang))
   const started = a.items.length > 0
 
   if (!started) return (
     <div className="ws-start">
       <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{t('ws.start.title')}</h1><p className="muted">{t('ws.start.sub')}</p></div></div>
-      <div className="start-cards">
-        {STARTERS.map((c, i) => (
-          <button key={c.art} className="start-card" onClick={() => submit(suggest[i])}>
-            <Scene name={c.art} className="start-art" />
-            <div className="start-text"><b>{suggest[i]}</b><span className="muted small">{t('ws.start.tag.' + (i + 1))}</span></div>
-          </button>
-        ))}
-      </div>
+      <StarterCards onPick={submit} />
       <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('ws.placeholder')} autoFocus />
         <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>

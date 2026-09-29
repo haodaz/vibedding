@@ -673,3 +673,7 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .hcard.flash .hcard-kind { color: var(--cyan); }
 .flash-progress { display: flex; align-items: center; gap: 10px; margin: 8px 0; } .flash-progress .bar { flex: 1; }
 .tool-out.small { font-size: 11.5px; max-height: 120px; }
+
+.proj-starters { grid-column: 1 / -1; }
+.proj-starters .start-cards { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.proj-starters .start-art { height: 140px; }

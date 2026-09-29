@@ -1,6 +1,6 @@
 // Vercel serverless：体验模式的一步。密钥在服务端环境变量里，访客不用自己填。
 // 环境变量：OPENAI_API_KEY（必填）、AGENT_MODEL（默认 gpt-5.6-luna）、AGENT_REASONING（可选）、RATE_PER_MIN（每 IP 每分钟，默认 12）
-import { systemFor, toolDefsFor, openaiStep, usageRecord } from '../../platform/shared/spec.mjs'
+import { systemFor, toolDefsFor, openaiStep, usageRecord } from '../_spec.js'
 import { verifyUser, profileOf, rest, hasService } from '../_lib.js'
 
 const bucket = new Map()   // 简单限流：每个实例内存里数，够挡住无意的刷

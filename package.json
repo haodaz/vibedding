@@ -1,0 +1,8 @@
+{
+  "name": "vibedding-root",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-spec": "node tools/sync-spec.mjs"
+  }
+}

@@ -6,6 +6,7 @@ import { t } from '../i18n'
 import { href } from '../router'
 import { listSessions, newSessionId, deleteSession, type SessionMeta } from '../workshop/agent'
 import { NpcImage } from './Scene'
+import { StarterCards } from '../workshop/StarterCards'
 
 // 项目页：开发模式的项目管理。本地模式读 content/projects/，其他模式读用户存储。
 type Proj = { slug: string; title: string; brief?: string; bom?: string; plan?: string }
@@ -63,8 +64,9 @@ export function Projects() {
             {p.brief && <p>{p.brief.replace(/[#*>`]/g, '').slice(0, 90)}…</p>}
           </a>
         ))}
+        {sessions.length === 0 && orphan.length === 0 && <div className="proj-starters"><StarterCards /></div>}
         {sessions.length === 0 && orphan.length === 0 && (
-          <div className="proj-empty"><div className="ws-empty-npc"><NpcImage name="mentor_idle" /></div><div><p>{t('proj.empty')}</p><a className="chip primary" href={href('/make?p=' + newSessionId() + '&q=' + encodeURIComponent(t('ws.suggest.1')))}>{t('path.cta.play')}</a></div></div>
+          <div className="proj-empty"><div className="ws-empty-npc"><NpcImage name="mentor_idle" /></div><div><p>{t('proj.empty')}</p></div></div>
         )}
       </div>
     </>

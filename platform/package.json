@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node dev.mjs",
     "server": "node server/index.mjs",
-    "build": "vite build",
+    "build": "node ../tools/sync-spec.mjs && vite build",
     "preview": "vite preview",
     "art": "node ../tools/gen-art.mjs"
   },
