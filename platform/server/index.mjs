@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { runTool } from './tools.mjs'
 import { step, agentModel, provider } from './agent.mjs'
 import { usageRecord } from '../shared/spec.mjs'
+import { rest, authAdmin, hasService } from '../../api/_lib.js'
 
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -126,7 +127,36 @@ http.createServer(async (req, res) => {
       const sum = (f) => rows.filter(f).reduce((s, r) => s + Number(r.cost_usd), 0)
       return json(res, 200, { days, total, today_cost: sum((r) => r.ts.startsWith(today)), week_cost: sum((r) => r.ts >= week), by_day: agg((r) => r.ts.slice(0, 10)).sort((a, b) => a.key.localeCompare(b.key)), by_user: agg((r) => r.email), by_model: agg((r) => r.model), recent: rows.slice(0, 50) })
     }
-    if (req.url.startsWith('/api/admin/users')) return json(res, 200, { error: '本地模式没有用户系统（线上版才有）' })
+    if (req.url.startsWith('/api/admin/users')) {
+      // 本地模式：用 .env 里的服务密钥直接管线上账号（和 Vercel 函数同一套逻辑，只是不需要登录）
+      if (!hasService()) return json(res, 200, { error: '需要 platform/.env 里的 VITE_SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY' })
+      let raw = ''; for await (const chunk of req) raw += chunk
+      const body = raw ? JSON.parse(raw) : {}
+      try {
+        if (req.method === 'GET') {
+          const list = await authAdmin('users?per_page=1000'); const users = list.users ?? list ?? []
+          const profiles = await rest('profiles?select=*'); const pmap = Object.fromEntries(profiles.map((p) => [p.user_id, p]))
+          const since = new Date(Date.now() - 30 * 864e5).toISOString()
+          const usage = await rest(`usage_log?select=user_id,cost_usd,input_tokens,output_tokens&ts=gte.${since}&limit=10000`)
+          const umap = {}; for (const r of usage) { const u = (umap[r.user_id] ??= { cost: 0, tokens: 0, calls: 0 }); u.cost += Number(r.cost_usd); u.tokens += r.input_tokens + r.output_tokens; u.calls++ }
+          return json(res, 200, { users: users.map((u) => ({ id: u.id, email: u.email, created_at: u.created_at, last_sign_in_at: u.last_sign_in_at, role: pmap[u.id]?.role ?? 'user', disabled: pmap[u.id]?.disabled ?? false, display_name: pmap[u.id]?.display_name ?? '', usage30: umap[u.id] ?? { cost: 0, tokens: 0, calls: 0 } })) })
+        }
+        if (req.method === 'POST') {
+          const { email, password, role = 'user', display_name = '' } = body
+          if (!email || !password || password.length < 6) return json(res, 400, { error: 'email + password(>=6) required' })
+          const u = await authAdmin('users', { method: 'POST', body: JSON.stringify({ email, password, email_confirm: true }) })
+          await rest('profiles', { method: 'POST', prefer: 'resolution=merge-duplicates,return=representation', body: JSON.stringify({ user_id: u.id, email, role, display_name }) })
+          return json(res, 200, { ok: true, id: u.id })
+        }
+        if (req.method === 'PATCH') {
+          const { user_id, role, disabled, display_name } = body
+          const patch = {}; if (role) patch.role = role; if (typeof disabled === 'boolean') patch.disabled = disabled; if (typeof display_name === 'string') patch.display_name = display_name
+          await rest('profiles', { method: 'POST', prefer: 'resolution=merge-duplicates,return=representation', body: JSON.stringify({ user_id, ...patch }) })
+          if (typeof disabled === 'boolean') await authAdmin(`users/${user_id}`, { method: 'PUT', body: JSON.stringify({ ban_duration: disabled ? '876000h' : 'none' }) })
+          return json(res, 200, { ok: true })
+        }
+      } catch (e) { return json(res, 500, { error: e.message }) }
+    }
     if (req.url === '/api/tool' && req.method === 'POST') {
       let raw = ''
       for await (const chunk of req) raw += chunk
