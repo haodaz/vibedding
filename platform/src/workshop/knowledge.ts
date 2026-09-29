@@ -54,6 +54,6 @@ export const KNOWLEDGE_TOOLS: Record<string, (input: AnyRec) => string> = {
     const c = pick(catalog, 'parts-catalog.json') as { parts?: AnyRec[] } | undefined
     const p = c?.parts?.find((x) => x.id === id || x.id === 'part_' + id)
     if (!p) return `知识库里没有 ${id}`
-    return `${p.name}\n接口 ${p.iface} · ${p.volt} · ¥${p.price} · 搜"${p.buy}"\n引脚: ${p.pins ?? '—'}\n接法: ${p.wiring ?? '—'}\n库: ${p.lib}\n坑: ${(p.pitfalls as string[] | undefined)?.join('；') ?? '—'}${p.snippet ? `\n最小代码:\n${p.snippet}` : ''}`
+    return `${p.name}\n接口 ${p.iface} · ${p.volt} · ¥${p.price} · 搜"${p.buy}"${p.identify ? `\n认零件: ${p.identify}` : ''}\n引脚: ${p.pins ?? '—'}\n接法: ${p.wiring ?? '—'}${p.wiring_esp32 ? `\n接 ESP32: ${p.wiring_esp32}` : ''}\n库: ${p.lib}\n坑: ${(p.pitfalls as string[] | undefined)?.join('；') ?? '—'}${p.snippet ? `\n最小代码:\n${p.snippet}` : ''}`
   },
 }

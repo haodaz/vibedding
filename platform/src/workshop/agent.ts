@@ -45,7 +45,6 @@ export class Agent {
     try {
       const saved = JSON.parse(localStorage.getItem('ws:session:' + id) ?? 'null')
       if (saved) { this.messages = saved.messages ?? []; this.items = (saved.items ?? []).map((i: Item) => (i.kind === 'tool' ? { ...i, running: false } : i)) }
-      for (const i of this.items) if ((i.kind === 'human' || i.kind === 'bom' || i.kind === 'flash') && i.answer === undefined) i.answer = '…'
       this.lastBuild = saved?.lastBuild ?? null
     } catch { /* ignore */ }
   }
@@ -68,8 +67,28 @@ export class Agent {
     this.onChange()
   }
 
+  /** 页面刷新后，上一轮可能留下没有 tool_result 的 tool_use；模型会拒收。发新消息前补上。 */
+  private repairMessages(note: string) {
+    // 扫整段对话：任何 tool_use 后面没有对应 tool_result 的，紧跟着补一条
+    const answered = new Set<string>()
+    for (const m of this.messages) if (m.role === 'user' && Array.isArray(m.content)) for (const b of m.content as { type: string; tool_use_id?: string }[]) if (b.type === 'tool_result' && b.tool_use_id) answered.add(b.tool_use_id)
+    let touched = false
+    for (let k = 0; k < this.messages.length; k++) {
+      const m = this.messages[k]
+      if (m.role !== 'assistant' || !Array.isArray(m.content)) continue
+      const uses = (m.content as Block[]).filter((b): b is Extract<Block, { type: 'tool_use' }> => b.type === 'tool_use' && !answered.has(b.id))
+      if (!uses.length) continue
+      const results = uses.map((u) => ({ type: 'tool_result', tool_use_id: u.id, content: this.resultOf(u.id) ?? note }))
+      this.messages.splice(k + 1, 0, { role: 'user', content: results }); k++
+      for (const i of this.items) if ((i.kind === 'human' || i.kind === 'bom' || i.kind === 'flash') && i.answer === undefined && uses.some((u) => u.id === i.id)) i.answer = getLang() === 'en' ? '(skipped)' : '（跳过）'
+      touched = true
+    }
+    if (touched) this.emit()
+  }
+
   async send(text: string, images: { dataUrl: string; media_type: string; data: string }[] = []) {
     if (this.busy) return
+    this.repairMessages(getLang() === 'en' ? 'The user did not answer this card and sent a new message instead (see below).' : '用户没有回答这张卡，而是直接发了新消息（见下）。')
     if (images.length) {
       this.items.push({ kind: 'user', text, images: images.map((i) => i.dataUrl) })
       this.messages.push({ role: 'user', content: [...images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.media_type, data: i.data } })), { type: 'text', text: text || '（看图）' }] })
@@ -84,8 +103,23 @@ export class Agent {
   answerHuman(id: string, answer: string) {
     const it = this.items.find((i) => (i.kind === 'human' || i.kind === 'bom' || i.kind === 'flash') && i.id === id) as Extract<Item, { kind: 'human' | 'bom' | 'flash' }> | undefined
     if (it) it.answer = answer
-    if (this.pending?.id === id) { const r = this.pending.resolve; this.pending = null; r(answer) }
+    if (this.pending?.id === id) { const r = this.pending.resolve; this.pending = null; r(answer); this.emit(); return }
+    // 页面刷新过：循环已经不在了。把这次回答作为 tool_result 补进对话，然后重新起循环
+    const last = this.messages[this.messages.length - 1]
+    if (!this.busy && last?.role === 'assistant' && Array.isArray(last.content)) {
+      const uses = (last.content as Block[]).filter((b): b is Extract<Block, { type: 'tool_use' }> => b.type === 'tool_use')
+      if (uses.some((u) => u.id === id)) {
+        const prefix = it?.kind === 'bom' ? '用户确认了采购清单。' : it?.kind === 'flash' ? '' : '用户回复：'
+        const results = uses.map((u) => ({ type: 'tool_result', tool_use_id: u.id, content: u.id === id ? prefix + answer : (this.resultOf(u.id) ?? '（页面刷新过，这个工具的结果丢了，需要的话请重新调用）') }))
+        this.messages.push({ role: 'user', content: results })
+        this.emit(); this.loop(); return
+      }
+    }
     this.emit()
+  }
+  private resultOf(toolUseId: string): string | null {
+    const t = this.items.find((i) => i.kind === 'tool' && i.id === toolUseId) as Extract<Item, { kind: 'tool' }> | undefined
+    return t?.result ?? null
   }
 
   private async loop() {
