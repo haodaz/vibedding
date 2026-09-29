@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { BOTTOM, FUNC_COLORS, LEFT, RIGHT, funcFamily, type PinInfo } from './bluepill'
+import { getLang } from '../../i18n'
+const EN: Record<string, string> = { '全部': 'All', '电源': 'Power', '复位': 'Reset', '按键': 'Button', '空': 'NC', '仅输入': 'Input only' }
+const L = (s: string) => (getLang() === 'en' ? (EN[s] ?? s) : s)
 
 // 交互式蓝药丸引脚图：点功能过滤，悬停看引脚说明。
 const FILTERS = ['全部', 'GPIO', 'PWM', 'ADC', 'UART', 'I2C', 'SPI', 'SWD', '电源']
@@ -34,10 +37,10 @@ export function Pinout({ highlight }: { highlight?: string }) {
   return (
     <div className="canvas pinout">
       <div className="canvas-head">
-        <span className="canvas-title">▣ 引脚图 · STM32F103C8T6 蓝药丸</span>
+        <span className="canvas-title">▣ {getLang() === 'en' ? 'Pinout · STM32F103C8T6 Blue Pill' : '引脚图 · STM32F103C8T6 蓝药丸'}</span>
         <div className="chips">
           {FILTERS.map((f) => (
-            <button key={f} className={'chip' + (filter === f ? ' on' : '')} style={filter === f ? { borderColor: FUNC_COLORS[f] ?? 'var(--accent)', color: FUNC_COLORS[f] ?? 'var(--accent)' } : {}} onClick={() => setFilter(f)}>{f}</button>
+            <button key={f} className={'chip' + (filter === f ? ' on' : '')} style={filter === f ? { borderColor: FUNC_COLORS[f] ?? 'var(--accent)', color: FUNC_COLORS[f] ?? 'var(--accent)' } : {}} onClick={() => setFilter(f)}>{L(f)}</button>
           ))}
         </div>
       </div>
@@ -79,7 +82,7 @@ export function Pinout({ highlight }: { highlight?: string }) {
             <>
               <div className="pin-name muted">悬停一个引脚</div>
               <p>上面的按钮可以只看某一类功能。比如点 UART 看看串口在哪，点 I2C 看看屏幕该接哪。</p>
-              <div className="legend">{legend.map(([k, c]) => <span key={k}><i style={{ background: c }} />{k}</span>)}</div>
+              <div className="legend">{legend.map(([k, c]) => <span key={k}><i style={{ background: c }} />{L(k)}</span>)}</div>
             </>
           )}
         </aside>

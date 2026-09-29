@@ -1,0 +1,571 @@
+{
+  "note": "Minimal compilable examples for the Blue Pill STM32F103C8T6 + PlatformIO + Arduino framework. Except for the esp32 entry, all of them compile in the bluepill_f103c8 environment on the PlatformIO ststm32 platform with STM32duino core 3.0.0 (framework-arduinoststm32 4.30000.0), but they have not been run one by one on real hardware. Entries with board = bluepill use STM32 pin names like PA0 and STM32duino-specific APIs; board = any entries also compile on UNO/Nucleo/ESP32 with the pins swapped as noted in the comments. Put lib_deps under lib_deps = in platformio.ini. Code style: wiring comments first, then the minimal program, with plain-English comments explaining why each step is there. Entries marked \"illustrative\" (PID) teach the principle and are not drop-in finished products.",
+  "snippets": [
+    {
+      "id": "blink",
+      "title": "Blink: onboard LED once a second",
+      "topic": "GPIO",
+      "when": "You just got the board and want to confirm the toolchain, the upload, and the board itself all work",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// Onboard LED: Blue Pill PC13 (on when LOW), Nucleo PA5, UNO 13, ESP32 GPIO2 (on when HIGH)\n// The name LED_BUILTIN is provided by the board definition, so you don't have to look up the pin\n\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);    // First tell the chip: I'm using this pin as an output\n}\n\nvoid loop() {\n  digitalWrite(LED_BUILTIN, HIGH); // Output HIGH (3.3V or 5V)\n  delay(500);                      // Dumb-wait 500 milliseconds; the chip can't do anything else meanwhile\n  digitalWrite(LED_BUILTIN, LOW);  // Output LOW (0V)\n  delay(500);\n}\n// If you see the LED blinking: compile OK, upload OK, board alive.\n// On the Blue Pill HIGH is off and LOW is on, but the blink rhythm is the same.",
+      "lib_deps": [],
+      "explain": "setup() runs once at power-up and does the preparation; here that's setting the LED pin to output mode. loop() runs over and over: each pass drives the pin high, waits half a second, drives it low, waits another half second, and what you see is one blink per second. LED_BUILTIN is a macro defined by the board, so you don't change the code when you switch boards. delay is a \"dumb wait\": the chip can't do anything else while waiting, which the millis approach later on will fix.",
+      "pitfalls": [
+        "The Blue Pill's PC13 turns on with LOW, so digitalWrite(LOW) lights it. Don't assume the program is backwards",
+        "If it doesn't blink, check three things: did the upload really succeed (last line of the terminal says SUCCESS), is the board powered, and did you flash a different board by mistake",
+        "During delay you can't read buttons or receive serial data, so don't use it for long waits in real programs"
+      ]
+    },
+    {
+      "id": "button-debounce-millis",
+      "title": "Button debouncing (millis method)",
+      "topic": "GPIO",
+      "when": "One button press gets counted several times, or you want \"one press = one count\"",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// One leg of the button to PB12, the other to GND. Using the chip's internal pull-up: not pressed = HIGH, pressed = LOW\nconst int BTN = PB12;\nconst int LED = PC13;\nconst unsigned long DEBOUNCE_MS = 30;  // Mechanical bounce usually settles within 5~20ms\n\nint lastReading = HIGH;         // Previous raw reading\nint stableState = HIGH;         // The debounced state we actually trust\nunsigned long lastChange = 0;   // When the raw reading last changed\nunsigned long pressCount = 0;\n\nvoid setup() {\n  pinMode(BTN, INPUT_PULLUP);   // Internal pull-up saves a resistor\n  pinMode(LED, OUTPUT);\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  int reading = digitalRead(BTN);\n  if (reading != lastReading) {   // Raw reading changed: restart the timer\n    lastChange = millis();\n    lastReading = reading;\n  }\n  // Only trust the reading once it has stayed the same for longer than DEBOUNCE_MS\n  if (millis() - lastChange > DEBOUNCE_MS && reading != stableState) {\n    stableState = reading;\n    if (stableState == LOW) {     // Count only at the instant of \"just pressed\"\n      pressCount++;\n      Serial.print(\"Press count: \");\n      Serial.println(pressCount);\n    }\n  }\n  digitalWrite(LED, stableState); // When pressed (LOW), PC13 goes low and the LED lights\n}",
+      "lib_deps": [],
+      "explain": "The instant a mechanical button is pressed, its metal contacts bounce for a few milliseconds, and the chip reads a burst of high-low-high-low. The debouncing idea: when the reading changes, don't believe it yet; just note when it changed. Only when the reading has stayed the same for 30ms straight do we accept it as the new stable state. The moment stableState goes from HIGH to LOW is one real press. INPUT_PULLUP makes the chip gently pull the pin high internally, so a button to ground pulls it low when pressed, with no external resistor.",
+      "pitfalls": [
+        "The button must go to GND, not 3.3V, because we're using pull-up mode: pressed = LOW",
+        "If 30ms isn't enough, try 50ms; too large and you'll miss fast double-presses",
+        "millis() overflows back to zero after about 49 days, but the subtraction comparison (millis() - lastChange) isn't affected. Don't write millis() > lastChange + X"
+      ]
+    },
+    {
+      "id": "button-toggle",
+      "title": "Toggle with a button: press for on, press again for off",
+      "topic": "GPIO",
+      "when": "You want one button to switch something on/off, rather than lighting only while held",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Button on PB12 to GND, internal pull-up. Each press flips the LED state\nconst int BTN = PB12;\nconst int LED = PC13;\n\nbool ledOn = false;             // The \"current state\" we remember ourselves\nint lastStable = HIGH;          // Last accepted button state\nint lastReading = HIGH;\nunsigned long lastChange = 0;\n\nvoid setup() {\n  pinMode(BTN, INPUT_PULLUP);\n  pinMode(LED, OUTPUT);\n  digitalWrite(LED, HIGH);      // PC13 HIGH = off\n}\n\nvoid loop() {\n  int reading = digitalRead(BTN);\n  if (reading != lastReading) { lastChange = millis(); lastReading = reading; }\n\n  if (millis() - lastChange > 30 && reading != lastStable) {\n    lastStable = reading;\n    if (lastStable == LOW) {    // Detect the \"falling edge\": the instant it goes from not pressed to pressed\n      ledOn = !ledOn;           // Flip the state\n      digitalWrite(LED, ledOn ? LOW : HIGH);  // PC13 lights on LOW\n    }\n  }\n}",
+      "lib_deps": [],
+      "explain": "\"On while held\" just means writing the button reading straight to the LED, but \"press for on, press again for off\" requires the program to remember whether it's currently on or off, which is what the ledOn variable does. The key is to flip only at the instant the button goes from \"not pressed\" to \"pressed\" (the falling edge), so holding it down counts once. The debounce logic is the same as the previous snippet; without it, one press could flip several times.",
+      "pitfalls": [
+        "If you write if (digitalRead(BTN)==LOW) ledOn=!ledOn; it flips on every loop while held, and the LED flickers like mad",
+        "The flip belongs on the \"edge\", not the \"level\". That's the heart of all button logic",
+        "PC13 is inverted: when ledOn is true you write LOW"
+      ]
+    },
+    {
+      "id": "pwm-breathe",
+      "title": "Breathing LED: brightness with PWM",
+      "topic": "PWM",
+      "when": "You want an LED to fade in and out, or you're meeting \"analog output\" for the first time",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// External LED: PA8 → 220Ω resistor → LED long leg, LED short leg → GND\n// The PC13 onboard LED has no timer behind it, so analogWrite does nothing there; that's why we add an external one\nconst int LED = PA8;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  analogWriteFrequency(1000);   // STM32duino-specific: PWM frequency 1kHz, no visible flicker\n  analogWriteResolution(8);     // 0~255, 256 levels\n}\n\nvoid loop() {\n  for (int duty = 0; duty <= 255; duty++) {   // Fade in\n    analogWrite(LED, duty);   // duty=0 fully off, 255 fully on, 128 roughly half\n    delay(4);\n  }\n  for (int duty = 255; duty >= 0; duty--) {   // Fade out\n    analogWrite(LED, duty);\n    delay(4);\n  }\n}\n// For a more \"breath-like\" curve: use duty*duty/255 instead of duty (eyes are more sensitive at the dim end)",
+      "lib_deps": [],
+      "explain": "PWM doesn't really output an in-between voltage; it switches on and off very fast. The larger the fraction of each cycle spent HIGH (the duty cycle), the brighter the LED looks on average, and at 1kHz your eyes can't see the switching. analogWrite(pin, 0~255) sets the duty cycle. This code uses two for loops to climb the duty cycle from 0 to 255 and back down, waiting 4ms per step, about 2 seconds per round trip. analogWriteFrequency is an STM32duino extension that doesn't exist on the UNO (which is fixed at 490/980Hz).",
+      "pitfalls": [
+        "Only pins with a timer channel can do PWM. On the Blue Pill PC13, PA4, and PA5 can't; on the Nucleo-F103, PA5 can't either",
+        "Always put a resistor in series with the LED; connecting it directly burns the LED or damages the I/O pin",
+        "A linear duty ramp looks like \"fast change in the first half, almost nothing in the second half\". Use a squared curve for an even feel"
+      ]
+    },
+    {
+      "id": "adc-map",
+      "title": "Read the ADC and convert to percent and volts",
+      "topic": "ADC",
+      "when": "You've connected a potentiometer, photoresistor, or temperature sensor that \"outputs a voltage\" and want the reading to mean something",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Potentiometer: outer legs to 3.3V and GND, middle leg to PA0\nconst int POT = PA0;\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);  // The STM32 ADC is 12-bit: 0~4095 (default gives 10-bit, 0~1023)\n}\n\nvoid loop() {\n  int raw = analogRead(POT);\n\n  // map(value, fromLow, fromHigh, toLow, toHigh): convert 0~4095 to 0~100\n  int percent = map(raw, 0, 4095, 0, 100);\n\n  // Convert to volts: raw / 4095 * 3.3V. Use float and 3.3f, otherwise integer division gives all zeros\n  float volts = raw * 3.3f / 4095.0f;\n\n  Serial.print(\"raw=\");\n  Serial.print(raw);\n  Serial.print(\"  \");\n  Serial.print(percent);\n  Serial.print(\"%  \");\n  Serial.print(volts, 2);    // Two decimal places\n  Serial.println(\"V\");\n  delay(200);\n}",
+      "lib_deps": [],
+      "explain": "The ADC turns a voltage between 0 and 3.3V into an integer. The STM32's is 12-bit, meaning 0~4095 or 4096 steps of about 0.8mV each; the Arduino compatibility layer gives you 10 bits (0~1023) by default, and analogReadResolution(12) unlocks the full precision. map() is the easiest way to scale linearly, but it only does integers. For volts you need floating point, and write 3.3f rather than 3.3, otherwise the F103, which has no hardware floating point, falls back to much slower double precision. Turn the pot and watch serial: raw should sweep smoothly from 0 to around 4095.",
+      "pitfalls": [
+        "PA0~PA7, PB0, and PB1 are not 5V tolerant; a sensor output above 3.3V will damage the ADC",
+        "Some jitter in the reading (a few counts) is normal; average 8 consecutive reads if needed",
+        "map() doesn't clamp inputs outside the source range; constrain(raw, 0, 4095) first"
+      ]
+    },
+    {
+      "id": "serial-print-cmd",
+      "title": "Serial printing and reading commands",
+      "topic": "UART",
+      "when": "You want to send commands to the board from the computer, or peek at variables inside the board",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// In the serial monitor type on / off / ? and press Enter (set the monitor to \"send newline \\n\")\n// The Blue Pill's Serial is PA9(TX)/PA10(RX) and needs a USB-TTL adapter; Nucleo/UNO/ESP32 use USB directly\nString cmd = \"\";\n\nvoid handle(String c) {\n  c.trim();                  // Strip spaces and CR/LF from both ends\n  if (c == \"on\")       digitalWrite(LED_BUILTIN, HIGH);\n  else if (c == \"off\") digitalWrite(LED_BUILTIN, LOW);\n  else if (c == \"?\")   Serial.println(\"Commands: on off ?\");\n  else { Serial.print(\"Unknown: \"); Serial.println(c); return; }\n  Serial.print(\"OK \");\n  Serial.println(c);\n}\n\nvoid setup() {\n  Serial.begin(115200);      // The baud rate must match monitor_speed in platformio.ini\n  pinMode(LED_BUILTIN, OUTPUT);\n  Serial.println(\"Ready. Type on / off / ? and press Enter\");\n}\n\nvoid loop() {\n  while (Serial.available()) {          // Pull bytes out while the buffer has any\n    char ch = Serial.read();\n    if (ch == '\\n') {                   // A newline means one complete command\n      handle(cmd);\n      cmd = \"\";\n    } else if (cmd.length() < 32) {     // Length limit so random typing can't blow up memory\n      cmd += ch;\n    }\n  }\n}",
+      "lib_deps": [],
+      "explain": "Serial is the pipe the board and computer talk through. Serial.begin sets the speed, Serial.print sends to the computer, Serial.read receives from it. What arrives is one character at a time; the program collects them into cmd until it sees a newline, treats that as the end of a command, and hands it to handle() for matching. trim() also strips the \\r that Windows sends, otherwise \"on\\r\" would never equal \"on\".",
+      "pitfalls": [
+        "A baud rate mismatch shows up as garbage; 115200 in the code means 115200 in the monitor too",
+        "The serial monitor must be set to \"send newline\", or the program never sees the \\n",
+        "Plugging the Blue Pill into USB doesn't give you a serial port; Serial is on PA9/PA10. TX to the adapter's RX, RX to the adapter's TX (crossed), and don't forget the shared ground",
+        "The UNO has little memory, and heavy String concatenation fragments it. Use char arrays in real programs"
+      ]
+    },
+    {
+      "id": "millis-multitask",
+      "title": "Non-blocking millis: blink and print at the same time",
+      "topic": "Timing",
+      "when": "Your program has two or more things happening at different rhythms, and delay makes them block each other",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// Two jobs at their own pace: the LED toggles every 250ms, serial reports a heartbeat every 2 seconds\n// Core idea: don't \"wait\"; instead, every pass ask \"is it time yet?\"\n\nunsigned long lastBlink = 0;\nunsigned long lastReport = 0;\nconst unsigned long BLINK_MS = 250;\nconst unsigned long REPORT_MS = 2000;\nbool ledState = false;\nunsigned long loops = 0;\n\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  unsigned long now = millis();   // Milliseconds since power-up; read it once per pass\n  loops++;\n\n  if (now - lastBlink >= BLINK_MS) {      // Task 1: blink\n    lastBlink = now;\n    ledState = !ledState;\n    digitalWrite(LED_BUILTIN, ledState);\n  }\n\n  if (now - lastReport >= REPORT_MS) {    // Task 2: heartbeat\n    lastReport = now;\n    Serial.print(\"alive, loop ran about \");\n    Serial.print(loops / (REPORT_MS / 1000));\n    Serial.println(\" times per second\");\n    loops = 0;\n  }\n  // You can add tasks 3, 4, 5 here and none of them block the others. Buttons and sensors get written this way from now on\n}",
+      "lib_deps": [],
+      "explain": "The problem with delay(500) is that for those 500ms the chip does nothing but count. The fix: each task remembers \"when I last ran\", loop spins around very fast, and each task asks \"is now minus last at least my interval?\"; if so, it runs and updates its timestamp. This way loop can run hundreds of thousands of times per second and every task feels like it's running \"at the same time\". It's the single most important pattern in the Arduino world; every sensor, button, and state machine later on is built on it.",
+      "pitfalls": [
+        "Always use the subtraction form now - last >= interval; it stays correct even when millis overflows (49 days)",
+        "One delay anywhere in loop stalls every task, so they all have to go",
+        "Doing something heavy inside a task (like printing a long string) also slows the others; at 115200 baud each character takes about 0.09ms"
+      ]
+    },
+    {
+      "id": "fsm-traffic-light",
+      "title": "State machine: traffic light",
+      "topic": "State machine",
+      "when": "The flow has a fixed order of \"first this, then that, then back\" and your nested ifs are getting messy",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Three LEDs, each through 220Ω: red PB0, yellow PB1, green PB10, other ends to GND\nconst int RED = PB0, YELLOW = PB1, GREEN = PB10;\n\nenum State { S_RED, S_GREEN, S_YELLOW };   // Give a name to \"which phase we're in right now\"\nState state = S_RED;\nunsigned long enteredAt = 0;               // When we entered the current state\n\n// How long each state lasts (milliseconds)\nunsigned long durationOf(State s) {\n  switch (s) {\n    case S_RED:    return 3000;\n    case S_GREEN:  return 3000;\n    case S_YELLOW: return 1000;\n  }\n  return 1000;\n}\n\nvoid showLights(State s) {\n  digitalWrite(RED,    s == S_RED);\n  digitalWrite(YELLOW, s == S_YELLOW);\n  digitalWrite(GREEN,  s == S_GREEN);\n}\n\nvoid setup() {\n  pinMode(RED, OUTPUT); pinMode(YELLOW, OUTPUT); pinMode(GREEN, OUTPUT);\n  showLights(state);\n  enteredAt = millis();\n}\n\nvoid loop() {\n  if (millis() - enteredAt >= durationOf(state)) {   // Time's up for the current state\n    if (state == S_RED)         state = S_GREEN;      // Transition table\n    else if (state == S_GREEN)  state = S_YELLOW;\n    else                        state = S_RED;\n    enteredAt = millis();\n    showLights(state);\n  }\n  // The rest of loop is idle and can handle buttons or serial at the same time\n}",
+      "lib_deps": [],
+      "explain": "A state machine splits the program into a few \"phases\", with exactly one active at any moment, plus rules for \"under what condition we jump from which phase to which\". Here the three phases are red, green, and yellow, and the condition is time running out. enum names each phase, the state variable remembers the current one, and enteredAt remembers when we got there. loop does only one thing each pass: check whether it's time to change phase. Compared with the delay version, the benefit is that you can respond to other things at any time (like a pedestrian button that cuts the red short).",
+      "pitfalls": [
+        "In digitalWrite(pin, s == S_RED) the comparison yields true/false, which maps directly onto HIGH/LOW; it's a common shorthand",
+        "Once you have many transitions, keep them together in one place (a switch) instead of scattering them across ifs",
+        "When you add a state, you must update the enum, durationOf, showLights, and the transitions; miss one and it gets stuck on a light"
+      ]
+    },
+    {
+      "id": "exti-counter",
+      "title": "External interrupt counter",
+      "topic": "Interrupts",
+      "when": "The signal is very short and fast (pulses, encoders, Hall sensors) and polling would miss it",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Button or pulse signal on PB12, other end to GND, internal pull-up. Count once per falling edge\nconst int PIN = PB12;\n\nvolatile uint32_t count = 0;   // volatile: tells the compiler this variable gets changed \"behind its back\" by the interrupt, so don't optimize it away\n\nvoid onFalling() {             // Interrupt service routine: keep it as short as possible, no Serial, no delay\n  count++;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PIN, INPUT_PULLUP);\n  // Bind \"a falling edge on PB12\" to onFalling. FALLING = high to low, RISING = low to high, CHANGE = either\n  attachInterrupt(digitalPinToInterrupt(PIN), onFalling, FALLING);\n}\n\nvoid loop() {\n  static unsigned long last = 0;\n  if (millis() - last >= 1000) {\n    last = millis();\n    noInterrupts();            // Disable interrupts while reading a multi-byte variable so it can't change halfway through\n    uint32_t snapshot = count;\n    interrupts();\n    Serial.print(\"Total so far: \");\n    Serial.println(snapshot);\n  }\n}\n// Pressing a button by hand will count several times per press; that's bounce, see the \"interrupt + millis debounce\" snippet",
+      "lib_deps": [],
+      "explain": "Polling is loop asking \"did it change?\" over and over, and a signal shorter than one pass gets missed. An interrupt works the other way around: the hardware watches the pin, and the instant it changes it pauses loop, jumps to onFalling, runs it, and comes back. The interrupt function does the bare minimum (add one) and leaves the heavy work to loop. volatile is mandatory, otherwise the compiler may cache count in a register and loop would see a stale value forever. Briefly disabling interrupts while reading a 32-bit variable prevents it from changing halfway through the read.",
+      "pitfalls": [
+        "On the F103 only one pin per number can have an interrupt: PA0 and PB0 share EXTI0, so they can't both have one",
+        "No Serial.print or delay inside an interrupt; it deadlocks or crashes",
+        "A mechanical button on an interrupt bounces many times, so pair it with debouncing",
+        "Every shared variable touched inside an interrupt needs volatile"
+      ]
+    },
+    {
+      "id": "hardware-timer",
+      "title": "Hardware timer callback (HardwareTimer)",
+      "topic": "Timing",
+      "when": "You need a periodic action with microsecond precision (sampling, pulse generation) and millis isn't precise or steady enough",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Hardware timer: an independent counter in the chip calls your callback on schedule, without using loop and regardless of how fast loop runs\n// The F103 has TIM1~TIM4. TIM1 is advanced, TIM2~4 are general purpose; we use TIM2 here\nHardwareTimer timer(TIM2);\nvolatile uint32_t ticks = 0;\n\nvoid onTick() {                     // The callback runs in an interrupt: keep it short, no Serial, no delay\n  digitalWrite(PC13, !digitalRead(PC13));   // Toggle the onboard LED\n  ticks++;\n}\n\nvoid setup() {\n  pinMode(PC13, OUTPUT);\n  Serial.begin(115200);\n\n  timer.setOverflow(2, HERTZ_FORMAT);   // Overflow 2 times per second = call the callback every 500ms\n  // Or timer.setOverflow(500000, MICROSEC_FORMAT);  in microseconds\n  timer.attachInterrupt(onTick);\n  timer.resume();                       // Start counting. pause() stops it\n}\n\nvoid loop() {\n  static uint32_t last = 0;\n  if (millis() - last >= 1000) {\n    last = millis();\n    Serial.print(\"Timer has fired \");\n    Serial.print(ticks);\n    Serial.println(\" times\");\n  }\n  // loop can delay all it wants; the LED still blinks on time. That's the value of a hardware timer\n}",
+      "lib_deps": [],
+      "explain": "The precision of the millis approach depends on loop: if something in loop takes 20ms, the blink is 20ms late. A hardware timer is an independent counter inside the chip; once you set the period, the hardware fires an interrupt and calls your function with no involvement from loop at all. setOverflow(2, HERTZ_FORMAT) means twice per second; you can also use MICROSEC_FORMAT to give microseconds directly. HardwareTimer is an STM32duino-specific class; on the UNO you'd poke registers or use the TimerOne library, and the ESP32 uses timerBegin.",
+      "pitfalls": [
+        "Once TIM2 is used as a timer, analogWrite on the PWM pins that belong to TIM2 (PA0~PA3) misbehaves; pick a timer that doesn't own the pins you want PWM on",
+        "On the Blue Pill variant the Servo library takes TIM2 by default and tone() takes TIM3. Using HardwareTimer(TIM2) and Servo in the same program will conflict; switch to TIM4 (note TIM4's PWM pins are PB6~PB9)",
+        "If the callback takes longer than the period itself, interrupts pile up and the program looks \"dead\""
+      ]
+    },
+    {
+      "id": "i2c-scanner",
+      "title": "I2C scanner: find the device addresses on the bus",
+      "topic": "I2C",
+      "when": "You connected an OLED, RTC, or sensor and got nothing; first confirm \"is the wiring right, and what's the address\"",
+      "board": "any",
+      "code": "#include <Arduino.h>\n#include <Wire.h>\n// The Blue Pill's default I2C1 is SCL PB6 / SDA PB7; when this course uses PB8/PB9, uncomment the two lines below\n// Nucleo: SCL D15 / SDA D14; UNO: A5 / A4; ESP32: 22 / 21\n\nvoid setup() {\n  Serial.begin(115200);\n  // Wire.setSDA(PB9); Wire.setSCL(PB8);   // Only STM32duino has these two functions\n  Wire.begin();\n  delay(500);\n  Serial.println(\"Scanning the I2C bus...\");\n}\n\nvoid loop() {\n  int found = 0;\n  for (uint8_t addr = 1; addr < 127; addr++) {   // 7-bit address range 0x01~0x7E\n    Wire.beginTransmission(addr);                // Knock on this address\n    uint8_t err = Wire.endTransmission();        // 0 means somebody answered\n    if (err == 0) {\n      Serial.print(\"  Found device: 0x\");\n      if (addr < 16) Serial.print(\"0\");\n      Serial.println(addr, HEX);\n      found++;\n    }\n  }\n  if (found == 0) Serial.println(\"  Nothing found: check whether SDA/SCL are swapped, whether ground is shared, and whether the module has power\");\n  Serial.println(\"Scanning again in 5 seconds\");\n  delay(5000);\n}\n// Common addresses: OLED SSD1306 0x3C / 0x3D, DS3231 0x68, AT24C32 0x57, MPU6050 0x68, BMP280 0x76",
+      "lib_deps": [],
+      "explain": "Every device on an I2C bus has a 7-bit address. The scanner simply \"calls out\" each address from 1 to 126: beginTransmission sends the address, endTransmission checks whether anyone answered, and a return value of 0 means yes. There are only four wires: SDA, SCL, VCC, GND. This is the most useful tool for troubleshooting I2C peripherals: if it finds the device, wiring and power are fine and the problem is in your code; if not, don't touch the code yet, go check the wires.",
+      "pitfalls": [
+        "Swapped SDA/SCL is the most common cause; match the labels on the module to the labels on the board",
+        "I2C needs pull-up resistors; most modules include them, but a bare chip you soldered yourself without pull-ups will never be found",
+        "Finding 0x68 could be a DS3231 or an MPU6050; addresses collide, and two devices of the same type need their address jumper changed",
+        "To use PB8/PB9 on the Blue Pill, call setSDA/setSCL before Wire.begin()"
+      ]
+    },
+    {
+      "id": "oled-u8g2",
+      "title": "OLED SSD1306 text with U8g2",
+      "topic": "I2C",
+      "when": "You want to show values or status on a small screen instead of relying on serial",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Wire.h>\n#include <U8g2lib.h>\n// 0.96\" OLED (SSD1306, I2C address 0x3C): VCC→3.3V, GND→GND, SCL→PB8, SDA→PB9\n// The class name means: SSD1306 driver, 128x64, no-name brand, F = full frame buffer, HW_I2C = hardware I2C\nU8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);\n\nint counter = 0;\n\nvoid setup() {\n  Wire.setSDA(PB9);           // The Blue Pill's default I2C is PB6/PB7; here we move it to PB8/PB9\n  Wire.setSCL(PB8);\n  u8g2.begin();               // Calls Wire.begin() internally\n}\n\nvoid loop() {\n  u8g2.clearBuffer();                          // Clear the canvas in memory first\n  u8g2.setFont(u8g2_font_ncenB10_tr);          // Pick a font (letters and digits)\n  u8g2.drawStr(0, 14, \"Hello STM32\");          // (x, y) is the bottom-left of the text baseline\n  u8g2.setFont(u8g2_font_6x12_tr);\n  u8g2.setCursor(0, 32);\n  u8g2.print(\"count = \");\n  u8g2.print(counter);\n  u8g2.drawFrame(0, 40, 128, 12);              // Draw a hollow rectangle\n  u8g2.drawBox(2, 42, map(counter % 100, 0, 99, 0, 124), 8);   // Progress bar\n  u8g2.sendBuffer();                           // Push the whole canvas to the screen in one go\n  counter++;\n  delay(100);\n}\n// Non-Latin text: setFont(u8g2_font_wqy12_t_gb2312) + drawUTF8(), but that font is 100KB+ and won't fit on an F103C8",
+      "lib_deps": [
+        "olikraus/U8g2"
+      ],
+      "explain": "U8g2 works as \"draw onto a canvas in memory, then push it to the screen all at once\": clearBuffer clears the canvas, drawStr/print/drawBox draw on it, sendBuffer pushes it. F (full buffer) mode is the simplest; a 128x64 canvas takes 1KB of RAM, and the Blue Pill's 20KB is plenty. Coordinate (0,0) is the top-left, and drawStr's y is the bottom of the text, not the top. That long constructor name is picked from U8g2's list by screen model; when you change screens, this is the only line that changes.",
+      "pitfalls": [
+        "If the screen stays dark, run the I2C scanner first; the address should be 0x3C, and if it isn't found it's a wiring problem",
+        "Some OLED modules label VCC as 5V but are really 3.3V logic; 3.3V on the Blue Pill is the safest",
+        "Large CJK fonts are huge; the F103C8 build will report a Flash overflow, so switch to an F411 or embed only the few glyphs you need",
+        "setSDA/setSCL must come before u8g2.begin()"
+      ]
+    },
+    {
+      "id": "dht11",
+      "title": "DHT11 temperature and humidity",
+      "topic": "1-Wire",
+      "when": "You want to know the room's temperature and humidity, for a thermostat fan or a mini weather station",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <DHT.h>\n// DHT11 3-wire module: VCC→3.3V (or 5V), GND→GND, DATA→PB5\n// A bare 4-pin DHT11 needs a 10kΩ pull-up between DATA and VCC; modules usually include one\n#define DHT_PIN  PB5\n#define DHT_TYPE DHT11        // A DHT22 is more accurate; just change this\n\nDHT dht(DHT_PIN, DHT_TYPE);\n\nvoid setup() {\n  Serial.begin(115200);\n  dht.begin();\n  Serial.println(\"The DHT11 needs 1~2 seconds after power-up before it can be read\");\n}\n\nvoid loop() {\n  delay(2000);                              // At least 1 second between DHT11 reads\n  float h = dht.readHumidity();\n  float t = dht.readTemperature();          // Celsius\n\n  if (isnan(h) || isnan(t)) {               // A failed read returns NaN (not a number)\n    Serial.println(\"Read failed: check wiring, the pull-up resistor, or whether it just powered up\");\n    return;\n  }\n  Serial.print(\"Temp \");\n  Serial.print(t, 1);\n  Serial.print(\" C   Humidity \");\n  Serial.print(h, 0);\n  Serial.println(\" %\");\n}",
+      "lib_deps": [
+        "adafruit/DHT sensor library",
+        "adafruit/Adafruit Unified Sensor"
+      ],
+      "explain": "The DHT11 talks to the chip over a single data wire with very strict timing, so we let the library handle it. readTemperature and readHumidity each query the sensor once and return NaN on failure, so always check with isnan before using the value, or you'll print a pile of nan. The DHT11's accuracy is ±2°C and ±5%, it refreshes slowly, and reading it too often actually raises the failure rate. For better accuracy switch to a DHT22; only one macro in the code changes.",
+      "pitfalls": [
+        "Reads less than 1 second apart return NaN",
+        "A long data wire (over 1 meter) needs a smaller pull-up resistor (4.7kΩ)",
+        "The library depends on Adafruit Unified Sensor, so lib_deps needs both entries",
+        "The DHT11's temperature resolution is only 1°C; seeing 25.0 stay constant doesn't mean it's broken"
+      ]
+    },
+    {
+      "id": "ds18b20",
+      "title": "DS18B20 temperature",
+      "topic": "1-Wire",
+      "when": "You need water temperature, PC case temperature, a waterproof probe, or several probes sharing one wire",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <OneWire.h>\n#include <DallasTemperature.h>\n// DS18B20: VDD→3.3V, GND→GND, DQ→PA1, plus a 4.7kΩ pull-up between DQ and 3.3V (required!)\n// Waterproof probe wires: red VDD, black GND, yellow DQ\nconst int ONE_WIRE_PIN = PA1;\n\nOneWire oneWire(ONE_WIRE_PIN);\nDallasTemperature sensors(&oneWire);\n\nvoid setup() {\n  Serial.begin(115200);\n  sensors.begin();\n  Serial.print(\"Found \");\n  Serial.print(sensors.getDeviceCount());\n  Serial.println(\" DS18B20(s) on the bus\");\n  sensors.setResolution(12);              // 9~12 bits; 12 bits = 0.0625°C, conversion takes 750ms\n}\n\nvoid loop() {\n  sensors.requestTemperatures();          // Tell all probes to start converting (blocks about 750ms)\n  float t = sensors.getTempCByIndex(0);   // Celsius from probe 0\n\n  if (t == DEVICE_DISCONNECTED_C) {       // -127 means nothing was read\n    Serial.println(\"No probe found: check the pull-up resistor and wiring\");\n  } else {\n    Serial.print(\"Temp: \");\n    Serial.print(t, 2);\n    Serial.println(\" C\");\n  }\n  delay(1000);\n}\n// Multiple probes: getTempCByIndex(1), (2)...; in a real project use getAddress to remember each probe's 64-bit serial number",
+      "lib_deps": [
+        "paulstoffregen/OneWire",
+        "milesburton/DallasTemperature"
+      ],
+      "explain": "The DS18B20 is a digital thermometer; many can hang off one data wire, each with a unique serial number. The OneWire library handles the low-level communication, and DallasTemperature wraps it into two steps: request a conversion, read the result. After requestTemperatures the probe needs up to 750ms to finish converting, and the library waits by default. Reading -127 means it isn't connected, almost always because the pull-up resistor is missing. Accuracy is ±0.5°C, far better than the DHT11.",
+      "pitfalls": [
+        "The 4.7kΩ pull-up is not optional; without it you read -127 or 85",
+        "Reading 85.00 usually means you read right after power-up before any conversion finished",
+        "requestTemperatures blocks for 750ms by default; for non-blocking use setWaitForConversion(false) and wait with millis yourself",
+        "With wires longer than a few meters, consider parasite power mode and a stronger pull-up"
+      ]
+    },
+    {
+      "id": "servo-basic",
+      "title": "Servo control (Servo library)",
+      "topic": "Servo",
+      "when": "You need to turn something to a specific angle: a robot arm, a feeder hatch, a pointer",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Servo.h>\n// SG90 servo: brown→GND, red→5V (the board's 5V header or a separate supply), orange→PA8\n// The servo's GND must share ground with the board\nServo myServo;\nconst int SERVO_PIN = PA8;\n\nvoid setup() {\n  Serial.begin(115200);\n  myServo.attach(SERVO_PIN);   // Bind the pin; the library uses a timer to generate 50Hz pulses\n  myServo.write(90);           // Center it first\n  delay(500);\n}\n\nvoid loop() {\n  myServo.write(0);            // Turn to 0 degrees\n  Serial.println(\"0\");\n  delay(1000);                 // Give it time to get there; an SG90 takes about 0.5 s for 180 degrees\n\n  myServo.write(90);\n  Serial.println(\"90\");\n  delay(1000);\n\n  myServo.write(180);\n  Serial.println(\"180\");\n  delay(1000);\n}\n// If the angles are off, calibrate the pulse width: myServo.attach(SERVO_PIN, 500, 2500);  // min/max microseconds\n// When idle, myServo.detach() lets it relax so it stops twitching and heating up",
+      "lib_deps": [],
+      "explain": "A servo understands pulse width: every 20ms it gets a 0.5~2.5ms HIGH pulse, and the width maps to an angle. The Servo library hides that; you just write(angle). On attach, the library claims a hardware timer to keep sending pulses. A small servo like the SG90 can run from the board's 5V header, but its current spikes to several hundred milliamps when it moves, and a voltage dip resets the board, so anything bigger needs its own supply with only ground shared. STM32duino and AVR both bundle the Servo library; nothing to install.",
+      "pitfalls": [
+        "Powering a servo from the Blue Pill's 3.3V doesn't work; use the 5V header or an external supply",
+        "Board resets whenever the servo moves = the supply can't keep up; use a separate supply or a bigger capacitor",
+        "The ESP32 needs the madhephaestus/ESP32Servo library; the bundled Servo.h isn't supported",
+        "Cheap servos often can't quite reach 0 or 180 degrees; fine-tune with attach(pin, min, max)"
+      ]
+    },
+    {
+      "id": "ultrasonic-hcsr04",
+      "title": "Ultrasonic distance with the HC-SR04",
+      "topic": "Timing",
+      "when": "Measuring distance, avoiding obstacles, detecting whether something is approaching",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// HC-SR04: VCC→5V, GND→GND, TRIG→PB10, ECHO→PB11\n// ECHO outputs a 5V HIGH; PB10/PB11 are 5V-tolerant pins so they can connect directly. Don't use PA0~PA7\nconst int TRIG = PB10;\nconst int ECHO = PB11;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(TRIG, OUTPUT);\n  pinMode(ECHO, INPUT);\n  digitalWrite(TRIG, LOW);\n}\n\nfloat readDistanceCm() {\n  digitalWrite(TRIG, HIGH);                   // Send a 10-microsecond trigger pulse\n  delayMicroseconds(10);\n  digitalWrite(TRIG, LOW);\n\n  // Wait for ECHO to go high and measure how long it stays high (microseconds); give up after 30ms\n  unsigned long us = pulseIn(ECHO, HIGH, 30000);\n  if (us == 0) return -1;                     // Timeout: too far, or not wired right\n\n  // Speed of sound is about 343m/s = 0.0343cm/us; the sound travels there and back, so divide by 2\n  return us * 0.0343f / 2.0f;\n}\n\nvoid loop() {\n  float d = readDistanceCm();\n  if (d < 0) Serial.println(\"Out of range (>4m) or not connected\");\n  else {\n    Serial.print(\"Distance: \");\n    Serial.print(d, 1);\n    Serial.println(\" cm\");\n  }\n  delay(100);                                 // At least 60ms between measurements to avoid echo crosstalk\n}",
+      "lib_deps": [],
+      "explain": "The ultrasonic module works like this: you give TRIG a 10-microsecond pulse, it emits a burst of ultrasound and raises ECHO, then lowers ECHO when the echo returns. The time ECHO stays high is the round-trip time of the sound. pulseIn measures that for you; multiply by the speed of sound and divide by 2 for the distance. The useful range is about 2cm~4m with a 15-degree beam. Reading 0 or -1 means no echo came back (too far, a surface too angled or absorbent, or wrong wiring).",
+      "pitfalls": [
+        "The HC-SR04 needs 5V to be reliable; many batches give jumpy readings on 3.3V",
+        "ECHO is a 5V signal, so use a 5V-tolerant pin (PB10~PB15 etc.) or a 1kΩ+2kΩ divider",
+        "pulseIn blocks for up to 30ms; for non-blocking, time it with an external interrupt instead",
+        "Fabric, angled surfaces, and anything too close (<2cm) don't measure well"
+      ]
+    },
+    {
+      "id": "buzzer-tone",
+      "title": "Buzzer tone: sounds and a simple melody",
+      "topic": "PWM",
+      "when": "You need a beep, an alarm sound, or want to play a few notes",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Passive buzzer: positive (long leg or marked +) → PA8, negative → GND\n// An active buzzer makes only one tone; just digitalWrite it high/low to sound/stop, no tone needed\nconst int BUZZER = PA8;\n\n// Note frequencies (Hz): do re mi fa so la ti do\nconst int NOTES[] = {262, 294, 330, 349, 392, 440, 494, 523};\n\nvoid setup() {\n  pinMode(BUZZER, OUTPUT);\n}\n\nvoid loop() {\n  for (int i = 0; i < 8; i++) {\n    tone(BUZZER, NOTES[i], 200);   // pin, frequency, duration in ms (non-blocking)\n    delay(250);                    // Leave a 50ms gap between notes so they sound separate\n  }\n  noTone(BUZZER);                  // Stop\n  delay(500);\n\n  // Alarm sound: alternate between two frequencies\n  for (int i = 0; i < 3; i++) {\n    tone(BUZZER, 800);  delay(150);\n    tone(BUZZER, 1200); delay(150);\n  }\n  noTone(BUZZER);\n  delay(2000);\n}",
+      "lib_deps": [],
+      "explain": "A passive buzzer is basically a tiny speaker: feed it a square wave at some frequency and it plays that pitch. tone(pin, frequency, duration) has the library use a timer to keep generating that square wave and stop automatically when the duration is up, while your program does other things. noTone stops it immediately. 262Hz is middle C, and each octave up doubles the frequency. An active buzzer has its own oscillator and plays one fixed tone as soon as it gets power, so tone would sound odd on it.",
+      "pitfalls": [
+        "Tell active from passive: an active buzzer has a black epoxy seal on the back and sounds as soon as it's powered; on a passive one you can see the coil inside",
+        "On the Blue Pill variant, tone uses TIM3, which breaks analogWrite on TIM3's PWM pins (PA6, PA7, PB0, PB1); Servo uses TIM2 (PA0~PA3). Avoid those pins when using them together",
+        "A buzzer draws little current (<30mA) and can be driven directly, but a louder speaker needs a transistor",
+        "tone's third argument doesn't block; the delay right after it is what actually sets the rhythm"
+      ]
+    },
+    {
+      "id": "relay-mosfet",
+      "title": "Relay / MOSFET switching a high-current load",
+      "topic": "GPIO",
+      "when": "You want to control bulbs, fans, pumps, or solenoid valves that an I/O pin can't drive directly",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Relay module: VCC→5V, GND→GND, IN→PB12. The load goes between COM and NO (normally open)\n// MOSFET module: VCC/GND as above, SIG→PB12, load on V+ / V-. The code is the same for both\nconst int SWITCH_PIN = PB12;\n\n// Many relay modules are \"active low\" (energized when IN is low). Set this according to the module's markings\nconst bool ACTIVE_LOW = true;\n\nvoid turnOn()  { digitalWrite(SWITCH_PIN, ACTIVE_LOW ? LOW : HIGH); }\nvoid turnOff() { digitalWrite(SWITCH_PIN, ACTIVE_LOW ? HIGH : LOW); }\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(SWITCH_PIN, OUTPUT);\n  turnOff();                    // First thing at power-up: make sure the load is off\n  Serial.println(\"Toggling every 3 seconds; listen for the relay click\");\n}\n\nvoid loop() {\n  turnOn();\n  Serial.println(\"ON\");\n  delay(3000);\n\n  turnOff();\n  Serial.println(\"OFF\");\n  delay(3000);\n}\n// A relay can switch 120V AC mains, but practice with low-voltage loads first and have someone who knows electrical work check before you touch mains",
+      "lib_deps": [],
+      "explain": "An I/O pin can only supply a few milliamps at 3.3V, nowhere near enough for a motor or bulb. A relay is a switch that \"uses a small current to control a big one\": the I/O pin gives a signal, the coil in the module pulls the contacts closed, and the load circuit is complete, fully isolated from the I/O pin. A MOSFET module works differently (a semiconductor switch with no contacts, capable of fast PWM) but is used the same way. The one gotcha in code is that many modules are active low, so wrap turnOn/turnOff to keep the polarity in one place. Turn it off at power-up so the load doesn't start before you're ready.",
+      "pitfalls": [
+        "Relay module VCC usually needs 5V; on 3.3V it won't pull in",
+        "With an active-low module, the floating I/O pin during power-up can make it click briefly; add a pull-down resistor in a real project",
+        "Motors and solenoids are inductive loads that kick back when switched off; the module needs a flyback diode (most include one)",
+        "Mains voltage is dangerous; stay away from it unless you have experience"
+      ]
+    },
+    {
+      "id": "ws2812-fastled",
+      "title": "WS2812 LED strip with FastLED",
+      "topic": "GPIO",
+      "when": "You want colorful ambient lighting, a progress indicator, or dozens of LEDs on one wire",
+      "board": "any",
+      "code": "#include <Arduino.h>\n#include <FastLED.h>\n// WS2812B strip has three wires: 5V→external 5V supply, GND→shared ground, DIN→DATA_PIN (a 330Ω series resistor makes it more stable)\n// On the Blue Pill change DATA_PIN to PA7; UNO uses 6, ESP32 uses 13. 8 LEDs can run from the board's 5V; more need a separate supply\n#define DATA_PIN  6\n#define NUM_LEDS  8\n\nCRGB leds[NUM_LEDS];              // Color array in memory, one element per LED\n\nvoid setup() {\n  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);  // GRB is the WS2812B's color order\n  FastLED.setBrightness(40);      // 0~255; start low, full brightness is blinding and power-hungry\n}\n\nvoid loop() {\n  // Effect 1: flowing rainbow\n  static uint8_t hue = 0;\n  for (int i = 0; i < NUM_LEDS; i++) {\n    leds[i] = CHSV(hue + i * 32, 255, 255);   // Hue, saturation, value\n  }\n  FastLED.show();                             // After changing the array you must call show to send it to the strip\n  hue += 2;\n  delay(20);\n}\n// Effect 2: a single red dot leds[3] = CRGB::Red;  clear all FastLED.clear();  both need a FastLED.show() afterwards",
+      "lib_deps": [
+        "fastled/FastLED"
+      ],
+      "explain": "Each WS2812 LED has a tiny chip inside that takes its own color and passes the rest of the data to the next LED, so one wire can drive a long chain. FastLED wraps the strict timing into an array: you change the color in leds[i], then FastLED.show() sends it all out at once. CHSV describes color by hue (0~255 goes once around the color wheel), which makes rainbows and fades much easier than RGB. setBrightness caps the overall brightness; beginners should definitely start low.",
+      "pitfalls": [
+        "Each LED at full white draws up to 60mA, so 30 LEDs is 1.8A; the board's USB can't supply that. Use a separate 5V supply with shared ground",
+        "The Blue Pill's 3.3V signal driving a 5V strip sometimes isn't recognized by the first LED; add a level shifter or feed the first LED 4.3V",
+        "FastLED.show() disables interrupts while running, so serial may drop characters, more so with many LEDs",
+        "Support on the STM32duino core isn't as mature as on the UNO; if it won't compile, try the adafruit/Adafruit NeoPixel library"
+      ]
+    },
+    {
+      "id": "ds3231-alarm",
+      "title": "DS3231: read the time and trigger on schedule",
+      "topic": "I2C",
+      "when": "You want to \"do something every morning at 7:30\", or know the time after a power outage",
+      "board": "any",
+      "code": "#include <Arduino.h>\n#include <Wire.h>\n#include <RTClib.h>\n// DS3231 module: VCC→3.3V, GND→GND, SCL/SDA→the board's I2C pins (Blue Pill PB8/PB9 needs setSCL/setSDA)\nRTC_DS3231 rtc;\n\nconst int ALARM_HOUR = 7, ALARM_MINUTE = 30;   // Daily trigger time\nbool firedToday = false;                        // Prevents repeated triggers within the same minute\n\nvoid setup() {\n  Serial.begin(115200);\n  if (!rtc.begin()) { Serial.println(\"DS3231 not found; check the I2C wiring\"); while (1) delay(10); }\n  if (rtc.lostPower()) {                        // Battery dead or first use: set from the compile time\n    Serial.println(\"RTC lost time; setting from compile time\");\n    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  }\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n  char buf[20];\n  snprintf(buf, sizeof(buf), \"%04d-%02d-%02d %02d:%02d:%02d\",\n           now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());\n  Serial.println(buf);\n\n  bool isAlarmTime = (now.hour() == ALARM_HOUR && now.minute() == ALARM_MINUTE);\n  if (isAlarmTime && !firedToday) {\n    firedToday = true;\n    Serial.println(\">>> Time's up! Put the action here (feed the pet, turn on the light)\");\n  }\n  if (!isAlarmTime) firedToday = false;         // Once that minute has passed, reset so it fires again tomorrow\n\n  Serial.print(\"Module temperature \"); Serial.println(rtc.getTemperature());\n  delay(1000);\n}",
+      "lib_deps": [
+        "adafruit/RTClib",
+        "adafruit/Adafruit BusIO"
+      ],
+      "explain": "The DS3231 is a clock chip with a coin cell that keeps ticking when the board loses power, drifting only a few minutes per year. rtc.now() returns a DateTime you can pull year/month/day/hour/minute/second from. lostPower tells you whether the battery ran out; if so, set it once from __DATE__/__TIME__ (the moment of compilation). Scheduled triggering is just comparing hour and minute every second, with a firedToday flag so it happens only once within that minute.",
+      "pitfalls": [
+        "Setting from the compile time ends up tens of seconds slow (compile + upload time); set it over serial if you need precision",
+        "The module has a coin-cell holder; don't put a non-rechargeable CR2032 into an older module with a charging circuit (it swells)",
+        "Use a flag for \"time's up\", otherwise it fires as many times as loop runs during that minute",
+        "RTClib depends on Adafruit BusIO, so lib_deps needs both"
+      ]
+    },
+    {
+      "id": "pot-brightness",
+      "title": "Potentiometer controls LED brightness",
+      "topic": "ADC",
+      "when": "Connecting \"input\" to \"output\" for the first time: turn the knob and the light changes",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Potentiometer: outer legs to 3.3V and GND, middle leg to PA0\n// LED: PA8 → 220Ω → LED → GND\nconst int POT = PA0;\nconst int LED = PA8;\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);     // Read 0~4095\n  analogWriteResolution(8);     // Write 0~255\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int raw = analogRead(POT);                 // 0~4095\n\n  // Simple smoothing: the new value counts 1/4, the old value 3/4, which removes knob jitter\n  static int smooth = 0;\n  smooth = (smooth * 3 + raw) / 4;\n\n  int duty = map(smooth, 0, 4095, 0, 255);   // Scale to the PWM range\n  duty = (duty * duty) / 255;                // Squared curve so the dim end changes more noticeably\n  analogWrite(LED, duty);\n\n  Serial.print(raw);\n  Serial.print(\" -> \");\n  Serial.println(duty);\n  delay(20);\n}",
+      "lib_deps": [],
+      "explain": "This combines ADC and PWM: read the knob position (0~4095), convert it to a duty cycle (0~255), write it to the LED. In between there's a \"low-pass filter\": the new reading gets only a quarter of the weight, so electrical noise on the knob doesn't make the LED flicker. Then a squared curve gives the first half of the knob's travel a visible effect too, because our eyes perceive brightness logarithmically. Serial prints both the raw and output values so you can see how they relate.",
+      "pitfalls": [
+        "The LED still glows faintly with the knob all the way down because the ADC never quite reads 0 (a few counts off); use constrain to treat <30 as 0",
+        "This can't be done with the LED on PC13; PC13 has no timer",
+        "The potentiometer's three legs: the outer two are 3.3V and GND, the middle is the output. Get the middle wrong and the reading never changes"
+      ]
+    },
+    {
+      "id": "ldr-divider",
+      "title": "Photoresistor voltage divider reading",
+      "topic": "ADC",
+      "when": "You want \"lights on automatically when dark\" or to detect whether something is blocking the light",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Photoresistor divider: 3.3V → photoresistor → PA1 (and also) → 10kΩ resistor → GND\n// In bright light the photoresistor's resistance drops and PA1's voltage rises; in the dark its resistance rises and PA1's voltage drops\nconst int LDR = PA1;\nconst int LED = PC13;\nconst int DARK_THRESHOLD = 1200;   // Below this counts as dark. Run it once, watch serial, and adjust for your room\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  long sum = 0;\n  for (int i = 0; i < 16; i++) sum += analogRead(LDR);   // Average 16 samples to fight noise\n  int light = sum / 16;\n\n  // Add some \"hysteresis\": below 1200 counts as dark, but it has to go above 1400 to count as bright again, to avoid flicker near the threshold\n  static bool dark = false;\n  if (!dark && light < DARK_THRESHOLD)        dark = true;\n  else if (dark && light > DARK_THRESHOLD + 200) dark = false;\n\n  digitalWrite(LED, dark ? LOW : HIGH);       // PC13 lights on LOW: light on when dark\n  Serial.print(\"light=\");\n  Serial.print(light);\n  Serial.println(dark ? \"  dark\" : \"  bright\");\n  delay(200);\n}",
+      "lib_deps": [],
+      "explain": "A photoresistor is just a resistor that changes with light. The chip can't read resistance, only voltage, so we put it in series with a fixed resistor as a \"voltage divider\": the voltage at the point between the two resistors changes with the light. Which one is on top decides whether bright reads high or low; here bright = high. Averaging 16 samples removes noise. The threshold check has hysteresis, otherwise at dusk-level brightness the light would flicker constantly.",
+      "pitfalls": [
+        "There's no standard threshold; photoresistors and rooms vary a lot, so check serial first and then decide",
+        "10kΩ is the usual fixed resistor, but anything from 4.7k~47k works; only the range changes",
+        "Without hysteresis it jitters near the threshold. Every threshold decision should have it"
+      ]
+    },
+    {
+      "id": "watchdog",
+      "title": "Watchdog: auto-reset when the program hangs",
+      "topic": "Power",
+      "when": "The device runs unattended for long stretches and needs to recover on its own if it locks up",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <IWatchdog.h>\n// Independent watchdog (IWDG): a countdown timer you must reset (\"feed the dog\") regularly.\n// Forget to feed it (meaning the program is stuck) and it resets the chip. Once started it can't be stopped until power is cut\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PC13, OUTPUT);\n  delay(200);\n  if (IWatchdog.isReset()) {           // Check whether this boot was caused by the watchdog\n    Serial.println(\"!!! Last reset was the watchdog, so the program hung\");\n    IWatchdog.clearReset();\n  } else {\n    Serial.println(\"Normal power-up\");\n  }\n  IWatchdog.begin(2000000);            // In microseconds: reset if not fed within 2 seconds (max about 32 seconds)\n}\n\nvoid loop() {\n  static unsigned long bootMs = millis();\n  digitalWrite(PC13, !digitalRead(PC13));\n  Serial.print(\"Running \");\n  Serial.print((millis() - bootMs) / 1000);\n  Serial.println(\" seconds\");\n  delay(500);\n  IWatchdog.reload();                  // Feed the dog: tell it \"I'm still alive\"\n\n  // Demo: after 10 seconds, deliberately hang in an infinite loop and stop feeding; 2 seconds later you'll see the board reboot itself\n  if (millis() - bootMs > 10000) {\n    Serial.println(\"Simulating a hang...\");\n    while (1) { }\n  }\n}",
+      "lib_deps": [],
+      "explain": "A watchdog is a dog that needs regular feeding: begin sets how long it waits before biting, and loop feeds it with reload every pass. When the program is healthy it always feeds in time; when a bug gets it stuck somewhere, the feeding stops and the dog resets the chip, so the device recovers by itself. isReset lets you know after a reboot that \"the dog woke me up\", which you can log. IWatchdog is a class bundled with STM32duino; AVR uses avr/wdt.h and the ESP32 uses esp_task_wdt.",
+      "pitfalls": [
+        "Once started, the watchdog can't be turned off. If it keeps biting during uploads it gets in the way of debugging, so comment it out while developing",
+        "The timeout must be longer than the longest blocking call in loop (like the DS18B20's 750ms), or it bites during normal operation",
+        "Don't feed the dog inside an interrupt; interrupts still running doesn't mean the main program isn't stuck",
+        "The F103's IWDG runs from an internal 40kHz low-speed clock with poor accuracy, so the actual timeout can be off by ±30%"
+      ]
+    },
+    {
+      "id": "low-power-sleep",
+      "title": "Low-power sleep (simple version)",
+      "topic": "Power",
+      "when": "Battery powered, idle most of the time, and you want to save power",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <STM32LowPower.h>\n// Wake every 5 seconds: blink the LED, print a line, then deep sleep. In deep sleep the F103 drops from about 30mA to under 1mA\n// Needs both the STM32duino Low Power and STM32duino RTC libraries (sleep wakes on an RTC timer)\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PC13, OUTPUT);\n  digitalWrite(PC13, HIGH);          // Off\n  LowPower.begin();                  // Initialize the low-power subsystem (starts the RTC internally)\n  Serial.println(\"Start: work 200ms, sleep 5 seconds, repeat\");\n}\n\nvoid loop() {\n  digitalWrite(PC13, LOW);           // Awake: LED on for 200ms\n  Serial.print(\"Awake, millis=\");\n  Serial.println(millis());\n  Serial.flush();                    // Let serial finish sending before sleeping, or the line gets cut off\n  delay(200);\n  digitalWrite(PC13, HIGH);\n\n  LowPower.deepSleep(5000);          // Deep sleep 5000ms; the RTC wakes it and execution continues from this line\n  // There's also LowPower.sleep(ms): lighter sleep, faster wake, less saving\n  // LowPower.shutdown(ms): deepest sleep, but waking is a reset and starts over from setup\n}\n// Wake on a button: LowPower.attachInterruptWakeup(PA0, callback, FALLING);  then deepSleep() with no argument",
+      "lib_deps": [
+        "stm32duino/STM32duino Low Power",
+        "stm32duino/STM32duino RTC"
+      ],
+      "explain": "The chip draws tens of milliamps while running and a fraction of a milliamp asleep, a battery-life difference of dozens of times. deepSleep(ms) stops the main clock and lets the RTC count time; when it wakes, execution continues on the next line, like a delay that uses no power. Serial.flush() before sleeping is essential, because serial transmission is asynchronous and sleeping before it finishes loses characters. sleep is lighter than deepSleep, waking faster but saving less; shutdown saves the most, but waking is a reboot.",
+      "pitfalls": [
+        "The Blue Pill's power LED and LDO themselves draw a few milliamps; to really save power, remove the power LED",
+        "millis doesn't advance in deep sleep, so it's only slightly higher after waking; use the RTC for timing logic",
+        "The ST-Link can't connect to a sleeping chip; hold reset while clicking upload, or delay a few seconds in setup to leave a window",
+        "The ESP32 uses esp_deep_sleep_start() and the UNO uses the LowPower library (rocketscream); completely different APIs"
+      ]
+    },
+    {
+      "id": "eeprom-store",
+      "title": "EEPROM/Flash: store a value that survives power loss",
+      "topic": "Storage",
+      "when": "You need to remember settings, counts, or calibration values across reboots",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <EEPROM.h>\n// The STM32 has no real EEPROM; STM32duino emulates one in the last page of Flash. The API is the same as the UNO's EEPROM\n// Here we record \"how many times the board has been powered on\"\n\nstruct Settings {\n  uint32_t magic;        // Fixed marker to tell whether anything was ever stored (on first use, Flash holds garbage)\n  uint32_t bootCount;\n  float    calibration;  // Also demonstrates storing a float\n};\nconst uint32_t MAGIC = 0xA5A5C001;\nconst int ADDR = 0;      // Storage address\n\nvoid setup() {\n  Serial.begin(115200);\n  delay(300);\n\n  Settings s;\n  EEPROM.get(ADDR, s);                 // Read the bytes starting at ADDR into the struct\n  if (s.magic != MAGIC) {              // First time: initialize\n    Serial.println(\"Nothing stored yet, initializing\");\n    s.magic = MAGIC;\n    s.bootCount = 0;\n    s.calibration = 1.0f;\n  }\n  s.bootCount++;\n  EEPROM.put(ADDR, s);                 // Write back. On the STM32 this erases and rewrites a whole Flash page, taking tens of milliseconds\n\n  Serial.print(\"This is power-up #\");\n  Serial.print(s.bootCount);\n  Serial.println(\" for this board\");\n  Serial.print(\"Calibration \");\n  Serial.println(s.calibration);\n}\n\nvoid loop() {\n  // Press reset and watch the count climb. Changing calibration works the same way: just put it\n}",
+      "lib_deps": [],
+      "explain": "EEPROM.put/get write and read a whole variable or struct to and from non-volatile storage. The magic marker solves the \"on the first run the contents are random\" problem: if the magic read back is wrong, treat it as never stored. The STM32 emulates this in Flash, and every put erases a whole page before writing, so don't write in loop constantly. Flash lasts about 10,000 erase cycles; writing once a second kills it in two hours. The right approach is to write only when the value changes, or to batch changes.",
+      "pitfalls": [
+        "Flash has limited erase endurance (about 10,000 cycles on the F103); never put on every loop pass",
+        "On the STM32, EEPROM.put briefly halts execution (while erasing the page); be aware of this in timing-critical code",
+        "A full-chip erase when uploading with the ST-Link also wipes the emulated EEPROM page, so the count resetting to zero is normal",
+        "Adding a field to the struct changes its layout and old data reads back as garbage; change MAGIC when you change the struct to force re-initialization"
+      ]
+    },
+    {
+      "id": "serial-plotter",
+      "title": "Serial plotter output format",
+      "topic": "Debugging",
+      "when": "You want to see how values trend (sensor waveforms, PID curves) and a wall of numbers doesn't show it",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// Serial plotter (Arduino IDE's Serial Plotter, or the Teleplot extension for VS Code)\n// The rule is simple: a few numbers per line separated by commas or spaces, one sample per line, ending with a newline\n// On the Blue Pill change A0 to PA0\n\nvoid setup() {\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  static float phase = 0;\n  int raw = analogRead(A0);                    // The real sensor value\n  float sine = 512 + 400 * sin(phase);         // A reference sine wave so you can see what the plotter looks like\n  phase += 0.1f;\n\n  // Format 1: plain numbers, comma separated (Arduino Serial Plotter)\n  Serial.print(raw);\n  Serial.print(\",\");\n  Serial.println(sine);\n\n  // Format 2: with legend names (supported by the newer Arduino IDE 2.x)\n  // Serial.print(\"raw:\"); Serial.print(raw); Serial.print(\",sine:\"); Serial.println(sine);\n\n  // Format 3: Teleplot format (VS Code extension)\n  // Serial.print(\">raw:\"); Serial.println(raw);\n  // Serial.print(\">sine:\"); Serial.println(sine);\n\n  delay(20);                                   // 50Hz sampling looks smooth in the plotter\n}",
+      "lib_deps": [],
+      "explain": "A plotter just draws each line's numbers as curves: the first column is one line, the second column another. So as long as a line contains only numbers and separators, with no text like \"Temperature:\" mixed in, it will plot. Separate multiple curves with commas. PlatformIO's built-in monitor doesn't plot, so use the Arduino IDE's Serial Plotter (just match the baud rate) or the Teleplot extension for VS Code (format 3). Tuning PID, watching button bounce, or looking at ADC noise all become obvious once plotted.",
+      "pitfalls": [
+        "You can't print any other text while plotting, or the curves jump",
+        "Sampling too fast (<5ms) overwhelms serial and stutters; at 115200 a few dozen bytes per line is the limit",
+        "Serial Plotter shows only the last 500 points by default, so slowly changing signals don't show a trend"
+      ]
+    },
+    {
+      "id": "isr-debounce-millis",
+      "title": "Interrupt + millis software debounce",
+      "topic": "Interrupts",
+      "when": "You read a button with an interrupt but one press counts several times, or you don't want the button to take up loop's time",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Button on PB12 to GND, internal pull-up. Catch the falling edge with an interrupt and filter bounce with a timestamp inside the interrupt\nconst int BTN = PB12;\nconst unsigned long DEBOUNCE_MS = 50;\n\nvolatile uint32_t presses = 0;\nvolatile unsigned long lastIsrMs = 0;\n\nvoid onPress() {\n  unsigned long now = millis();       // millis can be read inside an interrupt (it just reads a counter)\n  if (now - lastIsrMs < DEBOUNCE_MS) return;   // Too soon after the last one: it's bounce, ignore it\n  lastIsrMs = now;\n  presses++;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(BTN, INPUT_PULLUP);\n  pinMode(PC13, OUTPUT);\n  attachInterrupt(digitalPinToInterrupt(BTN), onPress, FALLING);\n}\n\nvoid loop() {\n  static uint32_t shown = 0;\n  if (presses != shown) {             // Print only when the count changed; loop does nothing else\n    shown = presses;\n    Serial.print(\"Button presses: \");\n    Serial.println(shown);\n    digitalWrite(PC13, !digitalRead(PC13));\n  }\n  delay(100);                         // A deliberate delay to prove the button isn't affected by loop\n}",
+      "lib_deps": [],
+      "explain": "Pure polling debounce needs loop to spin constantly, and a pure interrupt gets triggered several times by bounce. The compromise is to keep a timestamp in the interrupt: if this trigger is less than 50ms after the last one, treat it as bounce and ignore it. Since that's just comparing two numbers, it's perfectly fine inside an interrupt. loop has a deliberate delay(100) to slow it down, and you'll find the button still never misses a press; that's the value of interrupts. Note it only filters bounce on \"press\"; we don't care about release bounce because we only attached FALLING.",
+      "pitfalls": [
+        "millis can be read inside an interrupt but won't advance there (it relies on an interrupt itself), so you can't use millis for delays inside an interrupt",
+        "Two real presses within 50ms count as one; shrink it for rapid-fire scenarios",
+        "The shared variables presses and lastIsrMs both need volatile",
+        "On the Blue Pill only one interrupt per pin number (PA12 and PB12 conflict)"
+      ]
+    },
+    {
+      "id": "keypad-matrix",
+      "title": "4x4 matrix keypad",
+      "topic": "GPIO",
+      "when": "You need to enter a PIN or pick menu items, and there are more buttons than I/O pins",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Keypad.h>\n// 4x4 membrane keypad, 8 wires: the left 4 are rows (R1~R4), the right 4 are columns (C1~C4). Check with a multimeter if unsure\n// 16 keys on just 8 I/O pins: drive one row low at a time and see which column goes low, and you know which key is pressed\nconst byte ROWS = 4, COLS = 4;\nchar keys[ROWS][COLS] = {\n  {'1', '2', '3', 'A'},\n  {'4', '5', '6', 'B'},\n  {'7', '8', '9', 'C'},\n  {'*', '0', '#', 'D'}\n};\nbyte rowPins[ROWS] = {PB12, PB13, PB14, PB15};   // Rows go here\nbyte colPins[COLS] = {PB5, PB6, PB7, PA8};       // Columns go here\n\nKeypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);\nString input = \"\";\n\nvoid setup() {\n  Serial.begin(115200);\n  Serial.println(\"Press keys; # finishes input, * clears\");\n}\n\nvoid loop() {\n  char k = keypad.getKey();          // Returns 0 (NO_KEY) when nothing is pressed; the library debounces internally\n  if (!k) return;\n\n  if (k == '#') {\n    Serial.print(\"Input complete: \");\n    Serial.println(input);\n    if (input == \"1234\") Serial.println(\"PIN correct\");\n    input = \"\";\n  } else if (k == '*') {\n    input = \"\";\n    Serial.println(\"Cleared\");\n  } else {\n    input += k;\n    Serial.print(\"Current: \");\n    Serial.println(input);\n  }\n}",
+      "lib_deps": [
+        "chris--a/Keypad"
+      ],
+      "explain": "16 buttons with one I/O pin each would take 16 pins; the matrix arrangement puts them in 4 rows and 4 columns and uses only 8. The principle is \"scanning\": pull one row low with the others high, then read the four columns; whichever column is low tells you the key at that row/column intersection is pressed. The Keypad library does both the scanning and the debouncing; you just call getKey(). The keys array mirrors the keypad's printed layout. If the row/column wiring order doesn't match, the characters come out shifted; just reorder rowPins/colPins.",
+      "pitfalls": [
+        "Whether the left 4 wires of a membrane keypad are rows or columns varies by manufacturer; if the keys don't match the labels, reorder rowPins/colPins",
+        "Pressing two keys at once can falsely register a third (ghosting); only a diode per key fixes that",
+        "PB5~PB7 and PA8 were chosen arbitrarily; any ordinary GPIO works, just avoid the PA9/PA10 serial pins"
+      ]
+    },
+    {
+      "id": "pid-temp-demo",
+      "title": "Simple PID temperature control (illustrative)",
+      "topic": "ADC",
+      "when": "You want temperature/speed/position to hold steady at a target, and on/off control oscillates badly",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// Illustrative: PA1 reads a temperature sensor (assumed here to be a linear LM35-type, 10mV/°C), PA8 PWM drives a heater pad (through a MOSFET)\n// To use a DS18B20 instead, just replace readTemp(). Target 40°C\nconst int TEMP_PIN = PA1;\nconst int HEAT_PIN = PA8;\nconst float TARGET = 40.0f;\n\n// Three gains: tune only Kp first (too high oscillates, too low never arrives), then add a little Ki to remove steady-state error, and Kd last\nfloat Kp = 20.0f, Ki = 0.5f, Kd = 5.0f;\nfloat integral = 0, lastError = 0;\n\nfloat readTemp() {\n  int raw = analogRead(TEMP_PIN);            // 12-bit\n  return raw * 3.3f / 4095.0f * 100.0f;      // LM35: 0.01V/°C\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);\n  pinMode(HEAT_PIN, OUTPUT);\n}\n\nvoid loop() {\n  static unsigned long last = 0;\n  const float DT = 0.5f;                     // Control period 0.5 seconds\n  if (millis() - last < DT * 1000) return;\n  last = millis();\n\n  float temp = readTemp();\n  float error = TARGET - temp;               // How far off we are\n  integral += error * DT;                    // Accumulated error (removes long-term offset)\n  integral = constrain(integral, -50, 50);   // Anti-windup: don't let the integral grow without bound\n  float derivative = (error - lastError) / DT;   // Rate of change (brake early)\n  lastError = error;\n\n  float output = Kp * error + Ki * integral + Kd * derivative;\n  int duty = constrain((int)output, 0, 255); // Heating can only be 0~255; there's no \"negative heating\"\n  analogWrite(HEAT_PIN, duty);\n\n  Serial.print(temp); Serial.print(\",\"); Serial.print(TARGET); Serial.print(\",\"); Serial.println(duty);\n}",
+      "lib_deps": [],
+      "explain": "On/off control (off when reached, on when below) always overshoots back and forth around the target. PID applies effort according to \"how far off\": the P term pushes harder the bigger the gap; the I term accumulates small long-term offsets and slowly fixes them, solving the \"always a little short\" problem; the D term watches the rate of change and eases off early as you approach, preventing overshoot. There's no formula for the three gains; you tune by trial: P only until it barely oscillates, then add I to remove the steady-state error, then a little D to damp oscillation. It computes every 0.5 seconds and clamps the output to 0~255 for PWM. The serial output uses plotter format so you can tune visually.",
+      "pitfalls": [
+        "The integral must be clamped, otherwise while heating slowly it grows sky-high and keeps blasting heat long after reaching temperature",
+        "The control period must be steady (guarantee it with millis); change the period and the gains need retuning",
+        "Temperature systems are slow (minutes), so be patient tuning; fan speed is seconds-scale and the same code works with different gains",
+        "A real heater pad draws a lot of current and must go through a MOSFET or relay; driving it from an I/O pin will burn it out"
+      ]
+    },
+    {
+      "id": "servo-sweep",
+      "title": "Servo sweep (non-blocking)",
+      "topic": "Servo",
+      "when": "You want the servo to sweep slowly back and forth (radar scan, head turning) while still handling other things",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Servo.h>\n// SG90: brown→GND, red→5V, orange→PA8\nServo sweeper;\nconst int SERVO_PIN = PA8;\nconst int STEP_MS = 15;         // 15ms per step; one 0→180 sweep takes about 2.7 seconds\n\nint angle = 0;\nint direction = 1;              // +1 heading toward 180, -1 heading toward 0\nunsigned long lastStep = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  sweeper.attach(SERVO_PIN);\n  sweeper.write(angle);\n}\n\nvoid loop() {\n  if (millis() - lastStep >= STEP_MS) {   // Move one degree every 15ms, no delay\n    lastStep = millis();\n    angle += direction;\n    if (angle >= 180) { angle = 180; direction = -1; }   // Turn around at the ends\n    if (angle <= 0)   { angle = 0;   direction = 1;  }\n    sweeper.write(angle);\n  }\n\n  // Here you can read an ultrasonic sensor, a button, or serial at the same time. E.g. a button that freezes it at the current angle:\n  // if (digitalRead(PB12) == LOW) direction = 0;\n  static unsigned long lastPrint = 0;\n  if (millis() - lastPrint >= 500) {\n    lastPrint = millis();\n    Serial.print(\"Angle \");\n    Serial.println(angle);\n  }\n}",
+      "lib_deps": [],
+      "explain": "write(180) makes the servo rush there at full speed; to move slowly you write one degree at a time with a short pause between. You could do that with delay, but loop would be tied up; here we use the millis rhythm instead: add or subtract one degree every 15ms, and flip the direction at 0 or 180. The direction variable is both direction and speed: set it to 0 to stop, 2 to go twice as fast. Serial reports the angle every half second without interfering with the sweep.",
+      "pitfalls": [
+        "With STEP_MS under 10 the servo can't keep up and looks jittery",
+        "If the servo doesn't move, check power (5V) and shared ground first, then whether the orange wire is really on PA8",
+        "Cheap servos strain and buzz at the end stops; a 10~170 range is safer"
+      ]
+    },
+    {
+      "id": "stepper-28byj",
+      "title": "Stepper motor 28BYJ-48 + ULN2003",
+      "topic": "GPIO",
+      "when": "You need precise fixed-angle turns and slow, high-torque motion: knobs, turntables, feeder valves",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <Stepper.h>\n// 28BYJ-48 5-wire stepper + ULN2003 driver board\n// Driver IN1→PB12, IN2→PB13, IN3→PB14, IN4→PB15; driver +/- to 5V/GND (shared ground with the board)\n// The motor's white connector plugs straight into the driver board\nconst int STEPS_PER_REV = 2048;   // Full-step mode: 32 steps × 64:1 gearbox = 2048 steps per revolution\n\n// Note the argument order is IN1, IN3, IN2, IN4 (not 1234); that's a quirk of the 28BYJ's wiring\nStepper motor(STEPS_PER_REV, PB12, PB14, PB13, PB15);\n\nvoid setup() {\n  Serial.begin(115200);\n  motor.setSpeed(12);             // Speed in RPM; this motor tops out around 15, faster and it skips steps\n}\n\nvoid loop() {\n  Serial.println(\"Forward one revolution\");\n  motor.step(STEPS_PER_REV);      // Positive = forward; blocks until done (about 5 seconds)\n  delay(500);\n\n  Serial.println(\"Backward half a revolution\");\n  motor.step(-STEPS_PER_REV / 2);\n  delay(500);\n\n  Serial.println(\"Turn 90 degrees\");\n  motor.step(STEPS_PER_REV / 4);\n  delay(2000);\n}\n// When stopped and holding torque isn't needed, write all four INs LOW to save power and avoid heating",
+      "lib_deps": [
+        "arduino-libraries/Stepper"
+      ],
+      "explain": "Unlike a DC motor that spins as soon as it gets power, a stepper turns a small step for each pulse sequence it receives, which is why its angle can be controlled precisely. The 28BYJ-48 has a 64:1 gearbox inside, giving 2048 steps per revolution. The ULN2003 driver board amplifies the I/O pins' small current for the coils. The Stepper library energizes the four coils in sequence, and step(n) moves n steps. The IN1, IN3, IN2, IN4 order is this motor's quirk; wired as 1234 it just shakes and doesn't turn.",
+      "pitfalls": [
+        "The constructor wiring order is 1-3-2-4; get it wrong and the motor only vibrates",
+        "Above 15 RPM it skips steps or stalls; it's a slow motor",
+        "step() blocks, so nothing else runs during a revolution; use the AccelStepper library for non-blocking control",
+        "A stopped motor with energized coils heats up; for long holds pull all INs low"
+      ]
+    },
+    {
+      "id": "hc05-bluetooth",
+      "title": "HC-05 Bluetooth serial commands",
+      "topic": "UART",
+      "when": "You want to control the board from a phone app without running wires",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n// HC-05/HC-06 Bluetooth serial module: VCC→5V, GND→GND, TXD→PA3 (board RX), RXD→PA2 (board TX)\n// The module's RXD is 3.3V logic; the Blue Pill's TX is 3.3V, a perfect match. A UNO's 5V TX needs a divider\n// Install \"Serial Bluetooth Terminal\" on the phone, pair with PIN 1234 or 0000, send 1 for LED on, 0 for off\n// USART2 is the Bluetooth port: RX=PA3, TX=PA2. Serial stays on PA9/PA10 for the computer\n#if defined(ARDUINO_API_VERSION)  // From STM32duino 3.x the serial class is called Uart\nUart BT(PA3, PA2);\n#else                             // STM32duino 2.x calls it HardwareSerial\nHardwareSerial BT(PA3, PA2);\n#endif\n\nvoid setup() {\n  Serial.begin(115200);           // Computer\n  BT.begin(9600);                 // Bluetooth module default 9600 (some HC-05s are 38400; check the module's docs)\n  pinMode(PC13, OUTPUT);\n  digitalWrite(PC13, HIGH);\n  Serial.println(\"Waiting for Bluetooth commands...\");\n}\n\nvoid loop() {\n  if (BT.available()) {\n    char c = BT.read();\n    Serial.print(\"Received: \");\n    Serial.println(c);\n    if (c == '1') {\n      digitalWrite(PC13, LOW);    // On\n      BT.println(\"LED ON\");       // Reply to the phone\n    } else if (c == '0') {\n      digitalWrite(PC13, HIGH);\n      BT.println(\"LED OFF\");\n    }\n  }\n  // Forward anything typed on the computer's serial to the phone, handy for debugging\n  if (Serial.available()) BT.write(Serial.read());\n}",
+      "lib_deps": [],
+      "explain": "To the board, the HC-05 is just a serial port: bytes the phone sends come out of the module's TXD into the board's RX, and bytes the board writes to TX fly over Bluetooth to the phone. So the code is identical to reading the computer's serial port, just with a different serial object. The Blue Pill uses USART2 (PA2/PA3) for Bluetooth and keeps USART1 for logging to the computer. HardwareSerial BT(PA3, PA2) creates a new serial object in STM32duino, with RX and TX as the arguments.",
+      "pitfalls": [
+        "TX to RX and RX to TX, crossed! TX to TX never receives anything",
+        "The module's RXD pin only accepts 3.3V; the UNO needs a divider, the Blue Pill doesn't",
+        "A wrong baud rate gives garbage; the HC-05 ships at 9600 or 38400, and AT mode is 38400",
+        "The phone needs a \"serial Bluetooth terminal\" type app; iPhones don't support Classic Bluetooth like the HC-05, so you'd need a BLE module"
+      ]
+    },
+    {
+      "id": "esp32-wifi",
+      "title": "ESP32: connect to WiFi and print the IP",
+      "topic": "Debugging",
+      "when": "Getting an ESP32 online for the first time, in preparation for HTTP/MQTT",
+      "board": "esp32",
+      "code": "#include <Arduino.h>\n#include <WiFi.h>\n// The ESP32 has WiFi built in; no library needed. Change the two lines below to your router's name and password (2.4GHz only)\nconst char* WIFI_SSID = \"YourWiFiName\";\nconst char* WIFI_PASS = \"YourWiFiPassword\";\n\nvoid connectWiFi() {\n  Serial.print(\"Connecting to \");\n  Serial.println(WIFI_SSID);\n  WiFi.mode(WIFI_STA);                     // Act as a client joining the router (not as a hotspot)\n  WiFi.begin(WIFI_SSID, WIFI_PASS);\n\n  unsigned long start = millis();\n  while (WiFi.status() != WL_CONNECTED) {  // Wait for the connection, at most 15 seconds\n    delay(500);\n    Serial.print(\".\");\n    if (millis() - start > 15000) {\n      Serial.println(\"\\nCan't connect: check the name and password, and whether the router is 5GHz only\");\n      return;\n    }\n  }\n  Serial.println();\n  Serial.print(\"Connected, IP: \");\n  Serial.println(WiFi.localIP());          // Later, your web server will be reached at this address\n  Serial.print(\"Signal strength RSSI: \");\n  Serial.println(WiFi.RSSI());             // -50 is great, -80 is poor\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  delay(500);\n  connectWiFi();\n}\n\nvoid loop() {\n  if (WiFi.status() != WL_CONNECTED) {     // Auto-reconnect when dropped\n    Serial.println(\"WiFi dropped, reconnecting\");\n    connectWiFi();\n  }\n  delay(5000);\n}",
+      "lib_deps": [],
+      "explain": "The ESP32's WiFi is in the chip, and WiFi.h ships with the framework. The flow: set STA mode (be a client), begin with the name and password, then poll status until WL_CONNECTED. Once connected, localIP is the address the router assigned; a phone browser at that address reaches the board (the foundation for web control later). loop checks the status periodically and reconnects if dropped, which every networked device should do.",
+      "pitfalls": [
+        "The ESP32 only supports 2.4GHz WiFi and can't join a 5GHz network; if the router merges both bands, split them",
+        "WiFi credentials written in code leak with the code; in a real project put them in a separate file and .gitignore it",
+        "Current spikes to 500mA when connecting; a poor USB cable or weak computer port causes reboots",
+        "With WiFi on, the ADC2 pins (GPIO0, 2, 4, 12~15, 25~27) can't read analog values"
+      ]
+    },
+    {
+      "id": "selftest",
+      "title": "Self-test: blink at power-up + serial hello",
+      "topic": "Debugging",
+      "when": "After changing boards, wires, or environments, to confirm everything works right away; also a good template to start every project from",
+      "board": "any",
+      "code": "#include <Arduino.h>\n// Power-up self-test: 3 quick blinks (the program is running), a serial hello with basic info, then a heartbeat every second\n// When any project misbehaves, flash this first: if it runs, the board, wires, and toolchain are fine and the problem is in your code\n\nvoid blinkFast(int times) {\n  for (int i = 0; i < times; i++) {\n    digitalWrite(LED_BUILTIN, HIGH); delay(100);\n    digitalWrite(LED_BUILTIN, LOW);  delay(100);\n  }\n}\n\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  blinkFast(3);                    // Doesn't depend on serial; if it blinks, the program is running\n\n  Serial.begin(115200);\n  delay(300);                      // Give the USB serial port a moment\n  Serial.println();\n  Serial.println(\"==== hello, self-test starting ====\");\n  Serial.print(\"Build time: \"); Serial.print(__DATE__); Serial.print(\" \"); Serial.println(__TIME__);\n  Serial.print(\"CPU clock: \"); Serial.print(F_CPU / 1000000); Serial.println(\" MHz\");\n  Serial.print(\"Onboard LED pin number: \"); Serial.println(LED_BUILTIN);\n#ifdef ARDUINO_ARCH_STM32\n  Serial.println(\"Architecture: STM32duino\");\n#elif defined(ESP32)\n  Serial.println(\"Architecture: ESP32\");\n#else\n  Serial.println(\"Architecture: AVR or other\");\n#endif\n  Serial.println(\"==== self-test passed, starting heartbeat ====\");\n}\n\nvoid loop() {\n  static unsigned long n = 0;\n  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));\n  Serial.print(\"Heartbeat \"); Serial.println(++n);\n  delay(1000);\n}",
+      "lib_deps": [],
+      "explain": "The self-test does two independent things: first it blinks the LED 3 times to prove the program is running (no serial needed), then it prints the build time and other info over serial to prove serial works and that what's flashed is the latest build (check the build time). After that it sends a heartbeat every second, toggling the LED and counting on serial. Its value is isolating problems: flash it on a new board first, and only move on to your code once it passes; when your code breaks, fall back to it and you'll know whether the problem is hardware or software.",
+      "pitfalls": [
+        "A wrong build time means old firmware is on the board; the upload probably failed and you didn't notice",
+        "LED blinks but no serial text: check baud rate, TX/RX crossover, and shared ground, one at a time",
+        "No blinking: the upload never succeeded; look for SUCCESS in the terminal"
+      ]
+    },
+    {
+      "id": "spi-loopback",
+      "title": "SPI loopback test: MOSI to MISO",
+      "topic": "SPI",
+      "when": "Using SPI for the first time, or when an SPI peripheral won't respond; first confirm the bus itself can send and receive",
+      "board": "bluepill",
+      "code": "#include <Arduino.h>\n#include <SPI.h>\n// Short PA7(MOSI) to PA6(MISO) with one jumper wire. Whatever byte goes out should come straight back\n// SPI1: SCK PA5 / MISO PA6 / MOSI PA7; chip select can be any ordinary GPIO\nconst int CS_PIN = PA4;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(CS_PIN, OUTPUT);\n  digitalWrite(CS_PIN, HIGH);        // Chip select high = not selected, low = selected\n  SPI.begin();                       // Initialize SPI1, default PA5/PA6/PA7\n}\n\nvoid loop() {\n  // Bundle speed, bit order, and mode: 1MHz, most significant bit first, mode 0 (most chips use mode 0)\n  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));\n  digitalWrite(CS_PIN, LOW);         // Select the \"device\" (there isn't one here, but follow the procedure)\n\n  uint8_t sent[] = {0x55, 0xAA, 0x12, 0x34};\n  int ok = 0;\n  for (int i = 0; i < 4; i++) {\n    uint8_t got = SPI.transfer(sent[i]);   // SPI is full duplex: send a byte and receive one at the same time\n    Serial.print(\"Sent 0x\"); Serial.print(sent[i], HEX);\n    Serial.print(\" got 0x\"); Serial.print(got, HEX);\n    Serial.println(got == sent[i] ? \"  OK\" : \"  MISMATCH\");\n    if (got == sent[i]) ok++;\n  }\n\n  digitalWrite(CS_PIN, HIGH);        // Release\n  SPI.endTransaction();\n  Serial.println(ok == 4 ? \"SPI loopback passed\" : \"Loopback failed: check the PA6-PA7 jumper\");\n  delay(2000);\n}\n// With a real device: remove the jumper, MOSI→device DI/SDI, MISO→device DO/SDO, SCK→CLK, CS→CS/SS",
+      "lib_deps": [],
+      "explain": "SPI has four wires: SCK clock, MOSI master-out/slave-in, MISO slave-out/master-in, and CS chip select. It's full duplex: transferring one byte out brings one byte back at the same time. Shorting MOSI to MISO means whatever you send comes back, which verifies the chip's SPI peripheral and pin configuration. The three arguments to beginTransaction set speed, bit order, and mode (clock polarity/phase); with a real device you set them from its datasheet, and a wrong mode gives you all 0s or all FFs.",
+      "pitfalls": [
+        "Loopback passes but the device doesn't respond: nine times out of ten the SPI_MODE is wrong or CS wasn't pulled low",
+        "On the Nucleo, PA5 is the onboard LED, so it flickers during SPI; that's normal",
+        "Don't start at 18MHz; jumper wires and breadboards get unstable above 4MHz",
+        "Multiple SPI devices share the three bus wires with one CS each, and only one CS may be low at a time"
+      ]
+    }
+  ]
+}
