@@ -4,7 +4,6 @@ import { Login } from './components/Login'
 import { initContent, byPath, hardware, journal, modules, prompts, type Doc, type Mission } from './content'
 import { Markdown } from './Markdown'
 import { href, useHashRoute } from './router'
-import { StatusBar } from './components/StatusBar'
 import { Boot } from './components/Boot'
 import { Canvas, CANVAS_META, DEFAULT_CODE } from './canvases'
 import { Scene } from './components/Scene'
@@ -12,6 +11,9 @@ import { Workshop } from './workshop/Workshop'
 import { Knowledge } from './components/Knowledge'
 import { Projects } from './components/Projects'
 import { Admin } from './components/Admin'
+import { Icon } from './components/Icon'
+import { ProfileCard } from './components/Profile'
+import { listSessions } from './workshop/agent'
 import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang } from './i18n'
 
@@ -19,20 +21,19 @@ import { getLang, setLang, t, useLang, type Lang } from './i18n'
 type Mode = 'build' | 'learn'
 const MODE_KEY = 'vb:mode'
 const getMode = (): Mode | null => { try { const v = localStorage.getItem(MODE_KEY); return v === 'build' || v === 'learn' ? v : null } catch { return null } }
-const NAV: Record<Mode, { path: string; key: string; label: string; hint: string }[]> = {
+const NAV: Record<Mode, { path: string; icon: string; label: string }[]> = {
   build: [
-    { path: '/make', key: '01', label: 'nav.make', hint: 'BUILD' },
-    { path: '/projects', key: '02', label: 'nav.projects', hint: 'PROJECTS' },
-    { path: '/hardware', key: '03', label: 'nav.hardware', hint: 'HW' },
-    { path: '/kb', key: '04', label: 'nav.kb', hint: 'KB' },
+    { path: '/projects', icon: 'folder', label: 'nav.projects' },
+    { path: '/hardware', icon: 'cpu', label: 'nav.hardware' },
+    { path: '/kb', icon: 'library', label: 'nav.kb' },
   ],
   learn: [
-    { path: '/path', key: '01', label: 'nav.path', hint: 'PATH' },
-    { path: '/lab', key: '02', label: 'nav.lab', hint: 'LAB' },
-    { path: '/kb', key: '03', label: 'nav.kb', hint: 'KB' },
-    { path: '/journal', key: '04', label: 'nav.journal', hint: 'LOG' },
-    { path: '/prompts', key: '05', label: 'nav.prompts', hint: 'PROMPTS' },
-    { path: '/about', key: '06', label: 'nav.about', hint: 'ABOUT' },
+    { path: '/path', icon: 'book', label: 'nav.path' },
+    { path: '/lab', icon: 'lab', label: 'nav.lab' },
+    { path: '/kb', icon: 'library', label: 'nav.kb' },
+    { path: '/journal', icon: 'journal', label: 'nav.journal' },
+    { path: '/prompts', icon: 'chat', label: 'nav.prompts' },
+    { path: '/about', icon: 'info', label: 'nav.about' },
   ],
 }
 const STATUS_LABEL: Record<Mission['status'], string> = { todo: 'TODO', doing: 'DOING', done: 'DONE' }
@@ -58,52 +59,72 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const [mode, setModeState] = useState<Mode | null>(getMode)
   const setMode = (m: Mode) => { try { localStorage.setItem(MODE_KEY, m) } catch { /* */ } setModeState(m) }
   const [booted, setBooted] = useState(() => { try { return sessionStorage.getItem('booted') === '1' } catch { return true } })
-  const all = modules.flatMap((m) => m.missions)
-  const done = all.filter((m) => m.status === 'done').length
+  const inWorkspace = route.startsWith('/make')
+  // 侧栏：手动开合记住；进工作区默认收起
+  const [manual, setManual] = useState<boolean | null>(null)
+  const collapsed = manual ?? inWorkspace
+  useEffect(() => { setManual(null) }, [inWorkspace])
   if (!booted) return <Boot onDone={() => { try { sessionStorage.setItem('booted', '1') } catch { /* */ } setBooted(true) }} />
-  // 路由推断模式：直接打开 /make 就是开发模式
-  const routeMode: Mode | null = route.startsWith('/make') || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
+  const routeMode: Mode | null = inWorkspace || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
   const m: Mode | null = routeMode ?? mode
-  if (route === '/' ) return <ModePicker onPick={(x) => { setMode(x); location.hash = x === 'build' ? '/make' : '/path' }} />
-  if (!m) return <ModePicker onPick={(x) => { setMode(x); location.hash = x === 'build' ? '/make' : '/path' }} />
+  const pick = (x: Mode) => { setMode(x); location.hash = x === 'build' ? '/projects' : '/path' }
+  if (route === '/' || !m) return <ModePicker onPick={pick} />
   if (routeMode && routeMode !== mode) setMode(routeMode)
   const isBuild = m === 'build'
   return (
     <div className="shell">
       <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
-      <StatusBar done={done} total={all.length} />
-      <div className={'layout' + (isBuild && route.startsWith('/make') ? ' wide' : '')}>
-        <aside className="sidebar">
-          <a className="brand" href={href('/')}>
-            <span className="brand-led" />
-            <span className="brand-name">vibedding<em>_</em></span>
-            <small>{t('tagline')}</small>
-          </a>
-          <div className="modeswitch">
-            <a href={href('/make')} className={isBuild ? 'on' : ''} onClick={() => setMode('build')}>⚡ {t('mode.build')}</a>
-            <a href={href('/path')} className={!isBuild ? 'on' : ''} onClick={() => setMode('learn')}>📖 {t('mode.learn')}</a>
+      <div className={'layout' + (inWorkspace ? ' wide' : '') + (collapsed ? ' collapsed' : '')}>
+        <aside className={'sidebar' + (collapsed ? ' rail' : '')}>
+          <div className="sidebar-top">
+            <a className="brand" href={href('/')} title="Vibedding">
+              <span className="brand-led" />
+              {!collapsed && <><span className="brand-name">vibedding<em>_</em></span><small>{t('tagline')}</small></>}
+              {collapsed && <span className="brand-name mini">v<em>_</em></span>}
+            </a>
+            <button className="rail-toggle" onClick={() => setManual(!collapsed)} title={collapsed ? t('ws.expand') : t('ws.collapse')}><Icon name={collapsed ? 'expand' : 'collapse'} /></button>
           </div>
+          <div className="modeswitch">
+            <a href={href('/projects')} className={isBuild ? 'on' : ''} onClick={() => setMode('build')} title={t('mode.build')}><Icon name="bolt" />{!collapsed && t('mode.build')}</a>
+            <a href={href('/path')} className={!isBuild ? 'on' : ''} onClick={() => setMode('learn')} title={t('mode.learn')}><Icon name="book" />{!collapsed && t('mode.learn')}</a>
+          </div>
+          {isBuild && <a className="chip primary newbtn" href={href('/make?p=' + 'p_' + Date.now().toString(36))} title={t('proj.new')}><Icon name="plus" />{!collapsed && t('proj.new')}</a>}
           <nav>
             {NAV[m].map((n) => (
-              <a key={n.path} href={href(n.path)} className={isActive(route, n.path) ? 'active' : ''}>
-                <span className="key">{n.key}</span>{t(n.label)}<span className="hint">{n.hint}</span>
+              <a key={n.path} href={href(n.path)} className={isActive(route, n.path) ? 'active' : ''} title={t(n.label)}>
+                <Icon name={n.icon} />{!collapsed && <span>{t(n.label)}</span>}
               </a>
             ))}
-            {isAdmin && <a href={href('/admin')} className={route.startsWith('/admin') ? 'active' : ''}><span className="key">⚙</span>{t('nav.admin')}<span className="hint">ADMIN</span></a>}
+            {isAdmin && <a href={href('/admin')} className={route.startsWith('/admin') ? 'active' : ''} title={t('nav.admin')}><Icon name="settings" />{!collapsed && <span>{t('nav.admin')}</span>}</a>}
           </nav>
-          {!isBuild && (
-            <div className="memmap">
-              <div className="memmap-label"><span>{t('progress').toUpperCase()}</span><span>{done}/{all.length}</span></div>
-              <div className="memmap-cells">{all.map((x) => <i key={x.path} className={x.status} title={x.fm.title} />)}</div>
-            </div>
-          )}
-          <div className="sidebar-foot">
-            <span className="langswitch"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button></span>
-            {email ? <span className="sidebar-user">{email} <button className="linkbtn" onClick={() => signOut()}>{t('logout')}</button></span> : <span>local · no cloud</span>}
+          {isBuild && !collapsed && <History route={route} />}
+          <div className="sidebar-bottom">
+            <ProfileCard email={email} collapsed={collapsed} />
+            {!collapsed && (
+              <div className="sidebar-foot">
+                <span className="langswitch"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button></span>
+                {email && <button className="linkbtn" onClick={() => signOut()} title={t('logout')}><Icon name="logout" size={14} /> {t('logout')}</button>}
+              </div>
+            )}
+            {collapsed && email && <button className="linkbtn rail-out" onClick={() => signOut()} title={t('logout')}><Icon name="logout" size={16} /></button>}
           </div>
         </aside>
         <main className="content"><Page route={route} /></main>
       </div>
+    </div>
+  )
+}
+
+// 侧栏里的项目历史（像对话历史）
+function History({ route }: { route: string }) {
+  const [list, setList] = useState(listSessions)
+  useEffect(() => { const f = () => setList(listSessions()); window.addEventListener('storage', f); const id = setInterval(f, 2000); return () => { window.removeEventListener('storage', f); clearInterval(id) } }, [])
+  if (!list.length) return null
+  const cur = route.match(/[?&]p=([^&]+)/)?.[1]
+  return (
+    <div className="history">
+      <div className="history-label">{t('nav.projects').toUpperCase()}</div>
+      {list.slice(0, 12).map((s) => <a key={s.id} href={href('/make?p=' + s.id)} className={cur === s.id ? 'on' : ''} title={s.title}><Icon name="chat" size={13} /><span>{s.title || t('ws.newproject')}</span></a>)}
     </div>
   )
 }
@@ -120,11 +141,11 @@ function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
         <div className="picker-cards">
           <button className="picker-card" onClick={() => onPick('build')}>
             <Scene name="hero_home" className="picker-art" />
-            <div className="picker-text"><b>⚡ {t('mode.build')}</b><p>{t('mode.build.desc')}</p></div>
+            <div className="picker-text"><b><Icon name="bolt" size={20} /> {t('mode.build')}</b><p>{t('mode.build.desc')}</p></div>
           </button>
           <button className="picker-card" onClick={() => onPick('learn')}>
             <Scene name="mod1_blink" className="picker-art" />
-            <div className="picker-text"><b>📖 {t('mode.learn')}</b><p>{t('mode.learn.desc')}</p></div>
+            <div className="picker-text"><b><Icon name="book" size={20} /> {t('mode.learn')}</b><p>{t('mode.learn.desc')}</p></div>
           </button>
         </div>
         <div className="langswitch big"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button></div>
@@ -141,7 +162,7 @@ function isActive(route: string, path: string) {
 
 function Page({ route }: { route: string }) {
   if (route === '/path') return <Curriculum />
-  if (route.startsWith('/make')) return <Workshop />
+  if (route === '/make' || route.startsWith('/make?')) return <Workshop key={route} />
   if (route === '/projects') return <Projects />
   if (route === '/admin') return <Admin />
   if (route === '/lab') return <Lab />
@@ -163,7 +184,7 @@ function Curriculum() {
         <p className="mission">{t('path.mission')}</p>
         <p>{t('path.sub')}</p>
         <div className="chips hero-cta">
-          <a className="chip primary" href={href('/make?q=' + encodeURIComponent(t('ws.suggest.1')))}>{t('path.cta.play')}</a>
+          <a className="chip primary" href={href('/make?p=p_' + Date.now().toString(36) + '&q=' + encodeURIComponent(t('ws.suggest.1')))}><Icon name="play" size={14} /> {t('path.cta.play')}</a>
           <a className="chip" href={href('/kb')}>{t('path.cta.kb')}</a>
           <a className="chip" href={href('/doc/curriculum/00-setup/00-terminal.md')}>{t('path.cta.start')}</a>
         </div>
@@ -190,7 +211,7 @@ function Curriculum() {
                 <h3>{ms.fm.title ?? ms.slug}</h3>
                 {ms.fm.goal && <p>{ms.fm.goal}</p>}
                 <div className="card-foot">
-                  {ms.fm.hardware && <span className="meta">⌁ {ms.fm.hardware}</span>}
+                  {ms.fm.hardware && <span className="meta"><Icon name="cpu" size={12} /> {ms.fm.hardware}</span>}
                   {/```canvas/.test(ms.body) && <span className="meta tag-canvas">{t('path.hasLab')}</span>}
                 </div>
               </a>
@@ -283,16 +304,16 @@ function DocPage({ path }: { path: string }) {
         <div className="eyebrow">// {doc.path}</div>
         <h1>{doc.fm.status && <span className={'badge ' + doc.fm.status}><i />{STATUS_LABEL[doc.fm.status as Mission['status']] ?? doc.fm.status}</span>}{doc.fm.title ?? doc.slug}</h1>
         <div className="meta-row">
-          {doc.fm.goal && <span>🎯 {doc.fm.goal}</span>}
-          {doc.fm.hardware && <span>⌁ {doc.fm.hardware}</span>}
-          {doc.fm.time && <span>⏱ {doc.fm.time}</span>}
-          {doc.fm.date && <span>📅 {doc.fm.date}</span>}
+          {doc.fm.goal && <span><Icon name="check" size={13} /> {doc.fm.goal}</span>}
+          {doc.fm.hardware && <span><Icon name="cpu" size={13} /> {doc.fm.hardware}</span>}
+          {doc.fm.time && <span>{doc.fm.time}</span>}
+          {doc.fm.date && <span>{doc.fm.date}</span>}
         </div>
       </header>
       <Markdown text={doc.body} />
       {doc.kind === 'curriculum' && doc.slug !== 'index' && (
         <div className="doc-foot">
-          <p className="muted"><a className="chip ai" href={href('/make?q=' + encodeURIComponent(doc.fm.goal ?? doc.fm.title ?? ''))}>{t('doc.ai')}{doc.fm.goal ?? doc.fm.title}</a></p>
+          <p className="muted"><a className="chip ai" href={href('/make?p=p_' + Date.now().toString(36) + '&q=' + encodeURIComponent(doc.fm.goal ?? doc.fm.title ?? ''))}><Icon name="sparkle" size={14} /> {t('doc.ai')}{doc.fm.goal ?? doc.fm.title}</a></p>
           <p className="muted">{t('doc.done')}</p>
         </div>
       )}

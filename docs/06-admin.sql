@@ -37,3 +37,15 @@ create policy "own usage" on usage_log for select to authenticated using (user_i
 insert into profiles (user_id, email, role)
 select id, email, 'admin' from auth.users where email = 'haoz214@gmail.com'
 on conflict (user_id) do update set role = 'admin', email = excluded.email;
+
+-- 名片：头像图案、一句话介绍；用户可改自己的
+alter table profiles add column if not exists avatar text default 'bolt';
+alter table profiles add column if not exists bio text default '';
+drop policy if exists "own profile update" on profiles;
+create policy "own profile update" on profiles for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- 新用户登录时自动建档案（没有档案就插一条）
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer as $$
+begin insert into public.profiles (user_id, email) values (new.id, new.email) on conflict (user_id) do nothing; return new; end $$;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+insert into profiles (user_id, email) select id, email from auth.users on conflict (user_id) do nothing;

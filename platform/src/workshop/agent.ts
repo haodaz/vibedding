@@ -23,6 +23,14 @@ export type Item =
 
 type ApiMsg = { role: 'user' | 'assistant'; content: unknown }
 
+// 会话索引：一个项目一个会话。id 是本地生成的草稿号；AI 调 save_project 后带上 slug。
+export interface SessionMeta { id: string; title: string; slug?: string; updated: number; created: number; steps: number }
+const INDEX_KEY = 'ws:sessions'
+export function listSessions(): SessionMeta[] { try { return JSON.parse(localStorage.getItem(INDEX_KEY) ?? '[]') } catch { return [] } }
+function saveIndex(list: SessionMeta[]) { try { localStorage.setItem(INDEX_KEY, JSON.stringify(list)) } catch { /* */ } }
+export function newSessionId() { return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
+export function deleteSession(id: string) { saveIndex(listSessions().filter((s) => s.id !== id)); try { localStorage.removeItem('ws:session:' + id) } catch { /* */ } }
+
 export class Agent {
   messages: ApiMsg[] = []
   items: Item[] = []
@@ -31,19 +39,29 @@ export class Agent {
   model = ''
   modeInfo: ModeInfo | null = null
   private pending: { id: string; resolve: (s: string) => void } | null = null
-  constructor(private onChange: () => void, private onLive: (l: SimLive) => void) {
+  constructor(public readonly id: string, private onChange: () => void, private onLive: (l: SimLive) => void) {
     try {
-      const saved = JSON.parse(localStorage.getItem('ws:session') ?? 'null')
+      const saved = JSON.parse(localStorage.getItem('ws:session:' + id) ?? 'null')
       if (saved) { this.messages = saved.messages ?? []; this.items = (saved.items ?? []).map((i: Item) => (i.kind === 'tool' ? { ...i, running: false } : i)) }
-      // 上次没回答的卡片：这轮不能继续了，标记一下
-      for (const i of this.items) if ((i.kind === 'human' || i.kind === 'bom') && i.answer === undefined) i.answer = '（上次没回答，会话已重置到这里）'
+      for (const i of this.items) if ((i.kind === 'human' || i.kind === 'bom') && i.answer === undefined) i.answer = '…'
     } catch { /* ignore */ }
   }
 
-  reset() { this.messages = []; this.items = []; try { localStorage.removeItem('ws:session') } catch { /* */ } this.emit() }
+  get title(): string { const first = this.items.find((i) => i.kind === 'user') as Extract<Item, { kind: 'user' }> | undefined; const saved = [...this.items].reverse().find((i) => i.kind === 'tool' && i.name === 'save_project') as Extract<Item, { kind: 'tool' }> | undefined; return String(saved?.input.title ?? first?.text ?? '').slice(0, 60) }
+  get slug(): string | undefined { const saved = [...this.items].reverse().find((i) => i.kind === 'tool' && i.name === 'save_project') as Extract<Item, { kind: 'tool' }> | undefined; return saved ? String(saved.input.slug) : undefined }
+
+  reset() { this.messages = []; this.items = []; this.emit() }
 
   private emit() {
-    try { localStorage.setItem('ws:session', JSON.stringify({ messages: this.messages, items: this.items })) } catch { /* ignore */ }
+    try {
+      localStorage.setItem('ws:session:' + this.id, JSON.stringify({ messages: this.messages, items: this.items }))
+      if (this.items.length) {
+        const list = listSessions().filter((s) => s.id !== this.id)
+        const prev = listSessions().find((s) => s.id === this.id)
+        list.unshift({ id: this.id, title: this.title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length })
+        saveIndex(list)
+      }
+    } catch { /* ignore */ }
     this.onChange()
   }
 

@@ -14,7 +14,7 @@ const KEY = env.OPENAI_API_KEY; if (!KEY) { console.error('缺 OPENAI_API_KEY');
 const MODEL = process.env.MASCOT_MODEL || 'gpt-image-1'
 const BASE = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
 
-const CHARACTER = `Pixar/Disney style 3D cartoon character render, high quality, soft studio lighting, subsurface skin. A charming cute young woman, about 18-19, shoulder-length wavy blonde hair, big bright blue eyes, a pair of vintage brass-rimmed clear science goggles pushed up on her forehead, wearing a navy blue work jacket over a white t-shirt with a small screwdriver in the chest pocket. Half-body portrait, character fully in frame, transparent background, no text, no logo.`
+const CHARACTER = `Pixar/Disney style 3D cartoon character, sticker-style cutout ISOLATED on a fully transparent background: no backdrop, no wall, no floor, no environment, no shadow on the ground, nothing behind the character at all. High quality render, subsurface skin. A charming cute young woman, about 18-19, shoulder-length wavy blonde hair, big bright blue eyes, a pair of vintage brass-rimmed clear science goggles pushed up on her forehead, wearing a navy blue work jacket over a white t-shirt with a small screwdriver in the chest pocket. Half-body, character fully in frame, no text, no logo.`
 const POSES = {
   idle: 'Relaxed standing pose, hands at her sides, head slightly tilted, warm confident smile, facing slightly to the side.',
   working: 'Focused, looking down, goggles pulled over her eyes, holding a small blue circuit board in one hand and tweezers in the other, wiring it, concentrated expression.',
@@ -50,7 +50,7 @@ if (want.includes('idle') || !(await fs.stat(idlePath).catch(() => null))) {
 for (const k of want.filter((k) => k !== 'idle')) {
   try {
     console.log('生成', k, '…')
-    const png = await edit(ref, `Same character, same outfit, same Pixar 3D style as the reference image, transparent background, half-body, no text. New pose: ${POSES[k]}`)
+    const png = await edit(ref, `Same character, same face, same outfit, same Pixar 3D style as the reference image. Sticker-style cutout isolated on a fully transparent background: no backdrop, no environment, nothing behind her. Half-body, no text. New pose: ${POSES[k]}`)
     await fs.writeFile(path.join(OUT, `mentor_${k}.png`), png); console.log('✔ mentor_' + k)
   } catch (e) { console.error('✘', k, e.message) }
 }

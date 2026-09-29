@@ -249,3 +249,12 @@ markdown 里一个 ` ```canvas ` 代码块，`key: value` 写属性，`---` 之�
 4. **开发模式要有足够的预览空间。** 参考 Replit：左边对话、右边一大块预览（虚拟板子、接线图、串口、以后是原理图和 PCB）。当前右栏只有 340px，要改成可拖拽的分栏，预览至少占一半。
 
 优先级建议：3（半天）→ 4（一天）→ 2（两天，主要是信息架构）→ 1（内容量最大，分批做）。
+
+## 14. 网页版直接烧硬件（2026-09-29 提出，方案）
+浏览器不是只能"看"。Chrome 系的 Web Serial / WebUSB 可以直接和板子说话，所以线上版也能烧真板子，分两段：
+1. **云编译**：Vercel 函数跑不了 PlatformIO，需要一个小容器服务（Fly.io / Railway，一个装了 PlatformIO 的 Docker），接口 `POST /compile {files} → firmware.bin`。编译一次十几秒，缓存框架后几秒。
+2. **浏览器烧录**：
+   - ESP32：`esptool-js`（Espressif 官方 JS 库，Web Serial），成熟。
+   - STM32 走串口引导程序：BOOT0 跳线拨到 1，用 CH340 接 PA9/PA10，实现 STM32 的 UART bootloader 协议（AN3155，~200 行 JS），Web Serial 直接烧。
+   - STM32 走 ST-Link：WebUSB 版 st-link（开源项目 webstlink）可以做，但 ST-Link 克隆固件差异大，作备选。
+指令卡多一种 `flash`：浏览器弹出串口选择框，用户选设备，进度条，烧完自动复位。工具 `web_flash` 在浏览器执行，替代本地模式的 `pio_upload`。

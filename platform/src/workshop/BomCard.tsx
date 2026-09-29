@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { PartImg } from '../canvases/parts/PartImg'
 import { partByName } from '../canvases/parts/catalog'
 import { t, getLang } from '../i18n'
+import { Icon } from '../components/Icon'
 
 export interface BomItem { id?: string; name: string; qty: number; role: string; why?: string; price: string; buy: string; have?: boolean; catalog?: boolean; optional?: boolean }
 export interface BomAsk { title: string; items: BomItem[]; note?: string }
@@ -24,7 +25,7 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
   }
   return (
     <div className={'bom' + (done ? ' done' : '')}>
-      <div className="bom-head"><span className="hcard-kind">🛒 {t('bom.title')}</span><b>{ask.title}</b></div>
+      <div className="bom-head"><span className="hcard-kind"><Icon name="cart" size={13} /> {t('bom.title')}</span><b>{ask.title}</b></div>
       <div className="bom-list">
         {ask.items.map((it, i) => {
           const sprite = it.id && partByName(it.id) ? it.id : null
@@ -45,10 +46,10 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
           )
         })}
       </div>
-      {ask.note && <p className="hcard-expect">⚠ {ask.note}</p>}
+      {ask.note && <p className="hcard-expect"><Icon name="alert" size={14} /> {ask.note}</p>}
       <div className="bom-foot">
         <div className="bom-total">{t('bom.tobuy')} <b>{toBuy.length}</b> {t('bom.items')} · {t('bom.budget')} <b>{getLang() === 'en' ? '$' : '¥'}{total.toFixed(0)}</b><span className="muted small">{t('bom.mid')}</span></div>
-        {done ? <div className="hcard-answer">✔ {answer}</div> : (
+        {done ? <div className="hcard-answer"><Icon name="check" size={14} /> {answer}</div> : (
           <div className="chips">
             <button className="chip" onClick={async () => { await navigator.clipboard.writeText(buyText); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? t('card.copied') : t('bom.copy')}</button>
             <button className="chip primary" onClick={confirm}>{t('bom.confirm')}</button>

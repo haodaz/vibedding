@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Markdown } from '../Markdown'
 import { Scene } from './Scene'
 import { detectMode } from '../workshop/mode'
 import { store } from '../workshop/storage'
 import { t } from '../i18n'
 import { href } from '../router'
+import { listSessions, newSessionId, deleteSession, type SessionMeta } from '../workshop/agent'
+import { NpcImage } from './Scene'
 
 // 项目页：开发模式的项目管理。本地模式读 content/projects/，其他模式读用户存储。
 type Proj = { slug: string; title: string; brief?: string; bom?: string; plan?: string }
@@ -29,42 +30,43 @@ async function loadProjects(): Promise<Proj[]> {
 
 export function Projects() {
   const [list, setList] = useState<Proj[] | null>(null)
-  const [open, setOpen] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<SessionMeta[]>(listSessions)
   useEffect(() => { loadProjects().then(setList).catch(() => setList([])) }, [])
-  const cur = list?.find((p) => p.slug === open) ?? null
   const progress = (p: Proj) => { const plan = p.plan ?? ''; const d = (plan.match(/- \[x\]/gi) ?? []).length, n = (plan.match(/- \[[ x]\]/gi) ?? []).length; return n ? `${d}/${n}` : '' }
+  const bySlug = (slug?: string) => (slug ? list?.find((p) => p.slug === slug) : undefined)
+  const orphan = (list ?? []).filter((p) => !sessions.some((s) => s.slug === p.slug))
+  const ago = (ts: number) => { const d = Math.floor((Date.now() - ts) / 864e5); return d === 0 ? t('proj.today') : `${d} ${t('proj.daysago')}` }
+  const remove = (id: string) => { deleteSession(id); setSessions(listSessions()) }
   return (
     <>
-      <Scene name="mod6_capstone" className="hero small">
-        <div className="eyebrow">// PROJECTS</div>
-        <h1>{t('nav.projects')}</h1>
-        <p>{t('mode.build.desc')}</p>
-      </Scene>
-      {list === null && <div className="empty">…</div>}
-      {list && list.length === 0 && <div className="empty">{t('ws.projects.none')} <a className="chip ai" href={href('/make')}>{t('nav.make')} →</a></div>}
-      {list && list.length > 0 && (
-        <div className="proj-layout">
-          <div className="proj-list">
-            {list.map((p) => (
-              <button key={p.slug} className={'kb-item proj-item' + (open === p.slug ? ' on' : '')} onClick={() => setOpen(p.slug)}>
-                <b>{p.title}</b><span className="muted small">{p.slug}</span><span className="kb-meta">{progress(p)}</span>
-              </button>
-            ))}
-          </div>
-          <div className="proj-detail">
-            {!cur && <div className="empty">←</div>}
-            {cur && (
-              <>
-                <h2>{cur.title}</h2>
-                <div className="chips"><a className="chip ai" href={href('/make?q=' + encodeURIComponent((t('ws.suggest.5')) + ': ' + cur.title))}>✦ {t('nav.make')}</a></div>
-                {cur.plan && <><h4 className="proj-h">PLAN</h4><Markdown text={cur.plan} /></>}
-                {cur.bom && <><h4 className="proj-h">BOM</h4><Markdown text={cur.bom} /></>}
-                {cur.brief && <><h4 className="proj-h">BRIEF</h4><Markdown text={cur.brief} /></>}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <div className="proj-head">
+        <div><div className="eyebrow">// PROJECTS</div><h1>{t('nav.projects')}</h1><p className="muted">{t('mode.build.desc')}</p></div>
+        <a className="chip primary big" href={href('/make?p=' + newSessionId())}>＋ {t('proj.new')}</a>
+      </div>
+      <div className="proj-cards">
+        {sessions.map((s) => {
+          const p = bySlug(s.slug)
+          return (
+            <a key={s.id} className="proj-card" href={href('/make?p=' + s.id)}>
+              <div className="proj-card-top"><span className="badge doing"><i />{p ? progress(p) || 'PROJECT' : 'DRAFT'}</span><span className="meta">{ago(s.updated)}</span></div>
+              <h3>{p?.title ?? s.title ?? t('ws.newproject')}</h3>
+              {p?.brief && <p>{p.brief.replace(/[#*>`]/g, '').slice(0, 90)}…</p>}
+              {!p && <p className="muted">{s.steps} {t('proj.steps')}</p>}
+              <button className="proj-del" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (window.confirm(t('proj.delete') + '?')) remove(s.id) }}>×</button>
+            </a>
+          )
+        })}
+        {orphan.map((p) => (
+          <a key={p.slug} className="proj-card" href={href('/make?p=' + newSessionId() + '&q=' + encodeURIComponent(t('ws.suggest.5') + ': ' + p.title))}>
+            <div className="proj-card-top"><span className="badge"><i />{progress(p) || 'SAVED'}</span><span className="meta">{p.slug}</span></div>
+            <h3>{p.title}</h3>
+            {p.brief && <p>{p.brief.replace(/[#*>`]/g, '').slice(0, 90)}…</p>}
+          </a>
+        ))}
+        {sessions.length === 0 && orphan.length === 0 && (
+          <div className="proj-empty"><div className="ws-empty-npc"><NpcImage name="mentor_idle" /></div><div><p>{t('proj.empty')}</p><a className="chip primary" href={href('/make?p=' + newSessionId() + '&q=' + encodeURIComponent(t('ws.suggest.1')))}>{t('path.cta.play')}</a></div></div>
+        )}
+      </div>
     </>
   )
 }

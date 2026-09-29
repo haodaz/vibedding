@@ -4,6 +4,7 @@ import { PartImg } from '../canvases/parts/PartImg'
 import { partByName } from '../canvases/parts/catalog'
 import { Wiring, parseWires } from '../canvases/parts/Wiring'
 import { t } from '../i18n'
+import { Icon } from '../components/Icon'
 
 const KIND_LABEL = () => ({ wire: t('card.wire'), press: t('card.press'), paste: t('card.paste'), observe: t('card.observe') })
 
@@ -19,7 +20,7 @@ export function HumanCard({ ask, answer, onAnswer }: { ask: HumanAsk; answer?: s
   return (
     <div className={'hcard ' + ask.kind + (done ? ' done' : '')}>
       <div className="hcard-head">
-        <span className="hcard-kind">✋ {t('card.need')} · {KIND_LABEL()[ask.kind] ?? ask.kind}</span>
+        <span className="hcard-kind"><Icon name="hand" size={13} /> {t('card.need')} · {KIND_LABEL()[ask.kind] ?? ask.kind}</span>
         <b>{ask.title}</b>
       </div>
       {ask.why && <p className="hcard-why">{ask.why}</p>}
@@ -34,10 +35,10 @@ export function HumanCard({ ask, answer, onAnswer }: { ask: HumanAsk; answer?: s
           <button className="chip" onClick={async () => { await navigator.clipboard.writeText(ask.paste!); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? t('card.copied') : t('card.copy')}</button>
         </div>
       )}
-      {ask.expect && <p className="hcard-expect">👀 {t('card.expect')}{ask.expect}</p>}
-      {ask.safety && <p className="hcard-safety">⚠ {t('card.safety')}: {ask.safety}</p>}
+      {ask.expect && <p className="hcard-expect"><Icon name="eye" size={14} /> {t('card.expect')}{ask.expect}</p>}
+      {ask.safety && <p className="hcard-safety"><Icon name="alert" size={14} /> {t('card.safety')}: {ask.safety}</p>}
       {done ? (
-        <div className="hcard-answer">✔ {t('card.reply')}{answer}</div>
+        <div className="hcard-answer"><Icon name="check" size={14} /> {t('card.reply')}{answer}</div>
       ) : (
         <div className="hcard-actions">
           {ask.kind === 'observe' && (ask.options ?? ['是', '否']).map((o) => <button key={o} className="chip primary" onClick={() => onAnswer(o)}>{o}</button>)}

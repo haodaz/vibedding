@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Agent, type Item, type HumanAsk } from './agent'
+import { Agent, newSessionId, type Item, type HumanAsk } from './agent'
+import { href } from '../router'
 import { HumanCard } from './HumanCard'
 import { BomCard } from './BomCard'
 import { BoardSvg, type PinState } from '../canvases/board/BoardSvg'
@@ -12,6 +13,8 @@ import { t, getLang, useLang } from '../i18n'
 import { PartImg } from '../canvases/parts/PartImg'
 import { partByName } from '../canvases/parts/catalog'
 import { Wiring, parseWires } from '../canvases/parts/Wiring'
+import { Icon } from '../components/Icon'
+import { Scene } from '../components/Scene'
 
 const TOOL_LABEL: Record<string, [string, string]> = {
   search_projects: ['查项目食谱', 'search recipes'], search_troubleshooting: ['查排障库', 'search troubleshooting'], explain_concept: ['查术语表', 'glossary'], get_snippet: ['取代码片段', 'get snippet'], list_boards: ['看板子列表', 'list boards'], read_board_profile: ['读板子档案', 'board profile'], part_detail: ['查元件档案', 'part detail'],
@@ -21,6 +24,7 @@ const TOOL_LABEL: Record<string, [string, string]> = {
 const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
 
 type Tab = 'board' | 'assembly' | 'code' | 'serial' | 'project'
+const STARTERS = [{ art: 'mod1_blink' }, { art: 'mod4_time' }, { art: 'mod6_capstone' }, { art: 'mod3_sense' }, { art: 'journal_night' }]
 
 // 形象姿态：待机 / 工作（跑工具）/ 思考（等模型）/ 庆祝（成功烧录或目标达成）/ 为难（出错）
 export function mentorPose(items: Item[], busy: boolean): string {
@@ -37,9 +41,12 @@ export function Workshop() {
   const lang = useLang()
   const [, tick] = useState(0)
   const [live, setLive] = useState<SimLive>({ pins: {}, serial: '', running: false })
+  const sessionId = (() => { const m = location.hash.match(/[?&]p=([^&]+)/); return m ? decodeURIComponent(m[1]) : newSessionId() })()
   const agent = useRef<Agent | null>(null)
-  if (!agent.current) agent.current = new Agent(() => tick((n) => n + 1), setLive)
+  if (!agent.current || agent.current.id !== sessionId) agent.current = new Agent(sessionId, () => tick((n) => n + 1), setLive)
   const a = agent.current
+  const [env, setEnv] = useState<{ pio: string | null; usb: string[]; ports: string[] } | null>(null)
+  useEffect(() => { fetch('/api/status').then((r) => r.json()).then(setEnv).catch(() => setEnv(null)) }, [])
   const [mode, setMode] = useState<ModeInfo | null>(null)
   useEffect(() => { detectMode().then(setMode) }, [])
   const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
@@ -73,21 +80,34 @@ export function Workshop() {
     setSplit(pct); try { localStorage.setItem('vb:split', String(pct)) } catch { /* */ }
   }
   const suggest = [1, 2, 3, 4, 5].map((i) => t('ws.suggest.' + i, lang))
+  const started = a.items.length > 0
+
+  if (!started) return (
+    <div className="ws-start">
+      <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{t('ws.start.title')}</h1><p className="muted">{t('ws.start.sub')}</p></div></div>
+      <div className="start-cards">
+        {STARTERS.map((c, i) => (
+          <button key={c.art} className="start-card" onClick={() => submit(suggest[i])}>
+            <Scene name={c.art} className="start-art" />
+            <div className="start-text"><b>{suggest[i]}</b><span className="muted small">{t('ws.start.tag.' + (i + 1))}</span></div>
+          </button>
+        ))}
+      </div>
+      <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('ws.placeholder')} autoFocus />
+        <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
+      </form>
+    </div>
+  )
 
   return (
     <div className="ws" style={{ gridTemplateColumns: `${split}% 6px 1fr` }} onMouseMove={onDrag} onMouseUp={() => (dragging.current = false)} onMouseLeave={() => (dragging.current = false)}>
       <div className="ws-chat">
         <div className="ws-head">
-          <div className="ws-title"><h1>{t('ws.title')}</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
+          <div className="ws-title"><a className="back" href={href('/projects')} title={t('nav.projects')}><Icon name="back" size={16} /></a><h1>{a.title || t('ws.newproject')}</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
           {mode && mode.mode !== 'local' && <p className="muted small">{t('ws.static')}</p>}
         </div>
         <div className="ws-log">
-          {a.items.length === 0 && (
-            <div className="ws-empty">
-              <div className="ws-empty-npc"><NpcImage name="mentor_idle" /></div>
-              <div><p>{t('ws.eg')}</p><div className="chips">{suggest.map((s) => <button key={s} className="chip" onClick={() => submit(s)}>{s}</button>)}</div></div>
-            </div>
-          )}
           {a.items.map((it, i) => <Row key={i} it={it} onAnswer={(id, s) => a.answerHuman(id, s)} />)}
           {a.busy && !a.items.some((i) => (i.kind === 'human' || i.kind === 'bom') && i.answer === undefined) && <div className="ws-thinking"><span className="dots" />{a.model && <em>{a.model}</em>}</div>}
           <div ref={endRef} />
@@ -103,15 +123,19 @@ export function Workshop() {
         <div className="ws-tabs">
           {(['board', 'assembly', 'code', 'serial', 'project'] as Tab[]).map((k) => (
             <button key={k} className={'chip' + (tab === k ? ' on' : '')} onClick={() => { setTab(k); setAuto(false) }}>
-              {k === 'board' ? '▣ ' : k === 'assembly' ? '🧩 ' : k === 'code' ? '⌘ ' : k === 'serial' ? '⇄ ' : '📁 '}{t('ws.' + k)}
+              <Icon name={k === 'board' ? 'board' : k === 'assembly' ? 'puzzle' : k === 'code' ? 'code' : k === 'serial' ? 'serial' : 'folder'} size={14} /> {t('ws.' + k)}
               {k === 'assembly' && latestWire && !latestWire.answer && <i className="dot" />}
             </button>
           ))}
-          <button className={'chip small' + (auto ? ' on' : '')} onClick={() => setAuto(!auto)} title="auto-follow">{auto ? '◉' : '○'}</button>
+          <button className={'chip small' + (auto ? ' on' : '')} onClick={() => setAuto(!auto)} title="auto-follow"><Icon name="eye" size={13} /></button>
         </div>
         <div className="ws-panel">
           {tab === 'board' && (
             <div className="ws-boardpane">
+              <div className="ws-envbar">
+                <span className={'st ' + (env && (env.usb.length || env.ports.length) ? 'ok' : 'off')}><i />{env && (env.usb.length || env.ports.length) ? `${t('st.board.on')} ${env.usb[0] ?? env.ports[0]}` : t('st.board.off')}</span>
+                <span className={'st ' + (env?.pio ? 'ok' : 'warn')}><i />{env?.pio ? 'PlatformIO ' + env.pio.replace(/^PlatformIO Core, version /, '') : (mode?.mode === 'local' ? t('st.pio.off') : t('st.static'))}</span>
+              </div>
               <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />
               <div className="serial-head"><span>Serial <em>115200</em></span><span className={'led ' + (live.running ? 'on' : '')} /></div>
               <pre className="serial-out ws-serial">{live.serial || t('ws.serial.idle')}</pre>
@@ -162,8 +186,8 @@ function Assembly({ ask }: { ask?: HumanAsk }) {
       {parts.length > 0 && <div className="asm-parts">{parts.map((p, i) => <div key={p} className="asm-part"><span className="asm-n">{i + 1}</span><div className="asm-img"><PartImg name={p} /></div><span>{partByName(p)?.label}</span></div>)}</div>}
       {wires.length > 0 && <Wiring title={ask.title} left={left.length ? left : [wires[0].from]} right={right.length ? right : [wires[0].to]} wires={wires} />}
       <ol className="asm-steps">{ask.steps.map((s, i) => <li key={i}><span className="asm-n">{i + 1}</span>{s}</li>)}</ol>
-      {ask.expect && <p className="hcard-expect">👀 {t('card.expect')}{ask.expect}</p>}
-      {ask.safety && <p className="hcard-safety">⚠ {t('card.safety')}: {ask.safety}</p>}
+      {ask.expect && <p className="hcard-expect"><Icon name="eye" size={14} /> {t('card.expect')}{ask.expect}</p>}
+      {ask.safety && <p className="hcard-safety"><Icon name="alert" size={14} /> {t('card.safety')}: {ask.safety}</p>}
     </div>
   )
 }
@@ -184,7 +208,7 @@ function ResetButton({ onReset }: { onReset: () => void }) {
   useEffect(() => { if (!arm) return; const x = setTimeout(() => setArm(false), 3000); return () => clearTimeout(x) }, [arm])
   return arm
     ? <button className="chip warn" onClick={() => { setArm(false); onReset() }}>{t('ws.new.confirm')}</button>
-    : <button className="chip" onClick={() => setArm(true)}>{t('ws.new')}</button>
+    : <button className="chip" onClick={() => setArm(true)} title={t('ws.new')}><Icon name="x" size={13} /> {t('ws.clearchat')}</button>
 }
 
 function Projects({ mode }: { mode: string }) {
@@ -201,7 +225,7 @@ function Projects({ mode }: { mode: string }) {
   }, [mode])
   return (
     <div className="ws-tools ws-projects">
-      <div className="canvas-head"><span className="canvas-title">📁 {t('ws.projects')}</span><span className="muted small">{mode === 'local' ? 'content/projects/' : backend === 'supabase' ? t('ws.projects.cloud') : t('ws.projects.local')}</span></div>
+      <div className="canvas-head"><span className="canvas-title"><Icon name="folder" size={13} /> {t('ws.projects')}</span><span className="muted small">{mode === 'local' ? 'content/projects/' : backend === 'supabase' ? t('ws.projects.cloud') : t('ws.projects.local')}</span></div>
       <ul>{list.length ? list.map((l) => <li key={l}>{l}</li>) : <li className="muted">{t('ws.projects.none')}</li>}</ul>
     </div>
   )
@@ -210,7 +234,7 @@ function Projects({ mode }: { mode: string }) {
 function Row({ it, onAnswer }: { it: Item; onAnswer: (id: string, s: string) => void }) {
   const [open, setOpen] = useState(false)
   if (it.kind === 'user') return <div className="ws-row user"><div className="bubble">{it.text}</div></div>
-  if (it.kind === 'assistant') return <div className="ws-row ai"><div className="ws-avatar"><NpcImage name="mentor_idle" /></div><div className="bubble"><Markdown text={it.text} /></div></div>
+  if (it.kind === 'assistant') return <div className="ws-row ai"><div className="ai-text"><Markdown text={it.text} /></div></div>
   if (it.kind === 'system') return <div className="ws-row sys">{it.text}</div>
   if (it.kind === 'human') return <div className="ws-row cardrow"><HumanCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
   if (it.kind === 'bom') return <div className="ws-row cardrow"><BomCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
