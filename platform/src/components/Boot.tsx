@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 const LINES = [
-  '[    0.000] embeded v0.2 booting…',
+  '[    0.000] vibedding booting…',
   '[    0.012] mounting content/ …… 33 docs',
   '[    0.031] loading canvases: board pinout pullup led-circuit resistor-color',
   '[    0.058] probing /dev/cu.* …',
