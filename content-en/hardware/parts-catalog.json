@@ -585,7 +585,7 @@
     "20cm is plenty; overly long wires get flaky on I2C/SPI"
    ],
    "note": "One strip of each of the three types, red and black clearly marked",
-   "identify": "How to identify: kit jumper wires come as a 40-wire rainbow ribbon stuck together. Peel off as many single wires as you need from the edge (normal, it does not damage them). Ends: a black plastic sleeve is a female end (goes over a pin); a bare metal pin is a male end (goes into a hole)."
+   "identify": "How to identify: kit jumper wires come as a 40-wire rainbow ribbon stuck together. Peel off as many single wires as you need from the edge (normal, it does not damage them). Ends: a black plastic sleeve is a female end (goes over a pin); a bare metal pin is a male end (goes into a hole). The female sleeve shows a tiny metal dot on one side: that is the latch of the crimp inside. There is no right way up; slide it fully onto the pin either way."
   },
   {
    "id": "header_pins",
