@@ -15,7 +15,7 @@ import { Icon } from './components/Icon'
 import { ProfileCard } from './components/Profile'
 import { listSessions } from './workshop/agent'
 import { getToken } from './auth'
-import { getLang, setLang, t, useLang, type Lang } from './i18n'
+import { getLang, setLang, t, useLang, type Lang, useTheme, setTheme } from './i18n'
 
 // 两种模式：开发（直接做 + 项目 + 硬件 + 知识库）/ 学习（路径 + 实验台 + 知识库 + 日志 + 提示词）
 type Mode = 'build' | 'learn'
@@ -54,6 +54,7 @@ export default function App() {
 
 function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const route = useHashRoute()
+  const theme = useTheme()
   const [isAdmin, setIsAdmin] = useState(false)
   useEffect(() => { (async () => { try { const tk = await getToken(); const r = await fetch('/api/admin/me', { headers: tk ? { authorization: 'Bearer ' + tk } : {} }); const j = await r.json(); setIsAdmin(j.role === 'admin') } catch { /* */ } })() }, [email])
   const [mode, setModeState] = useState<Mode | null>(getMode)
@@ -103,7 +104,8 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
             {!collapsed && (
               <div className="sidebar-foot">
                 <span className="langswitch"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button></span>
-                {email && <button className="linkbtn" onClick={() => signOut()} title={t('logout')}><Icon name="logout" size={14} /> {t('logout')}</button>}
+                <span className="themeswitch"><button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title="Light"><Icon name="sun" size={13} /></button><button className={theme === 'auto' ? 'on' : ''} onClick={() => setTheme('auto')} title="Auto"><Icon name="auto" size={13} /></button><button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title="Dark"><Icon name="moon" size={13} /></button></span>
+                {email && <button className="linkbtn" onClick={() => signOut()} title={t('logout')}><Icon name="logout" size={14} /></button>}
               </div>
             )}
             {collapsed && email && <button className="linkbtn rail-out" onClick={() => signOut()} title={t('logout')}><Icon name="logout" size={16} /></button>}
@@ -148,7 +150,10 @@ function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
             <div className="picker-text"><b><Icon name="book" size={20} /> {t('mode.learn')}</b><p>{t('mode.learn.desc')}</p></div>
           </button>
         </div>
-        <div className="langswitch big"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button></div>
+        <div className="chips" style={{ justifyContent: 'center', marginTop: 26 }}>
+          <span className="langswitch big" style={{ margin: 0 }}><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button></span>
+          <span className="themeswitch"><button onClick={() => setTheme('light')} title="Light"><Icon name="sun" size={14} /></button><button onClick={() => setTheme('auto')} title="Auto"><Icon name="auto" size={14} /></button><button onClick={() => setTheme('dark')} title="Dark"><Icon name="moon" size={14} /></button></span>
+        </div>
       </div>
     </div>
   )

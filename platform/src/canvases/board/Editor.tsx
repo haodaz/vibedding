@@ -17,7 +17,7 @@ export function Editor({ value, onChange, height = 320 }: { value: string; onCha
         extensions: [
           lineNumbers(), highlightActiveLine(), history(),
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-          cpp(), oneDark, syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          cpp(), ...(document.documentElement.dataset.theme === 'light' ? [] : [oneDark]), syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           EditorView.updateListener.of((u) => { if (u.docChanged) onChange(u.state.doc.toString()) }),
           EditorView.theme({ '&': { height: height + 'px', fontSize: '13px' }, '.cm-scroller': { fontFamily: 'var(--mono)' } }),
         ],

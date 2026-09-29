@@ -112,3 +112,17 @@ export function t(key: string, lang: Lang = getLang()): string {
   const e = D[key]; if (!e) return key
   return lang === 'zh' ? e[0] : e[1]
 }
+
+// 主题：auto / light / dark
+export type Theme = 'auto' | 'light' | 'dark'
+export function getTheme(): Theme { try { const v = localStorage.getItem('vb:theme'); return v === 'light' || v === 'dark' ? v : 'auto' } catch { return 'auto' } }
+export function applyTheme(th: Theme = getTheme()) {
+  const light = th === 'light' || (th === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches)
+  document.documentElement.dataset.theme = light ? 'light' : 'dark'
+}
+export function setTheme(th: Theme) { try { localStorage.setItem('vb:theme', th) } catch { /* */ } applyTheme(th); window.dispatchEvent(new Event('vb:theme')) }
+export function useTheme(): Theme {
+  const [th, setTh] = useState<Theme>(getTheme)
+  useEffect(() => { const f = () => setTh(getTheme()); window.addEventListener('vb:theme', f); const mq = window.matchMedia('(prefers-color-scheme: light)'); const g = () => applyTheme(); mq.addEventListener('change', g); return () => { window.removeEventListener('vb:theme', f); mq.removeEventListener('change', g) } }, [])
+  return th
+}
