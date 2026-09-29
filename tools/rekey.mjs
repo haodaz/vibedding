@@ -42,10 +42,39 @@ export async function rekey(input, { hard = 40, soft = 75 } = {}) {
   return { buf: await sharp(data, { raw: { width: W, height: H, channels: C } }).png({ compressionLevel: 9 }).toBuffer(), bg, ratio: removed / (W * H) }
 }
 
+// 绿幕专用：按色相判定"绿"，从四边泛洪（能吃掉深浅不一的绿色渐变光晕），边缘去绿边
+export async function rekeyGreen(input) {
+  const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const { width: W, height: H, channels: C } = info
+  const isGreen = (o, loose) => {
+    const r = data[o], g = data[o + 1], b = data[o + 2]
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), sat = max ? (max - min) / max : 0
+    if (max < 12) return true                      // 近黑（已透明区域）
+    if (g < max) return false
+    const dom = g - Math.max(r, b)                  // 绿比另两色高多少
+    return loose ? (dom > 18 && sat > 0.18) : (dom > 30 && sat > 0.28)
+  }
+  const seen = new Uint8Array(W * H), stack = []
+  const push = (x, y) => { const i = y * W + x; if (!seen[i] && isGreen(i * C, true)) { seen[i] = 1; stack.push(i) } }
+  for (let x = 0; x < W; x++) { push(x, 0); push(x, H - 1) }
+  for (let y = 0; y < H; y++) { push(0, y); push(W - 1, y) }
+  while (stack.length) { const i = stack.pop(); const x = i % W, y = (i - x) / W; if (x > 0) push(x - 1, y); if (x < W - 1) push(x + 1, y); if (y > 0) push(x, y - 1); if (y < H - 1) push(x, y + 1) }
+  let removed = 0
+  for (let i = 0; i < W * H; i++) {
+    const o = i * C
+    if (seen[i]) { if (isGreen(o, false) || data[o + 1] < 12) { data[o + 3] = 0; removed++ } else { data[o + 3] = Math.round(data[o + 3] * 0.35) } }
+  }
+  // 去绿边：不透明像素里偏绿的，把 G 压到 R/B 的均值
+  for (let i = 0; i < W * H; i++) { const o = i * C; if (data[o + 3] > 0) { const r = data[o], g = data[o + 1], b = data[o + 2]; if (g > r + 12 && g > b + 12) data[o + 1] = Math.round((r + b) / 2 + 6) } }
+  return { buf: await sharp(data, { raw: { width: W, height: H, channels: C } }).png({ compressionLevel: 9 }).toBuffer(), ratio: removed / (W * H) }
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (isMain) {
   const dir = path.join(ROOT, 'platform', 'public', 'art')
-  let files = process.argv.slice(2)
+  let files = process.argv.slice(2).filter((f) => !f.startsWith('--'))
+  const green = process.argv.includes('--green')
+  if (green) { for (const f of files) { const { buf, ratio } = await rekeyGreen(await fs.readFile(f)); await fs.writeFile(f, buf); console.log(`✔ ${path.basename(f)} 绿幕去掉 ${(ratio * 100).toFixed(0)}%`) } process.exit(0) }
   if (!files.length) files = (await fs.readdir(dir)).filter((f) => f.startsWith('part_') && f.endsWith('.png')).map((f) => path.join(dir, f))
   for (const f of files) {
     const { buf, bg, ratio } = await rekey(await fs.readFile(f))
