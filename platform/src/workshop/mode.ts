@@ -7,15 +7,18 @@ export async function detectMode(): Promise<ModeInfo> {
   if (cached) return cached
   if (getDirectKey()) { cached = { mode: 'direct', ai: getDirectModel(), reason: '用你自己的密钥直连' }; return cached }
   try {
-    const r = await fetch('/api/status', { signal: AbortSignal.timeout(4000) })
+    // 不用 AbortSignal.timeout（有的内嵌浏览器没有这个 API，会直接抛错被当成"没有后端"）
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 4000)
+    const r = await fetch('/api/status', { signal: ctl.signal }).finally(() => clearTimeout(timer))
     if (r.ok && (r.headers.get('content-type') ?? '').includes('json')) {
       const j = await r.json()
       cached = { mode: j.mode === 'local' ? 'local' : 'static', ai: j.ai ?? null, reason: j.mode === 'local' ? '本地动手模式' : '网页体验模式' }
       return cached
     }
   } catch { /* no backend */ }
-  cached = { mode: 'direct', ai: getDirectKey() ? getDirectModel() : null, reason: '没有后端，用你自己的密钥直连' }
-  return cached
+  // 失败不缓存：本地服务可能只是刚重启，下次再探
+  cached = null
+  return { mode: 'direct', ai: getDirectKey() ? getDirectModel() : null, reason: '没有后端，用你自己的密钥直连' }
 }
 export const resetMode = () => { cached = null }
 

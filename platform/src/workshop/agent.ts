@@ -87,7 +87,7 @@ export class Agent {
     this.busy = true; this.emit()
     try {
       for (let guard = 0; guard < 40; guard++) {
-        this.modeInfo ??= await detectMode()
+        this.modeInfo = await detectMode()
         let j: Record<string, unknown>
         if (this.modeInfo.mode === 'direct') {
           const key = getDirectKey()
