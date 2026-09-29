@@ -48,7 +48,7 @@ export const KNOWLEDGE_TOOLS: Record<string, (input: AnyRec) => string> = {
     if (!b) return `没有 ${board} 的档案。用 list_boards 看有哪些。`
     const pins = ([...(b.left as AnyRec[] ?? []), ...(b.right as AnyRec[] ?? []), ...(b.bottom as AnyRec[] ?? [])]).filter((p) => !filter || (p.funcs as string[]).some((f) => f.toUpperCase().includes(String(filter).toUpperCase())))
     const pio = b.pio as AnyRec
-    return `${b.name} · ${b.mcu} · ${b.core} · Flash ${b.flash} / RAM ${b.ram}\nplatformio.ini: board=${pio?.board} platform=${pio?.platform} upload_protocol=${pio?.upload_protocol}\n板载 LED: ${(b.led as AnyRec)?.pin}（${(b.led as AnyRec)?.active === 'low' ? '低' : '高'}电平亮）\n总线: ${JSON.stringify(b.buses)}\n怎么烧: ${b.flash_how}\n坑: ${(b.gotchas as string[]).join('；')}\n引脚:\n${pins.map((p) => `${p.name}: ${(p.funcs as string[]).join(', ')}${p.note ? ' — ' + p.note : ''}`).join('\n')}`
+    return `${b.name} · ${b.mcu} · ${b.core} · Flash ${b.flash} / RAM ${b.ram}\nplatformio.ini: board=${pio?.board} platform=${pio?.platform} upload_protocol=${pio?.upload_protocol}\n板载 LED: ${(b.led as AnyRec)?.pin}（${(b.led as AnyRec)?.active === 'low' ? '低' : '高'}电平亮）\n总线: ${JSON.stringify(b.buses)}\n怎么烧: ${b.flash_how}\n坑: ${(b.gotchas as string[]).join('；')}${b.pin_map ? `\n蓝药丸→本板引脚翻译表: ${Object.entries(b.pin_map as Record<string, string>).filter(([k]) => k !== 'note').map(([k, v]) => `${k}→${v}`).join('; ')}（${(b.pin_map as AnyRec).note}）` : ''}\n引脚:\n${pins.map((p) => `${p.name}: ${(p.funcs as string[]).join(', ')}${p.note ? ' — ' + p.note : ''}`).join('\n')}`
   },
   part_detail({ id = '' }) {
     const c = pick(catalog, 'parts-catalog.json') as { parts?: AnyRec[] } | undefined

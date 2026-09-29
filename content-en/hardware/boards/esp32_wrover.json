@@ -1,366 +1,397 @@
 {
-  "id": "esp32_wrover",
-  "name": "Freenove ESP32-WROVER board (with camera)",
-  "mcu": "ESP32-D0WD-V3 dual-core 240MHz (WROVER module, 4MB flash + 8MB PSRAM)",
-  "core": "Xtensa LX6 ×2 240MHz",
-  "flash": "4MB",
-  "ram": "520KB SRAM + 8MB PSRAM",
-  "pio": {
-    "board": "esp-wrover-kit",
-    "platform": "espressif32",
-    "framework": "arduino",
-    "upload_protocol": "esptool"
+ "id": "esp32_wrover",
+ "name": "Freenove ESP32-WROVER board (with camera)",
+ "mcu": "ESP32-D0WD-V3 dual-core 240MHz (WROVER module, 4MB flash + 8MB PSRAM)",
+ "core": "Xtensa LX6 ×2 240MHz",
+ "flash": "4MB",
+ "ram": "520KB SRAM + 8MB PSRAM",
+ "pio": {
+  "board": "esp-wrover-kit",
+  "platform": "espressif32",
+  "framework": "arduino",
+  "upload_protocol": "esptool"
+ },
+ "led": {
+  "pin": "2",
+  "active": "high"
+ },
+ "button": {
+  "pin": "0",
+  "note": "BOOT button"
+ },
+ "buses": {
+  "i2c": "SDA 21 / SCL 22",
+  "spi": "SCK 18 / MISO 19 / MOSI 23 / CS 5",
+  "uart": "UART0 = USB (1/3), UART2 = 17 TX / 16 RX"
+ },
+ "adc_pins": [
+  "32",
+  "33",
+  "34",
+  "35",
+  "36",
+  "39",
+  "25",
+  "26",
+  "27",
+  "14",
+  "12",
+  "13"
+ ],
+ "pwm_pins": [
+  "2",
+  "4",
+  "5",
+  "12",
+  "13",
+  "14",
+  "15",
+  "16",
+  "17",
+  "18",
+  "19",
+  "21",
+  "22",
+  "23",
+  "25",
+  "26",
+  "27",
+  "32",
+  "33"
+ ],
+ "power": "3.3V logic; GPIOs are not 5V tolerant, divide 5V module signals. The 5V pin is USB pass-through.",
+ "flash_how": "Flash straight over the USB-C data cable: pio run -t upload. CH340 serial chip; upload_speed 115200 is the safe choice (921600 gives Unable to verify flash chip connection). Usually no need to press BOOT.",
+ "gotchas": [
+  "36/39/34/35 are input-only, no pinMode OUTPUT",
+  "GPIO0/2/12/15 are strapping pins; the onboard LED on 2 is fine, do not add a pull-up on 12",
+  "ADC2 pins (0/2/4/12-15/25-27) do not work while WiFi is on; prefer 32-39 for analog",
+  "UART0 (1/3) is used by USB flashing, leave it alone"
+ ],
+ "left": [
+  {
+   "name": "3.3",
+   "funcs": [
+    "Power"
+   ]
   },
-  "led": {
-    "pin": "2",
-    "active": "high"
+  {
+   "name": "EN",
+   "funcs": [
+    "Reset"
+   ]
   },
-  "button": {
-    "pin": "0",
-    "note": "BOOT button"
+  {
+   "name": "36/VP",
+   "funcs": [
+    "ADC",
+    "Input only"
+   ],
+   "note": "Input only"
   },
-  "buses": {
-    "i2c": "SDA 21 / SCL 22",
-    "spi": "SCK 18 / MISO 19 / MOSI 23 / CS 5",
-    "uart": "UART0 = USB (1/3), UART2 = 17 TX / 16 RX"
+  {
+   "name": "39/VN",
+   "funcs": [
+    "ADC",
+    "Input only"
+   ],
+   "note": "Input only"
   },
-  "adc_pins": [
-    "32",
-    "33",
-    "34",
-    "35",
-    "36",
-    "39",
-    "25",
-    "26",
-    "27",
-    "14",
-    "12",
-    "13"
-  ],
-  "pwm_pins": [
-    "2",
-    "4",
-    "5",
-    "12",
-    "13",
-    "14",
-    "15",
-    "16",
-    "17",
-    "18",
-    "19",
-    "21",
-    "22",
-    "23",
-    "25",
-    "26",
-    "27",
-    "32",
-    "33"
-  ],
-  "power": "3.3V logic; GPIOs are not 5V tolerant, divide 5V module signals. The 5V pin is USB pass-through.",
-  "flash_how": "Flash straight over the USB-C data cable: pio run -t upload. CH340 serial chip; upload_speed 115200 is the safe choice (921600 gives Unable to verify flash chip connection). Usually no need to press BOOT.",
-  "gotchas": [
-    "36/39/34/35 are input-only, no pinMode OUTPUT",
-    "GPIO0/2/12/15 are strapping pins; the onboard LED on 2 is fine, do not add a pull-up on 12",
-    "ADC2 pins (0/2/4/12-15/25-27) do not work while WiFi is on; prefer 32-39 for analog",
-    "UART0 (1/3) is used by USB flashing, leave it alone"
-  ],
-  "left": [
-    {
-      "name": "3.3",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "EN",
-      "funcs": [
-        "Reset"
-      ]
-    },
-    {
-      "name": "36/VP",
-      "funcs": [
-        "ADC",
-        "Input only"
-      ],
-      "note": "Input only"
-    },
-    {
-      "name": "39/VN",
-      "funcs": [
-        "ADC",
-        "Input only"
-      ],
-      "note": "Input only"
-    },
-    {
-      "name": "34",
-      "funcs": [
-        "ADC",
-        "Input only"
-      ],
-      "note": "Input only"
-    },
-    {
-      "name": "35",
-      "funcs": [
-        "ADC",
-        "Input only"
-      ],
-      "note": "Input only"
-    },
-    {
-      "name": "32",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "33",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "25",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "DAC",
-        "PWM"
-      ]
-    },
-    {
-      "name": "26",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "DAC",
-        "PWM"
-      ]
-    },
-    {
-      "name": "27",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "14",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "12",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "13",
-      "funcs": [
-        "GPIO",
-        "ADC",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "3.3",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "5V",
-      "funcs": [
-        "Power"
-      ],
-      "note": "USB 5V; power the LCD backlight and servos from here"
-    },
-    {
-      "name": "5V",
-      "funcs": [
-        "Power"
-      ],
-      "note": "USB 5V; power the LCD backlight and servos from here"
-    }
-  ],
-  "right": [
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "15",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "2",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "LED"
-      ],
-      "note": "Onboard blue LED, active HIGH"
-    },
-    {
-      "name": "0",
-      "funcs": [
-        "GPIO",
-        "Button"
-      ],
-      "note": "BOOT button; low at power-up enters flash mode, otherwise usable as an input"
-    },
-    {
-      "name": "4",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "TOUCH"
-      ]
-    },
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "16",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "UART2_RX"
-      ]
-    },
-    {
-      "name": "17",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "UART2_TX"
-      ]
-    },
-    {
-      "name": "5",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "SPI_CS"
-      ]
-    },
-    {
-      "name": "18",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "SPI_SCK"
-      ]
-    },
-    {
-      "name": "19",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "SPI_MISO"
-      ]
-    },
-    {
-      "name": "GND",
-      "funcs": [
-        "Power"
-      ]
-    },
-    {
-      "name": "21",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "I2C_SDA"
-      ],
-      "note": "I2C SDA (default) — LCD1602 SDA goes here"
-    },
-    {
-      "name": "3/RX",
-      "funcs": [
-        "UART0_RX"
-      ],
-      "note": "UART0, used for flashing/Serial, keep free"
-    },
-    {
-      "name": "1/TX",
-      "funcs": [
-        "UART0_TX"
-      ],
-      "note": "UART0, keep free"
-    },
-    {
-      "name": "22",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "I2C_SCL"
-      ],
-      "note": "I2C SCL (default) — LCD1602 SCL goes here"
-    },
-    {
-      "name": "23",
-      "funcs": [
-        "GPIO",
-        "PWM",
-        "SPI_MOSI"
-      ]
-    }
-  ],
-  "bottom": []
+  {
+   "name": "34",
+   "funcs": [
+    "ADC",
+    "Input only"
+   ],
+   "note": "Input only"
+  },
+  {
+   "name": "35",
+   "funcs": [
+    "ADC",
+    "Input only"
+   ],
+   "note": "Input only"
+  },
+  {
+   "name": "32",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "33",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "25",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "DAC",
+    "PWM"
+   ]
+  },
+  {
+   "name": "26",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "DAC",
+    "PWM"
+   ]
+  },
+  {
+   "name": "27",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "14",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "12",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "13",
+   "funcs": [
+    "GPIO",
+    "ADC",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "3.3",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "5V",
+   "funcs": [
+    "Power"
+   ],
+   "note": "USB 5V; power the LCD backlight and servos from here"
+  },
+  {
+   "name": "5V",
+   "funcs": [
+    "Power"
+   ],
+   "note": "USB 5V; power the LCD backlight and servos from here"
+  }
+ ],
+ "right": [
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "15",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "2",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "LED"
+   ],
+   "note": "Onboard blue LED, active HIGH"
+  },
+  {
+   "name": "0",
+   "funcs": [
+    "GPIO",
+    "Button"
+   ],
+   "note": "BOOT button; low at power-up enters flash mode, otherwise usable as an input"
+  },
+  {
+   "name": "4",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "TOUCH"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "16",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "UART2_RX"
+   ]
+  },
+  {
+   "name": "17",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "UART2_TX"
+   ]
+  },
+  {
+   "name": "5",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_CS"
+   ]
+  },
+  {
+   "name": "18",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_SCK"
+   ]
+  },
+  {
+   "name": "19",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_MISO"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "Power"
+   ]
+  },
+  {
+   "name": "21",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "I2C_SDA"
+   ],
+   "note": "I2C SDA (default) — LCD1602 SDA goes here"
+  },
+  {
+   "name": "3/RX",
+   "funcs": [
+    "UART0_RX"
+   ],
+   "note": "UART0, used for flashing/Serial, keep free"
+  },
+  {
+   "name": "1/TX",
+   "funcs": [
+    "UART0_TX"
+   ],
+   "note": "UART0, keep free"
+  },
+  {
+   "name": "22",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "I2C_SCL"
+   ],
+   "note": "I2C SCL (default) — LCD1602 SCL goes here"
+  },
+  {
+   "name": "23",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_MOSI"
+   ]
+  }
+ ],
+ "bottom": [],
+ "pin_map": {
+  "note": "Recipes and snippets are written for the Blue Pill; translate pins with this table (left = Blue Pill, right = this board GPIO)",
+  "PC13(板载LED)": "2（高电平亮，和蓝药丸相反）",
+  "PA1": "4",
+  "PA2": "16",
+  "PA3": "17",
+  "PA4": "5",
+  "PA5(SCK)": "18",
+  "PA6(MISO)": "19",
+  "PA7(MOSI)": "23",
+  "PA8": "15",
+  "PA9(TX1)": "17(TX2)",
+  "PA10(RX1)": "16(RX2)",
+  "PA0(ADC)": "34（只能输入）",
+  "PB0(ADC/PWM)": "32",
+  "PB1(ADC/PWM)": "33",
+  "PB6(SCL)": "22",
+  "PB7(SDA)": "21",
+  "PB8": "25",
+  "PB9": "26",
+  "PB10": "27",
+  "PB11": "14",
+  "PB12": "12",
+  "PB13": "13",
+  "PB14": "2",
+  "PB15": "15",
+  "3.3V": "3V3",
+  "5V": "5V",
+  "GND": "GND",
+  "按键(PA0 需外接)": "0（板载 BOOT 键，按下为低）"
+ }
 }

@@ -1,85 +1,365 @@
 {
-  "id": "arduino_uno",
-  "name": "Arduino UNO R3",
-  "mcu": "ATmega328P",
-  "core": "AVR 8 位 16MHz",
-  "flash": "32KB（其中 0.5KB 是引导程序）",
-  "ram": "2KB SRAM + 1KB EEPROM",
-  "pio": {
-    "board": "uno",
-    "platform": "atmelavr",
-    "framework": "arduino",
-    "upload_protocol": "arduino"
+ "id": "arduino_uno",
+ "name": "Arduino UNO R3",
+ "mcu": "ATmega328P",
+ "core": "AVR 8 位 16MHz",
+ "flash": "32KB（其中 0.5KB 是引导程序）",
+ "ram": "2KB SRAM + 1KB EEPROM",
+ "pio": {
+  "board": "uno",
+  "platform": "atmelavr",
+  "framework": "arduino",
+  "upload_protocol": "arduino"
+ },
+ "led": {
+  "pin": "13",
+  "active": "high"
+ },
+ "button": null,
+ "buses": {
+  "i2c": "SDA A4 / SCL A5（板子左上角 AREF 旁边还有一对 SDA/SCL，和 A4/A5 是同一根线）",
+  "spi": "SCK 13 / MISO 12 / MOSI 11 / SS 10（ICSP 排针上也有一份）",
+  "uart": "Serial: TX 1 / RX 0，接板载 USB 转串口芯片，插 USB 就能看打印。只有这一个硬件串口，接蓝牙模块要用 SoftwareSerial 或占用 0/1"
+ },
+ "adc_pins": [
+  "A0",
+  "A1",
+  "A2",
+  "A3",
+  "A4",
+  "A5"
+ ],
+ "pwm_pins": [
+  "3",
+  "5",
+  "6",
+  "9",
+  "10",
+  "11"
+ ],
+ "power": "5V 逻辑！IO 输出 5V、输入也认 5V。每个脚最大 40mA（建议 20mA 以内），所有 IO 总和不超过 200mA。3.3V 排针只有 50mA，够 OLED 不够别的。VIN/DC 插座接 7~12V。USB 供电时 5V 排针可给外设约 400mA",
+ "flash_how": "一根 USB-B 线（方口打印机线）插电脑，pio run -t upload 直接烧。正版板的 USB 芯片是 ATmega16U2，Mac 免驱；国产板多用 CH340，老 macOS 和 Windows 可能要装 CH340 驱动。烧录前板子会自动复位，不需要按任何键。烧录时 TX/RX 两个灯快速闪。串口监视器 pio device monitor，波特率要和代码里 Serial.begin 一致",
+ "gotchas": [
+  "UNO 是 5V 逻辑，STM32、ESP32、多数 OLED/SD 卡模块是 3.3V。UNO 的输出直接接这些东西可能把它们烧了，反过来 3.3V 信号给 UNO 通常勉强能认。混用时加电平转换",
+  "D0/D1 是 USB 串口，程序里用了 Serial 就别把东西接这两根；烧录时接着东西也会烧录失败",
+  "外部中断只有 D2（INT0）和 D3（INT1）两根，attachInterrupt 别的脚不行（PCINT 另说）",
+  "tone() 用的是 Timer2，会让 D3 和 D11 的 analogWrite 失效",
+  "Servo 库用的是 Timer1，会让 D9 和 D10 的 analogWrite 失效",
+  "RAM 只有 2KB。String 拼接、大数组、U8g2 全缓冲模式（128x64 就要 1KB）很容易把内存耗尽然后程序诡异重启。串口字符串用 F(\"...\") 宏放到 Flash 里",
+  "用了 I2C（Wire）之后 A4/A5 就不能再读模拟量",
+  "D13 既是板载 LED 又是 SPI 时钟，用 SPI 时 LED 会闪，正常",
+  "ADC 是 10 位（0~1023），参考电压默认 5V，一格约 4.9mV",
+  "没有 STM32 那种引脚名（PA0），全用数字。数字 13 和 A0 这种写法在 PlatformIO 里直接能用",
+  "国产 UNO 上的 CH340 在电脑上显示为 wchusbserial 或 COMx，认不到就先装驱动"
+ ],
+ "left": [
+  {
+   "name": "SCL",
+   "funcs": [
+    "I2C_SCL"
+   ],
+   "note": "和 A5 是同一根线"
   },
-  "led": {
-    "pin": "13",
-    "active": "high"
+  {
+   "name": "SDA",
+   "funcs": [
+    "I2C_SDA"
+   ],
+   "note": "和 A4 是同一根线"
   },
-  "button": null,
-  "buses": {
-    "i2c": "SDA A4 / SCL A5（板子左上角 AREF 旁边还有一对 SDA/SCL，和 A4/A5 是同一根线）",
-    "spi": "SCK 13 / MISO 12 / MOSI 11 / SS 10（ICSP 排针上也有一份）",
-    "uart": "Serial: TX 1 / RX 0，接板载 USB 转串口芯片，插 USB 就能看打印。只有这一个硬件串口，接蓝牙模块要用 SoftwareSerial 或占用 0/1"
+  {
+   "name": "AREF",
+   "funcs": [
+    "电源"
+   ],
+   "note": "ADC 外部参考电压，初学不动它"
   },
-  "adc_pins": ["A0", "A1", "A2", "A3", "A4", "A5"],
-  "pwm_pins": ["3", "5", "6", "9", "10", "11"],
-  "power": "5V 逻辑！IO 输出 5V、输入也认 5V。每个脚最大 40mA（建议 20mA 以内），所有 IO 总和不超过 200mA。3.3V 排针只有 50mA，够 OLED 不够别的。VIN/DC 插座接 7~12V。USB 供电时 5V 排针可给外设约 400mA",
-  "flash_how": "一根 USB-B 线（方口打印机线）插电脑，pio run -t upload 直接烧。正版板的 USB 芯片是 ATmega16U2，Mac 免驱；国产板多用 CH340，老 macOS 和 Windows 可能要装 CH340 驱动。烧录前板子会自动复位，不需要按任何键。烧录时 TX/RX 两个灯快速闪。串口监视器 pio device monitor，波特率要和代码里 Serial.begin 一致",
-  "gotchas": [
-    "UNO 是 5V 逻辑，STM32、ESP32、多数 OLED/SD 卡模块是 3.3V。UNO 的输出直接接这些东西可能把它们烧了，反过来 3.3V 信号给 UNO 通常勉强能认。混用时加电平转换",
-    "D0/D1 是 USB 串口，程序里用了 Serial 就别把东西接这两根；烧录时接着东西也会烧录失败",
-    "外部中断只有 D2（INT0）和 D3（INT1）两根，attachInterrupt 别的脚不行（PCINT 另说）",
-    "tone() 用的是 Timer2，会让 D3 和 D11 的 analogWrite 失效",
-    "Servo 库用的是 Timer1，会让 D9 和 D10 的 analogWrite 失效",
-    "RAM 只有 2KB。String 拼接、大数组、U8g2 全缓冲模式（128x64 就要 1KB）很容易把内存耗尽然后程序诡异重启。串口字符串用 F(\"...\") 宏放到 Flash 里",
-    "用了 I2C（Wire）之后 A4/A5 就不能再读模拟量",
-    "D13 既是板载 LED 又是 SPI 时钟，用 SPI 时 LED 会闪，正常",
-    "ADC 是 10 位（0~1023），参考电压默认 5V，一格约 4.9mV",
-    "没有 STM32 那种引脚名（PA0），全用数字。数字 13 和 A0 这种写法在 PlatformIO 里直接能用",
-    "国产 UNO 上的 CH340 在电脑上显示为 wchusbserial 或 COMx，认不到就先装驱动"
-  ],
-  "left": [
-    { "name": "SCL", "funcs": ["I2C_SCL"], "note": "和 A5 是同一根线" },
-    { "name": "SDA", "funcs": ["I2C_SDA"], "note": "和 A4 是同一根线" },
-    { "name": "AREF", "funcs": ["电源"], "note": "ADC 外部参考电压，初学不动它" },
-    { "name": "GND", "funcs": ["电源"] },
-    { "name": "13", "funcs": ["GPIO", "LED", "SPI_SCK"], "note": "板载 L 灯，高电平亮。也是 SPI 时钟" },
-    { "name": "12", "funcs": ["GPIO", "SPI_MISO"] },
-    { "name": "11", "funcs": ["GPIO", "PWM", "SPI_MOSI"], "note": "PWM 490Hz；tone() 时失效" },
-    { "name": "10", "funcs": ["GPIO", "PWM", "SPI_SS"], "note": "PWM 490Hz；用 Servo 库时失效" },
-    { "name": "9", "funcs": ["GPIO", "PWM"], "note": "PWM 490Hz；用 Servo 库时失效" },
-    { "name": "8", "funcs": ["GPIO"] },
-    { "name": "7", "funcs": ["GPIO"] },
-    { "name": "6", "funcs": ["GPIO", "PWM"], "note": "PWM 980Hz" },
-    { "name": "5", "funcs": ["GPIO", "PWM"], "note": "PWM 980Hz" },
-    { "name": "4", "funcs": ["GPIO"] },
-    { "name": "3", "funcs": ["GPIO", "PWM", "INT1"], "note": "PWM 490Hz；外部中断 1；tone() 时 PWM 失效" },
-    { "name": "2", "funcs": ["GPIO", "INT0"], "note": "外部中断 0，按键计数、编码器接这" },
-    { "name": "1 / TX", "funcs": ["GPIO", "UART_TX"], "note": "USB 串口，用 Serial 时别接东西", "danger": true },
-    { "name": "0 / RX", "funcs": ["GPIO", "UART_RX"], "note": "USB 串口，用 Serial 时别接东西", "danger": true }
-  ],
-  "right": [
-    { "name": "NC", "funcs": ["空"], "note": "没接东西" },
-    { "name": "IOREF", "funcs": ["电源"], "note": "输出 5V，告诉扩展板本板是 5V 逻辑" },
-    { "name": "RESET", "funcs": ["复位"], "note": "接地就复位" },
-    { "name": "3.3V", "funcs": ["电源"], "note": "只有 50mA！OLED 可以，别的别指望" },
-    { "name": "5V", "funcs": ["电源"], "note": "给 5V 传感器和模块供电" },
-    { "name": "GND", "funcs": ["电源"] },
-    { "name": "GND", "funcs": ["电源"] },
-    { "name": "VIN", "funcs": ["电源"], "note": "外部 7~12V 供电输入，和 DC 圆口是一回事" },
-    { "name": "A0", "funcs": ["GPIO", "ADC0"], "note": "读电位器就用它。也能当数字脚 14" },
-    { "name": "A1", "funcs": ["GPIO", "ADC1"] },
-    { "name": "A2", "funcs": ["GPIO", "ADC2"] },
-    { "name": "A3", "funcs": ["GPIO", "ADC3"] },
-    { "name": "A4", "funcs": ["GPIO", "ADC4", "I2C_SDA"], "note": "用了 I2C 就不能读模拟量" },
-    { "name": "A5", "funcs": ["GPIO", "ADC5", "I2C_SCL"], "note": "用了 I2C 就不能读模拟量" }
-  ],
-  "bottom": [
-    { "name": "ICSP MISO", "funcs": ["SPI_MISO"], "note": "6 针 ICSP 排针，和 D12 同一根线。烧引导程序或接 SPI 扩展板用" },
-    { "name": "ICSP VCC", "funcs": ["电源"], "note": "5V" },
-    { "name": "ICSP SCK", "funcs": ["SPI_SCK"], "note": "和 D13 同一根线" },
-    { "name": "ICSP MOSI", "funcs": ["SPI_MOSI"], "note": "和 D11 同一根线" },
-    { "name": "ICSP RESET", "funcs": ["复位"] },
-    { "name": "ICSP GND", "funcs": ["电源"] }
-  ]
+  {
+   "name": "GND",
+   "funcs": [
+    "电源"
+   ]
+  },
+  {
+   "name": "13",
+   "funcs": [
+    "GPIO",
+    "LED",
+    "SPI_SCK"
+   ],
+   "note": "板载 L 灯，高电平亮。也是 SPI 时钟"
+  },
+  {
+   "name": "12",
+   "funcs": [
+    "GPIO",
+    "SPI_MISO"
+   ]
+  },
+  {
+   "name": "11",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_MOSI"
+   ],
+   "note": "PWM 490Hz；tone() 时失效"
+  },
+  {
+   "name": "10",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_SS"
+   ],
+   "note": "PWM 490Hz；用 Servo 库时失效"
+  },
+  {
+   "name": "9",
+   "funcs": [
+    "GPIO",
+    "PWM"
+   ],
+   "note": "PWM 490Hz；用 Servo 库时失效"
+  },
+  {
+   "name": "8",
+   "funcs": [
+    "GPIO"
+   ]
+  },
+  {
+   "name": "7",
+   "funcs": [
+    "GPIO"
+   ]
+  },
+  {
+   "name": "6",
+   "funcs": [
+    "GPIO",
+    "PWM"
+   ],
+   "note": "PWM 980Hz"
+  },
+  {
+   "name": "5",
+   "funcs": [
+    "GPIO",
+    "PWM"
+   ],
+   "note": "PWM 980Hz"
+  },
+  {
+   "name": "4",
+   "funcs": [
+    "GPIO"
+   ]
+  },
+  {
+   "name": "3",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "INT1"
+   ],
+   "note": "PWM 490Hz；外部中断 1；tone() 时 PWM 失效"
+  },
+  {
+   "name": "2",
+   "funcs": [
+    "GPIO",
+    "INT0"
+   ],
+   "note": "外部中断 0，按键计数、编码器接这"
+  },
+  {
+   "name": "1 / TX",
+   "funcs": [
+    "GPIO",
+    "UART_TX"
+   ],
+   "note": "USB 串口，用 Serial 时别接东西",
+   "danger": true
+  },
+  {
+   "name": "0 / RX",
+   "funcs": [
+    "GPIO",
+    "UART_RX"
+   ],
+   "note": "USB 串口，用 Serial 时别接东西",
+   "danger": true
+  }
+ ],
+ "right": [
+  {
+   "name": "NC",
+   "funcs": [
+    "空"
+   ],
+   "note": "没接东西"
+  },
+  {
+   "name": "IOREF",
+   "funcs": [
+    "电源"
+   ],
+   "note": "输出 5V，告诉扩展板本板是 5V 逻辑"
+  },
+  {
+   "name": "RESET",
+   "funcs": [
+    "复位"
+   ],
+   "note": "接地就复位"
+  },
+  {
+   "name": "3.3V",
+   "funcs": [
+    "电源"
+   ],
+   "note": "只有 50mA！OLED 可以，别的别指望"
+  },
+  {
+   "name": "5V",
+   "funcs": [
+    "电源"
+   ],
+   "note": "给 5V 传感器和模块供电"
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "电源"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "电源"
+   ]
+  },
+  {
+   "name": "VIN",
+   "funcs": [
+    "电源"
+   ],
+   "note": "外部 7~12V 供电输入，和 DC 圆口是一回事"
+  },
+  {
+   "name": "A0",
+   "funcs": [
+    "GPIO",
+    "ADC0"
+   ],
+   "note": "读电位器就用它。也能当数字脚 14"
+  },
+  {
+   "name": "A1",
+   "funcs": [
+    "GPIO",
+    "ADC1"
+   ]
+  },
+  {
+   "name": "A2",
+   "funcs": [
+    "GPIO",
+    "ADC2"
+   ]
+  },
+  {
+   "name": "A3",
+   "funcs": [
+    "GPIO",
+    "ADC3"
+   ]
+  },
+  {
+   "name": "A4",
+   "funcs": [
+    "GPIO",
+    "ADC4",
+    "I2C_SDA"
+   ],
+   "note": "用了 I2C 就不能读模拟量"
+  },
+  {
+   "name": "A5",
+   "funcs": [
+    "GPIO",
+    "ADC5",
+    "I2C_SCL"
+   ],
+   "note": "用了 I2C 就不能读模拟量"
+  }
+ ],
+ "bottom": [
+  {
+   "name": "ICSP MISO",
+   "funcs": [
+    "SPI_MISO"
+   ],
+   "note": "6 针 ICSP 排针，和 D12 同一根线。烧引导程序或接 SPI 扩展板用"
+  },
+  {
+   "name": "ICSP VCC",
+   "funcs": [
+    "电源"
+   ],
+   "note": "5V"
+  },
+  {
+   "name": "ICSP SCK",
+   "funcs": [
+    "SPI_SCK"
+   ],
+   "note": "和 D13 同一根线"
+  },
+  {
+   "name": "ICSP MOSI",
+   "funcs": [
+    "SPI_MOSI"
+   ],
+   "note": "和 D11 同一根线"
+  },
+  {
+   "name": "ICSP RESET",
+   "funcs": [
+    "复位"
+   ]
+  },
+  {
+   "name": "ICSP GND",
+   "funcs": [
+    "电源"
+   ]
+  }
+ ],
+ "pin_map": {
+  "note": "菜谱按蓝药丸写的，换到 UNO 按此表翻译（左=蓝药丸，右=UNO）",
+  "PC13(板载LED)": "13（高电平亮）",
+  "PA1": "2",
+  "PA2": "3",
+  "PA3": "4",
+  "PA4(CS)": "10",
+  "PA5(SCK)": "13",
+  "PA6(MISO)": "12",
+  "PA7(MOSI)": "11",
+  "PA8": "5",
+  "PA9(TX1)": "1(TX)",
+  "PA10(RX1)": "0(RX)",
+  "PA0(ADC)": "A0",
+  "PB0(ADC/PWM)": "A1 / PWM 用 9",
+  "PB1": "A2",
+  "PB6(SCL)": "A5",
+  "PB7(SDA)": "A4",
+  "PB8": "6",
+  "PB9": "7",
+  "PB10": "8",
+  "3.3V": "3.3V",
+  "5V": "5V",
+  "GND": "GND"
+ }
 }

@@ -1,85 +1,365 @@
 {
-  "id": "arduino_uno",
-  "name": "Arduino UNO R3",
-  "mcu": "ATmega328P",
-  "core": "8-bit AVR 16MHz",
-  "flash": "32KB (0.5KB of it is the bootloader)",
-  "ram": "2KB SRAM + 1KB EEPROM",
-  "pio": {
-    "board": "uno",
-    "platform": "atmelavr",
-    "framework": "arduino",
-    "upload_protocol": "arduino"
+ "id": "arduino_uno",
+ "name": "Arduino UNO R3",
+ "mcu": "ATmega328P",
+ "core": "8-bit AVR 16MHz",
+ "flash": "32KB (0.5KB of it is the bootloader)",
+ "ram": "2KB SRAM + 1KB EEPROM",
+ "pio": {
+  "board": "uno",
+  "platform": "atmelavr",
+  "framework": "arduino",
+  "upload_protocol": "arduino"
+ },
+ "led": {
+  "pin": "13",
+  "active": "high"
+ },
+ "button": null,
+ "buses": {
+  "i2c": "SDA A4 / SCL A5 (there's another SDA/SCL pair next to AREF at the top-left of the board; it's the same wires as A4/A5)",
+  "spi": "SCK 13 / MISO 12 / MOSI 11 / SS 10 (also duplicated on the ICSP header)",
+  "uart": "Serial: TX 1 / RX 0, wired to the onboard USB-serial chip, so you see output as soon as you plug in USB. This is the only hardware UART; for a Bluetooth module use SoftwareSerial or give up pins 0/1"
+ },
+ "adc_pins": [
+  "A0",
+  "A1",
+  "A2",
+  "A3",
+  "A4",
+  "A5"
+ ],
+ "pwm_pins": [
+  "3",
+  "5",
+  "6",
+  "9",
+  "10",
+  "11"
+ ],
+ "power": "5V logic! I/O outputs 5V and expects 5V on inputs. Max 40mA per pin (stay under 20mA), and no more than 200mA total across all I/O. The 3.3V header pin gives only 50mA: enough for an OLED, not much else. VIN / the DC jack take 7-12V. On USB power the 5V pin can supply peripherals about 400mA",
+ "flash_how": "One USB-B cable (the square 'printer' connector) to your computer, then pio run -t upload flashes directly. Official boards use an ATmega16U2 USB chip that needs no driver on Mac; most clones use a CH340, which may need the CH340 driver on older macOS and Windows. The board auto-resets before flashing; no buttons to press. The TX/RX LEDs blink rapidly while flashing. Serial monitor: pio device monitor, with the baud rate matching Serial.begin in your code",
+ "gotchas": [
+  "The UNO is 5V logic; STM32, ESP32 and most OLED/SD-card modules are 3.3V. Connecting UNO outputs directly to them can fry them, while 3.3V signals into the UNO are usually (barely) recognized. Use a level shifter when mixing",
+  "D0/D1 are the USB serial pins. If your program uses Serial, don't connect anything to these two; anything attached during flashing also makes the upload fail",
+  "Only D2 (INT0) and D3 (INT1) support external interrupts; attachInterrupt doesn't work on other pins (PCINT is a separate story)",
+  "tone() uses Timer2 and breaks analogWrite on D3 and D11",
+  "The Servo library uses Timer1 and breaks analogWrite on D9 and D10",
+  "Only 2KB of RAM. String concatenation, big arrays and U8g2 full-buffer mode (128x64 alone needs 1KB) easily exhaust memory and cause bizarre resets. Wrap serial string literals in the F(\"...\") macro to keep them in Flash",
+  "Once you use I2C (Wire), A4/A5 can no longer read analog values",
+  "D13 is both the onboard LED and the SPI clock; the LED flickers during SPI, which is normal",
+  "The ADC is 10-bit (0-1023) with a default 5V reference, so one step is about 4.9mV",
+  "There are no STM32-style pin names (PA0); everything is numbers. Writing 13 or A0 works directly in PlatformIO",
+  "The CH340 on clone UNOs shows up on your computer as wchusbserial or COMx; if it isn't detected, install the driver first"
+ ],
+ "left": [
+  {
+   "name": "SCL",
+   "funcs": [
+    "I2C_SCL"
+   ],
+   "note": "Same wire as A5"
   },
-  "led": {
-    "pin": "13",
-    "active": "high"
+  {
+   "name": "SDA",
+   "funcs": [
+    "I2C_SDA"
+   ],
+   "note": "Same wire as A4"
   },
-  "button": null,
-  "buses": {
-    "i2c": "SDA A4 / SCL A5 (there's another SDA/SCL pair next to AREF at the top-left of the board; it's the same wires as A4/A5)",
-    "spi": "SCK 13 / MISO 12 / MOSI 11 / SS 10 (also duplicated on the ICSP header)",
-    "uart": "Serial: TX 1 / RX 0, wired to the onboard USB-serial chip, so you see output as soon as you plug in USB. This is the only hardware UART; for a Bluetooth module use SoftwareSerial or give up pins 0/1"
+  {
+   "name": "AREF",
+   "funcs": [
+    "电源"
+   ],
+   "note": "External ADC reference voltage; leave it alone as a beginner"
   },
-  "adc_pins": ["A0", "A1", "A2", "A3", "A4", "A5"],
-  "pwm_pins": ["3", "5", "6", "9", "10", "11"],
-  "power": "5V logic! I/O outputs 5V and expects 5V on inputs. Max 40mA per pin (stay under 20mA), and no more than 200mA total across all I/O. The 3.3V header pin gives only 50mA: enough for an OLED, not much else. VIN / the DC jack take 7-12V. On USB power the 5V pin can supply peripherals about 400mA",
-  "flash_how": "One USB-B cable (the square 'printer' connector) to your computer, then pio run -t upload flashes directly. Official boards use an ATmega16U2 USB chip that needs no driver on Mac; most clones use a CH340, which may need the CH340 driver on older macOS and Windows. The board auto-resets before flashing; no buttons to press. The TX/RX LEDs blink rapidly while flashing. Serial monitor: pio device monitor, with the baud rate matching Serial.begin in your code",
-  "gotchas": [
-    "The UNO is 5V logic; STM32, ESP32 and most OLED/SD-card modules are 3.3V. Connecting UNO outputs directly to them can fry them, while 3.3V signals into the UNO are usually (barely) recognized. Use a level shifter when mixing",
-    "D0/D1 are the USB serial pins. If your program uses Serial, don't connect anything to these two; anything attached during flashing also makes the upload fail",
-    "Only D2 (INT0) and D3 (INT1) support external interrupts; attachInterrupt doesn't work on other pins (PCINT is a separate story)",
-    "tone() uses Timer2 and breaks analogWrite on D3 and D11",
-    "The Servo library uses Timer1 and breaks analogWrite on D9 and D10",
-    "Only 2KB of RAM. String concatenation, big arrays and U8g2 full-buffer mode (128x64 alone needs 1KB) easily exhaust memory and cause bizarre resets. Wrap serial string literals in the F(\"...\") macro to keep them in Flash",
-    "Once you use I2C (Wire), A4/A5 can no longer read analog values",
-    "D13 is both the onboard LED and the SPI clock; the LED flickers during SPI, which is normal",
-    "The ADC is 10-bit (0-1023) with a default 5V reference, so one step is about 4.9mV",
-    "There are no STM32-style pin names (PA0); everything is numbers. Writing 13 or A0 works directly in PlatformIO",
-    "The CH340 on clone UNOs shows up on your computer as wchusbserial or COMx; if it isn't detected, install the driver first"
-  ],
-  "left": [
-    { "name": "SCL", "funcs": ["I2C_SCL"], "note": "Same wire as A5" },
-    { "name": "SDA", "funcs": ["I2C_SDA"], "note": "Same wire as A4" },
-    { "name": "AREF", "funcs": ["电源"], "note": "External ADC reference voltage; leave it alone as a beginner" },
-    { "name": "GND", "funcs": ["电源"] },
-    { "name": "13", "funcs": ["GPIO", "LED", "SPI_SCK"], "note": "Onboard 'L' LED, active-high. Also the SPI clock" },
-    { "name": "12", "funcs": ["GPIO", "SPI_MISO"] },
-    { "name": "11", "funcs": ["GPIO", "PWM", "SPI_MOSI"], "note": "PWM 490Hz; disabled while tone() is running" },
-    { "name": "10", "funcs": ["GPIO", "PWM", "SPI_SS"], "note": "PWM 490Hz; disabled when the Servo library is in use" },
-    { "name": "9", "funcs": ["GPIO", "PWM"], "note": "PWM 490Hz; disabled when the Servo library is in use" },
-    { "name": "8", "funcs": ["GPIO"] },
-    { "name": "7", "funcs": ["GPIO"] },
-    { "name": "6", "funcs": ["GPIO", "PWM"], "note": "PWM 980Hz" },
-    { "name": "5", "funcs": ["GPIO", "PWM"], "note": "PWM 980Hz" },
-    { "name": "4", "funcs": ["GPIO"] },
-    { "name": "3", "funcs": ["GPIO", "PWM", "INT1"], "note": "PWM 490Hz; external interrupt 1; PWM disabled while tone() is running" },
-    { "name": "2", "funcs": ["GPIO", "INT0"], "note": "External interrupt 0; connect button counters and encoders here" },
-    { "name": "1 / TX", "funcs": ["GPIO", "UART_TX"], "note": "USB serial; don't connect anything when using Serial", "danger": true },
-    { "name": "0 / RX", "funcs": ["GPIO", "UART_RX"], "note": "USB serial; don't connect anything when using Serial", "danger": true }
-  ],
-  "right": [
-    { "name": "NC", "funcs": ["空"], "note": "Not connected" },
-    { "name": "IOREF", "funcs": ["电源"], "note": "Outputs 5V; tells shields this board runs 5V logic" },
-    { "name": "RESET", "funcs": ["复位"], "note": "Pull to ground to reset" },
-    { "name": "3.3V", "funcs": ["电源"], "note": "Only 50mA! Fine for an OLED, don't count on it for anything else" },
-    { "name": "5V", "funcs": ["电源"], "note": "Powers 5V sensors and modules" },
-    { "name": "GND", "funcs": ["电源"] },
-    { "name": "GND", "funcs": ["电源"] },
-    { "name": "VIN", "funcs": ["电源"], "note": "External 7-12V supply input; same thing as the DC barrel jack" },
-    { "name": "A0", "funcs": ["GPIO", "ADC0"], "note": "Use this to read the potentiometer. Also works as digital pin 14" },
-    { "name": "A1", "funcs": ["GPIO", "ADC1"] },
-    { "name": "A2", "funcs": ["GPIO", "ADC2"] },
-    { "name": "A3", "funcs": ["GPIO", "ADC3"] },
-    { "name": "A4", "funcs": ["GPIO", "ADC4", "I2C_SDA"], "note": "Can't read analog once I2C is in use" },
-    { "name": "A5", "funcs": ["GPIO", "ADC5", "I2C_SCL"], "note": "Can't read analog once I2C is in use" }
-  ],
-  "bottom": [
-    { "name": "ICSP MISO", "funcs": ["SPI_MISO"], "note": "6-pin ICSP header, same wire as D12. For burning the bootloader or SPI shields" },
-    { "name": "ICSP VCC", "funcs": ["电源"], "note": "5V" },
-    { "name": "ICSP SCK", "funcs": ["SPI_SCK"], "note": "Same wire as D13" },
-    { "name": "ICSP MOSI", "funcs": ["SPI_MOSI"], "note": "Same wire as D11" },
-    { "name": "ICSP RESET", "funcs": ["复位"] },
-    { "name": "ICSP GND", "funcs": ["电源"] }
-  ]
+  {
+   "name": "GND",
+   "funcs": [
+    "电源"
+   ]
+  },
+  {
+   "name": "13",
+   "funcs": [
+    "GPIO",
+    "LED",
+    "SPI_SCK"
+   ],
+   "note": "Onboard 'L' LED, active-high. Also the SPI clock"
+  },
+  {
+   "name": "12",
+   "funcs": [
+    "GPIO",
+    "SPI_MISO"
+   ]
+  },
+  {
+   "name": "11",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_MOSI"
+   ],
+   "note": "PWM 490Hz; disabled while tone() is running"
+  },
+  {
+   "name": "10",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "SPI_SS"
+   ],
+   "note": "PWM 490Hz; disabled when the Servo library is in use"
+  },
+  {
+   "name": "9",
+   "funcs": [
+    "GPIO",
+    "PWM"
+   ],
+   "note": "PWM 490Hz; disabled when the Servo library is in use"
+  },
+  {
+   "name": "8",
+   "funcs": [
+    "GPIO"
+   ]
+  },
+  {
+   "name": "7",
+   "funcs": [
+    "GPIO"
+   ]
+  },
+  {
+   "name": "6",
+   "funcs": [
+    "GPIO",
+    "PWM"
+   ],
+   "note": "PWM 980Hz"
+  },
+  {
+   "name": "5",
+   "funcs": [
+    "GPIO",
+    "PWM"
+   ],
+   "note": "PWM 980Hz"
+  },
+  {
+   "name": "4",
+   "funcs": [
+    "GPIO"
+   ]
+  },
+  {
+   "name": "3",
+   "funcs": [
+    "GPIO",
+    "PWM",
+    "INT1"
+   ],
+   "note": "PWM 490Hz; external interrupt 1; PWM disabled while tone() is running"
+  },
+  {
+   "name": "2",
+   "funcs": [
+    "GPIO",
+    "INT0"
+   ],
+   "note": "External interrupt 0; connect button counters and encoders here"
+  },
+  {
+   "name": "1 / TX",
+   "funcs": [
+    "GPIO",
+    "UART_TX"
+   ],
+   "note": "USB serial; don't connect anything when using Serial",
+   "danger": true
+  },
+  {
+   "name": "0 / RX",
+   "funcs": [
+    "GPIO",
+    "UART_RX"
+   ],
+   "note": "USB serial; don't connect anything when using Serial",
+   "danger": true
+  }
+ ],
+ "right": [
+  {
+   "name": "NC",
+   "funcs": [
+    "空"
+   ],
+   "note": "Not connected"
+  },
+  {
+   "name": "IOREF",
+   "funcs": [
+    "电源"
+   ],
+   "note": "Outputs 5V; tells shields this board runs 5V logic"
+  },
+  {
+   "name": "RESET",
+   "funcs": [
+    "复位"
+   ],
+   "note": "Pull to ground to reset"
+  },
+  {
+   "name": "3.3V",
+   "funcs": [
+    "电源"
+   ],
+   "note": "Only 50mA! Fine for an OLED, don't count on it for anything else"
+  },
+  {
+   "name": "5V",
+   "funcs": [
+    "电源"
+   ],
+   "note": "Powers 5V sensors and modules"
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "电源"
+   ]
+  },
+  {
+   "name": "GND",
+   "funcs": [
+    "电源"
+   ]
+  },
+  {
+   "name": "VIN",
+   "funcs": [
+    "电源"
+   ],
+   "note": "External 7-12V supply input; same thing as the DC barrel jack"
+  },
+  {
+   "name": "A0",
+   "funcs": [
+    "GPIO",
+    "ADC0"
+   ],
+   "note": "Use this to read the potentiometer. Also works as digital pin 14"
+  },
+  {
+   "name": "A1",
+   "funcs": [
+    "GPIO",
+    "ADC1"
+   ]
+  },
+  {
+   "name": "A2",
+   "funcs": [
+    "GPIO",
+    "ADC2"
+   ]
+  },
+  {
+   "name": "A3",
+   "funcs": [
+    "GPIO",
+    "ADC3"
+   ]
+  },
+  {
+   "name": "A4",
+   "funcs": [
+    "GPIO",
+    "ADC4",
+    "I2C_SDA"
+   ],
+   "note": "Can't read analog once I2C is in use"
+  },
+  {
+   "name": "A5",
+   "funcs": [
+    "GPIO",
+    "ADC5",
+    "I2C_SCL"
+   ],
+   "note": "Can't read analog once I2C is in use"
+  }
+ ],
+ "bottom": [
+  {
+   "name": "ICSP MISO",
+   "funcs": [
+    "SPI_MISO"
+   ],
+   "note": "6-pin ICSP header, same wire as D12. For burning the bootloader or SPI shields"
+  },
+  {
+   "name": "ICSP VCC",
+   "funcs": [
+    "电源"
+   ],
+   "note": "5V"
+  },
+  {
+   "name": "ICSP SCK",
+   "funcs": [
+    "SPI_SCK"
+   ],
+   "note": "Same wire as D13"
+  },
+  {
+   "name": "ICSP MOSI",
+   "funcs": [
+    "SPI_MOSI"
+   ],
+   "note": "Same wire as D11"
+  },
+  {
+   "name": "ICSP RESET",
+   "funcs": [
+    "复位"
+   ]
+  },
+  {
+   "name": "ICSP GND",
+   "funcs": [
+    "电源"
+   ]
+  }
+ ],
+ "pin_map": {
+  "note": "Recipes are written for the Blue Pill; translate with this table (left = Blue Pill, right = UNO)",
+  "PC13(板载LED)": "13（高电平亮）",
+  "PA1": "2",
+  "PA2": "3",
+  "PA3": "4",
+  "PA4(CS)": "10",
+  "PA5(SCK)": "13",
+  "PA6(MISO)": "12",
+  "PA7(MOSI)": "11",
+  "PA8": "5",
+  "PA9(TX1)": "1(TX)",
+  "PA10(RX1)": "0(RX)",
+  "PA0(ADC)": "A0",
+  "PB0(ADC/PWM)": "A1 / PWM 用 9",
+  "PB1": "A2",
+  "PB6(SCL)": "A5",
+  "PB7(SDA)": "A4",
+  "PB8": "6",
+  "PB9": "7",
+  "PB10": "8",
+  "3.3V": "3.3V",
+  "5V": "5V",
+  "GND": "GND"
+ }
 }
