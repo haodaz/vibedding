@@ -4,8 +4,16 @@
     {
       "name": "platform",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "platform", "run", "dev", "--", "--no-open"],
-      "port": 5173
+      "runtimeArgs": [
+        "--prefix",
+        "platform",
+        "run",
+        "dev",
+        "--",
+        "--no-open"
+      ],
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }
