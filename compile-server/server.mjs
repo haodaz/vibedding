@@ -22,6 +22,8 @@ const BOARDS = {
   nucleo_f411re: { platform: 'ststm32', board: 'nucleo_f411re', framework: 'arduino', extra: 'build_flags = -D LED_PIN=PA5' },
   esp32dev: { platform: 'espressif32', board: 'esp32dev', framework: 'arduino', extra: 'monitor_speed = 115200' },
   esp32_devkit: { platform: 'espressif32', board: 'esp32dev', framework: 'arduino', extra: 'monitor_speed = 115200' },
+  esp32_wrover: { platform: 'espressif32', board: 'esp-wrover-kit', framework: 'arduino', extra: 'monitor_speed = 115200\nbuild_flags = -D BOARD_HAS_PSRAM' },
+  'esp-wrover-kit': { platform: 'espressif32', board: 'esp-wrover-kit', framework: 'arduino', extra: 'monitor_speed = 115200\nbuild_flags = -D BOARD_HAS_PSRAM' },
   uno: { platform: 'atmelavr', board: 'uno', framework: 'arduino', extra: '' },
 }
 
@@ -75,4 +77,4 @@ http.createServer(async (req, res) => {
   let body; try { body = JSON.parse(raw) } catch { return json(400, { error: 'bad json' }) }
   const done = await queued()
   try { json(200, await compile(body)) } catch (e) { json(400, { error: e.message }) } finally { done() }
-}).listen(PORT, () => console.log(`compile-server on :${PORT} (token ${TOKEN ? 'on' : 'OFF'})`))
+}).listen(PORT, '::', () => console.log(`compile-server listening on port ${PORT} (env PORT=${process.env.PORT ?? 'unset'}, token ${TOKEN ? 'on' : 'OFF'})`))
