@@ -5,6 +5,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   const u = await verifyUser(req)
   if (!u) return res.status(200).json({ role: null })
-  const p = await profileOf(u.id).catch(() => null)
-  return res.status(200).json({ role: p?.role ?? 'user', disabled: p?.disabled ?? false, email: u.email })
+  let why = ''
+  const p = await profileOf(u.id).catch((e) => { why = e.message; return null })
+  return res.status(200).json({ role: p?.role ?? 'user', disabled: p?.disabled ?? false, email: u.email, ...(why ? { why } : {}) })
 }
