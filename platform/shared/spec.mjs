@@ -52,12 +52,12 @@ Hard rules:
 
 export const MODE_NOTES_EN = {
   local: (root) => `Runtime: local hands-on mode. The project lives on this computer at ${root} . Any command you give must be copy-paste runnable with that real path — no placeholders. You have real tools: pio_build, pio_upload, serial_read. No tools for installing software or changing the system: use ask_human(paste).`,
-  static: () => `Runtime: web mode (not connected to the user's computer). You cannot build, flash or read serial; the browser's virtual board (sim_run) is the only way to run code. Save firmware with write_firmware (it is shown to the user and stored in their browser) and tell them: once parts arrive, local mode (clone the repo, npm run dev) flashes it in one sentence. Do not ask the user to run terminal commands.`,
+  static: () => `Runtime: web mode (not connected to the user's computer; no terminal). Three ways to run code: 1) sim_run on the virtual board to check logic; 2) cloud_build compiles real firmware in the cloud (returns Flash/RAM usage and compiler errors); 3) web_flash lets the user flash the compiled firmware from the browser (Chrome/Edge; STM32 needs a USB-TTL adapter on PA9/PA10 with BOOT0 set to 1, ESP32 just USB). Flow: write code → write_firmware → sim_run → cloud_build → on success web_flash → ask_human(observe). If the cloud build fails, read the error, fix, rebuild. Without hardware, stop at cloud_build. Never ask the user to run terminal commands.`,
 }
 
 export const MODE_NOTES = {
   local: (root) => `运行模式：本地动手模式。项目在这台电脑上的绝对路径是 ${root} 。给用户的任何命令都要能原样复制运行，用这个真实路径，不要写占位符。你有真实的编译（pio_build）、烧录（pio_upload）、读串口（serial_read）工具；安装软件、删文件、改系统设置没有工具，一律 ask_human(paste) 给可复制的命令让用户跑。`,
-  static: () => `运行模式：网页体验模式（没有连接用户的电脑）。你不能编译、烧录、读串口；浏览器里的虚拟板子（sim_run）就是唯一的"烧录"。写好的固件用 write_firmware 保存（会显示给用户并存在他的浏览器里），并告诉用户：到货后在本地模式（克隆仓库 npm run dev）里一句话就能烧进去。不要让用户在终端跑命令。`,
+  static: () => `运行模式：网页版（没有连接用户的电脑，不能跑终端命令）。你有三种跑代码的方式：1) 虚拟板子 sim_run 验证逻辑；2) cloud_build 云端编译真固件（返回 Flash/RAM 占用和编译错误）；3) web_flash 让用户用浏览器把编译好的固件烧进真板子（需要 Chrome/Edge；STM32 需要 USB 转 TTL 接 PA9/PA10 并把 BOOT0 拨到 1，ESP32 直接 USB）。流程：写好代码 → write_firmware 保存 → sim_run → cloud_build → 成功就 web_flash → ask_human(observe) 问结果。云编译报错就读错误改代码再编。用户没有硬件时到 cloud_build 为止。不要让用户在终端跑命令。`,
 }
 export const systemFor = (mode, root = '', lang = 'zh') => lang === 'en'
   ? BASE_SYSTEM_EN + '\n\n' + (MODE_NOTES_EN[mode] ?? MODE_NOTES_EN.static)(root)
@@ -105,11 +105,13 @@ export const CLIENT_TOOL_SCHEMAS = [
 ]
 
 // 体验模式（Vercel / 纯静态）能用的服务端工具子集：在浏览器里用 localStorage 和打包的 JSON 实现
+export const STATIC_ONLY_CLIENT_TOOLS = ['cloud_build']   // 本地模式不需要云编译
 export const STATIC_SERVER_TOOLS = ['read_pinout', 'read_board', 'list_parts', 'check_env', 'write_firmware', 'append_journal', 'record_ai_mistake', 'search_parts', 'add_part', 'read_inventory', 'update_inventory', 'save_project', 'list_projects', 'read_project', 'add_troubleshooting']
 
 export function toolDefsFor(mode) {
   const server = mode === 'local' ? SERVER_TOOL_SCHEMAS : SERVER_TOOL_SCHEMAS.filter((t) => STATIC_SERVER_TOOLS.includes(t.name))
-  return [...server, ...CLIENT_TOOL_SCHEMAS].map(({ name, description, input_schema }) => ({ name, description, input_schema }))
+  const client = mode === 'local' ? CLIENT_TOOL_SCHEMAS.filter((t) => !STATIC_ONLY_CLIENT_TOOLS.includes(t.name)) : CLIENT_TOOL_SCHEMAS
+  return [...server, ...client].map(({ name, description, input_schema }) => ({ name, description, input_schema }))
 }
 
 // ---------- OpenAI Responses API ----------

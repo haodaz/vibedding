@@ -3,6 +3,7 @@ import { Agent, newSessionId, type Item, type HumanAsk } from './agent'
 import { href } from '../router'
 import { HumanCard } from './HumanCard'
 import { BomCard } from './BomCard'
+import { FlashCard } from './FlashCard'
 import { BoardSvg, type PinState } from '../canvases/board/BoardSvg'
 import { Markdown } from '../Markdown'
 import { NpcImage } from '../components/Scene'
@@ -19,7 +20,7 @@ import { Scene } from '../components/Scene'
 const TOOL_LABEL: Record<string, [string, string]> = {
   search_projects: ['查项目食谱', 'search recipes'], search_troubleshooting: ['查排障库', 'search troubleshooting'], explain_concept: ['查术语表', 'glossary'], get_snippet: ['取代码片段', 'get snippet'], list_boards: ['看板子列表', 'list boards'], read_board_profile: ['读板子档案', 'board profile'], part_detail: ['查元件档案', 'part detail'],
   search_parts: ['查元件库', 'search parts'], add_part: ['收录元件', 'add part'], read_inventory: ['看库存', 'read inventory'], update_inventory: ['更新库存', 'update inventory'], save_project: ['保存项目', 'save project'], list_projects: ['列项目', 'list projects'], read_project: ['读项目', 'read project'], add_troubleshooting: ['记排障', 'add troubleshooting'],
-  read_pinout: ['查引脚表', 'pinout'], read_board: ['读板子档案', 'board'], list_parts: ['看套件清单', 'kit list'], check_env: ['检查环境', 'check env'], read_file: ['读文件', 'read file'], list_files: ['列目录', 'list files'], write_firmware: ['写固件', 'write firmware'], pio_build: ['编译', 'build'], pio_upload: ['烧录', 'flash'], serial_read: ['读串口', 'read serial'], append_journal: ['记日志', 'journal'], record_ai_mistake: ['记错误', 'log mistake'], sim_run: ['虚拟板子运行', 'run on virtual board'],
+  cloud_build: ['云编译', 'cloud build'], web_flash: ['浏览器烧录', 'flash from browser'], read_pinout: ['查引脚表', 'pinout'], read_board: ['读板子档案', 'board'], list_parts: ['看套件清单', 'kit list'], check_env: ['检查环境', 'check env'], read_file: ['读文件', 'read file'], list_files: ['列目录', 'list files'], write_firmware: ['写固件', 'write firmware'], pio_build: ['编译', 'build'], pio_upload: ['烧录', 'flash'], serial_read: ['读串口', 'read serial'], append_journal: ['记日志', 'journal'], record_ai_mistake: ['记错误', 'log mistake'], sim_run: ['虚拟板子运行', 'run on virtual board'],
 }
 const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
 
@@ -109,7 +110,7 @@ export function Workshop() {
         </div>
         <div className="ws-log">
           {a.items.map((it, i) => <Row key={i} it={it} onAnswer={(id, s) => a.answerHuman(id, s)} />)}
-          {a.busy && !a.items.some((i) => (i.kind === 'human' || i.kind === 'bom') && i.answer === undefined) && <div className="ws-thinking"><span className="dots" />{a.model && <em>{a.model}</em>}</div>}
+          {a.busy && !a.items.some((i) => (i.kind === 'human' || i.kind === 'bom' || i.kind === 'flash') && i.answer === undefined) && <div className="ws-thinking"><span className="dots" />{a.model && <em>{a.model}</em>}</div>}
           <div ref={endRef} />
         </div>
         <form className="ws-input" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
@@ -238,6 +239,7 @@ function Row({ it, onAnswer }: { it: Item; onAnswer: (id: string, s: string) => 
   if (it.kind === 'system') return <div className="ws-row sys">{it.text}</div>
   if (it.kind === 'human') return <div className="ws-row cardrow"><HumanCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
   if (it.kind === 'bom') return <div className="ws-row cardrow"><BomCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
+  if (it.kind === 'flash') return <div className="ws-row cardrow"><FlashCard build={it.build} note={it.note} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
   return (
     <div className={'ws-row tool' + (it.error ? ' err' : '')}>
       <button className="tool-chip" onClick={() => setOpen(!open)}>

@@ -12,6 +12,7 @@ import { runTool } from './tools.mjs'
 import { step, agentModel, provider } from './agent.mjs'
 import { usageRecord } from '../shared/spec.mjs'
 import { rest, authAdmin, hasService } from '../../api/_lib.js'
+import { ROOT } from './tools.mjs'
 
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -156,6 +157,23 @@ http.createServer(async (req, res) => {
           return json(res, 200, { ok: true })
         }
       } catch (e) { return json(res, 500, { error: e.message }) }
+    }
+    if (req.url.startsWith('/api/firmware')) {
+      // 本地模式：把 pio_build 编好的固件按云编译的格式返回，给浏览器烧录用
+      const project = new URL(req.url, 'http://x').searchParams.get('project') || ''
+      const dir = path.join(ROOT, project.replace(/^\/+/, ''))
+      if (!project.startsWith('firmware/') || project.includes('..')) return json(res, 400, { error: 'bad project' })
+      const buildDir = path.join(dir, '.pio', 'build')
+      const envs = fs.existsSync(buildDir) ? fs.readdirSync(buildDir).filter((e) => fs.existsSync(path.join(buildDir, e, 'firmware.bin'))) : []
+      if (!envs.length) return json(res, 200, { ok: false, error: '还没编译过，先 pio_build' })
+      const ini = fs.existsSync(path.join(dir, 'platformio.ini')) ? fs.readFileSync(path.join(dir, 'platformio.ini'), 'utf8') : ''
+      const platform = /espressif32/.test(ini) ? 'espressif32' : /atmelavr/.test(ini) ? 'atmelavr' : 'ststm32'
+      const b = path.join(buildDir, envs[0])
+      const images = []
+      const add = (file, addr) => { const p2 = path.join(b, file); if (fs.existsSync(p2)) { const buf = fs.readFileSync(p2); images.push({ name: file, addr, size: buf.length, b64: buf.toString('base64') }) } }
+      if (platform === 'espressif32') { add('bootloader.bin', 0x1000); add('partitions.bin', 0x8000); const boot0 = path.join(process.env.HOME, '.platformio', 'packages', 'framework-arduinoespressif32', 'tools', 'partitions', 'boot_app0.bin'); if (fs.existsSync(boot0)) { const buf = fs.readFileSync(boot0); images.push({ name: 'boot_app0.bin', addr: 0xe000, size: buf.length, b64: buf.toString('base64') }) } add('firmware.bin', 0x10000) }
+      else add('firmware.bin', 0x08000000)
+      return json(res, 200, { ok: images.length > 0, board: envs[0], platform, images })
     }
     if (req.url === '/api/tool' && req.method === 'POST') {
       let raw = ''

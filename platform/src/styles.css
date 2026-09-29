@@ -668,3 +668,8 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 :root[data-theme="light"] .modeswitch a.on { color: #fff; }
 :root[data-theme="light"] .langswitch button.on { color: #fff; }
 :root[data-theme="light"] .bom-right .mono, :root[data-theme="light"] .md code { color: #9a5a00; }
+
+.hcard.flash { border-color: rgba(57,197,255,.5); background: linear-gradient(180deg, rgba(57,197,255,.08), var(--deep-a)); }
+.hcard.flash .hcard-kind { color: var(--cyan); }
+.flash-progress { display: flex; align-items: center; gap: 10px; margin: 8px 0; } .flash-progress .bar { flex: 1; }
+.tool-out.small { font-size: 11.5px; max-height: 120px; }

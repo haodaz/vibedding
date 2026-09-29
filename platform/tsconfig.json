@@ -14,7 +14,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "types": [
-      "vite/client"
+      "vite/client",
+      "w3c-web-serial"
     ],
     "allowJs": true,
     "checkJs": false

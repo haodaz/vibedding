@@ -79,3 +79,9 @@ git clone git@github.com:haodaz/vibedding.git && cd vibedding/platform && npm in
 | `api/` | Vercel 函数：agent 一步（体验模式工具集）+ 状态 |
 | `platform/src/workshop/local-tools.ts` | 体验模式下服务端工具的浏览器实现（localStorage + 打包的 JSON） |
 | `platform/src/workshop/knowledge.ts` | 五个知识库的检索，任何模式都在浏览器里 |
+
+## 云编译 + 浏览器烧录（网页版烧真板子）
+- `compile-server/` 是一个独立的小服务（Node + PlatformIO，Dockerfile 已写好，镜像里预装了 STM32 和 ESP32 工具链）。部署到 Railway：New Project → GitHub 仓库 → Root Directory 填 `compile-server` → Variables 加 `COMPILE_TOKEN`。第一次构建约 10 分钟。
+- 拿到域名后在 Vercel 加 `COMPILE_URL`、`COMPILE_TOKEN`，Redeploy。`/api/compile` 会验证登录再转发，浏览器拿不到编译服务的令牌。
+- 之后 AI 在网页版有 `cloud_build`（云编译）和 `web_flash`（浏览器烧录卡）两个工具：STM32 走串口引导程序（BOOT0=1，USB-TTL 接 PA9/PA10，Chrome 的 Web Serial），ESP32 走 esptool-js。本地模式 `web_flash` 直接烧 `pio_build` 的产物。
+- 本地测试编译服务：`COMPILE_TOKEN=dev node compile-server/server.mjs`，然后 `platform/.env` 里 `COMPILE_URL=http://localhost:8787`、`COMPILE_TOKEN=dev`（本地模式其实用 pio_build，这个只是测接口）。
