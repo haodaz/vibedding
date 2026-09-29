@@ -1,4 +1,19 @@
-# 部署：Vercel + Supabase
+# 部署：Vercel + Supabase（封闭平台）
+
+## 封闭是什么意思
+- 没登录只看到登录页。账号邀请制：公开注册关闭，用 `node tools/add-user.mjs 邮箱` 建（密码从剪贴板取）。
+- 课程、日志、提示词、五个知识库都存在 Supabase 的 `content_docs` 表，只有登录用户能读；前端代码里**不包含**任何内容（封闭构建 `VITE_CLOSED=1` 会去掉内容打包，已验证）。本地改完内容用 `node tools/sync-content.mjs` 推上云。
+- AI 接口（/api/agent/step）验证登录令牌，没登录调不了。
+- 每个用户的项目、库存、日志、固件存 `visitor_kv`，只能读写自己的行。
+- 贴图（/art/*.png）是静态文件，不在门内；不含知识，只是零件的图。
+
+## 一次性配置
+1. Supabase SQL Editor 运行 `docs/04-closed-platform.sql`（两张表 + 权限）。
+2. Supabase → Authentication → Sign In / Providers → Email：保持开启，**关掉 "Allow new users to sign up"**；Anonymous 不用开。
+3. 建第一个账号：把密码复制到剪贴板，然后 `node tools/add-user.mjs 你的邮箱`。
+4. 同步内容：`node tools/sync-content.mjs`。以后每次改了 content/ 再跑一次。
+5. Vercel 环境变量多一条 `VITE_CLOSED=1`（`bash tools/vercel-env.sh` 已包含）。本地开发不设它，仍是开放模式读本地文件。
+
 
 ## 形态
 | 模式 | 谁 | 有什么 |

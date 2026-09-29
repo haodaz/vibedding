@@ -16,6 +16,14 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   if (!process.env.OPENAI_API_KEY) return res.status(200).json({ error: 'no-credentials' })
+  // 封闭平台：必须带 Supabase 登录令牌（VITE_CLOSED=1 时）
+  if (process.env.VITE_CLOSED === '1') {
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+    const url = process.env.VITE_SUPABASE_URL, anon = process.env.VITE_SUPABASE_ANON_KEY
+    if (!token || !url || !anon) return res.status(200).json({ error: 'unauthorized' })
+    const u = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anon, Authorization: `Bearer ${token}` } }).catch(() => null)
+    if (!u || !u.ok) return res.status(200).json({ error: 'unauthorized' })
+  }
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket?.remoteAddress || '?'
   if (limited(ip, Number(process.env.RATE_PER_MIN || 12))) return res.status(429).json({ error: '太快了，歇一分钟再来' })
   try {

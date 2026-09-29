@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { PARTS, type Part } from './catalog'
+import { getParts, type Part } from './catalog'
 import { PartImg } from './PartImg'
 import { href } from '../../router'
 import { modules } from '../../content'
 
 // 元件图鉴：网格卡片，点开看大图和说明。only 参数可以只显示几个。
 export function Parts({ only }: { only?: string[] }) {
+  const PARTS = getParts()
   const list = only?.length ? PARTS.filter((p) => only.includes(p.name) || only.includes(p.name.replace(/^part_/, ''))) : PARTS
   const [open, setOpen] = useState<Part | null>(null)
   const taskLink = (t: string) => {

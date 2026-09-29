@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { CLOSED, signOut, useSession } from './auth'
+import { Login } from './components/Login'
+import { initContent } from './content'
 import { byPath, hardware, journal, modules, prompts, type Doc, type Mission } from './content'
 import { Markdown } from './Markdown'
 import { href, useHashRoute } from './router'
@@ -22,6 +25,19 @@ const NAV = [
 const STATUS_LABEL: Record<Mission['status'], string> = { todo: 'TODO', doing: 'DOING', done: 'DONE' }
 
 export default function App() {
+  const { session, ready } = useSession()
+  const [loaded, setLoaded] = useState(false)
+  const [loadErr, setLoadErr] = useState('')
+  const authed = !CLOSED || !!session
+  useEffect(() => { if (ready && authed && !loaded) initContent().then(() => setLoaded(true)).catch((e) => setLoadErr(String(e.message ?? e))) }, [ready, authed, loaded])
+  if (!ready) return <div className="boot"><pre>[    0.000] checking session…</pre></div>
+  if (CLOSED && !session) return <Login />
+  if (loadErr) return <div className="boot"><pre style={{ color: 'var(--red)' }}>{loadErr}</pre></div>
+  if (!loaded) return <div className="boot"><pre>[    0.012] loading content…<span className="caret">▮</span></pre></div>
+  return <Shell email={session?.user.email ?? null} />
+}
+
+function Shell({ email }: { email: string | null }) {
   const route = useHashRoute()
   const [booted, setBooted] = useState(() => { try { return sessionStorage.getItem('booted') === '1' } catch { return true } })
   const all = modules.flatMap((m) => m.missions)
@@ -50,8 +66,8 @@ export default function App() {
             <div className="memmap-cells">{all.map((m) => <i key={m.path} className={m.status} title={m.fm.title} />)}</div>
           </div>
           <div className="sidebar-foot">
-            <span>content/ · {modules.length} modules</span>
-            <span>local · no cloud</span>
+            <span>{modules.length} modules · {all.length} missions</span>
+            {email ? <span className="sidebar-user">{email} <button className="linkbtn" onClick={() => signOut()}>退出</button></span> : <span>local · no cloud</span>}
           </div>
         </aside>
         <main className="content"><Page route={route} /></main>

@@ -1,22 +1,24 @@
 // 体验模式下"服务端工具"的浏览器实现：用打包进来的 JSON + localStorage。
 // 和本地服务的同名工具行为一致，只是数据存在访客自己的浏览器里（将来可换成 Supabase，见 storage.ts）。
-import pins from '../../../content/hardware/bluepill-pins.json'
-import manifest from '../../../content/art/manifest.json'
-import catalog from '../../../content/hardware/parts-catalog.json'
-import boardMd from '../../../content/hardware/board.md?raw'
+import { getJson, raw } from '../content'
 import { store } from './storage'
+type PinRow = { name: string; funcs: string[]; note?: string }
+const pinsOf = () => getJson<{ board: string; note: string; left: PinRow[]; right: PinRow[]; bottom: PinRow[] }>('hardware/bluepill-pins.json')
+const manifestOf = () => getJson<{ parts: AnyRec[] }>('art/manifest.json')
+const catalogOf = () => getJson<{ parts: AnyRec[] }>('hardware/parts-catalog.json')
 
 type AnyRec = Record<string, unknown>
 const day = () => new Date().toISOString().slice(0, 10)
 
 export const LOCAL_TOOLS: Record<string, (input: AnyRec) => Promise<string> | string> = {
   read_pinout({ filter }) {
+    const pins = pinsOf(); if (!pins) return '引脚表没加载'
     const all = [...pins.left, ...pins.right, ...pins.bottom]
     const rows = all.filter((p) => !filter || p.funcs.some((f) => f.toUpperCase().includes(String(filter).toUpperCase())))
-    return `${pins.board}（${pins.note}）\n` + rows.map((p) => `${p.name}: ${p.funcs.join(', ')}${(p as AnyRec).note ? ' — ' + (p as AnyRec).note : ''}`).join('\n')
+    return `${pins.board}（${pins.note}）\n` + rows.map((p) => `${p.name}: ${p.funcs.join(', ')}${p.note ? ' — ' + p.note : ''}`).join('\n')
   },
-  read_board() { return boardMd },
-  list_parts() { return (manifest as { parts: AnyRec[] }).parts.map((p) => `${String(p.name).replace(/^part_/, '')}: ${p.label} — ${p.what}`).join('\n') },
+  read_board() { return raw['hardware/board.md'] ?? '（没有板子档案）' },
+  list_parts() { return (manifestOf()?.parts ?? []).map((p) => `${String(p.name).replace(/^part_/, '')}: ${p.label} — ${p.what}`).join('\n') },
   check_env() { return '网页体验模式：没有连接用户的电脑，不能编译/烧录/读串口。虚拟板子（sim_run）是唯一的运行方式。到货后在本地模式烧录。' },
   async write_firmware({ path, content }) {
     const p = String(path)
@@ -38,7 +40,7 @@ export const LOCAL_TOOLS: Record<string, (input: AnyRec) => Promise<string> | st
   },
   search_parts({ query = '' }) {
     const q = String(query).trim().toLowerCase()
-    const parts = (catalog as { parts: AnyRec[] }).parts
+    const parts = catalogOf()?.parts ?? []
     const hit = parts.filter((p) => !q || [p.id, p.name, p.cat, p.iface, p.note, p.buy, p.lib].join(' ').toLowerCase().includes(q))
     if (!hit.length) return `知识库里没有和"${query}"相关的条目（共 ${parts.length} 条）。可以照常推荐，但标 catalog=false 并提醒核对。`
     return hit.slice(0, 25).map((p) => `[${p.id}] ${p.name} · ${p.cat} · 接口 ${p.iface} · ${p.volt} · ¥${p.price} · 搜"${p.buy}" · 库: ${p.lib}${p.note ? ' · ' + p.note : ''}`).join('\n')

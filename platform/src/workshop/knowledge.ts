@@ -1,11 +1,9 @@
 // 知识库检索：全部在浏览器里做。JSON 在构建时打包进前端，所以纯静态部署也能用。
 // 文件由 content/knowledge/*.json 与 content/hardware/boards/*.json 提供；缺文件时工具会说明，不会崩。
+import { getJson } from '../content'
 type AnyRec = Record<string, unknown>
-const kb = import.meta.glob('../../../content/knowledge/*.json', { eager: true, import: 'default' }) as Record<string, AnyRec>
-const boards = import.meta.glob('../../../content/hardware/boards/*.json', { eager: true, import: 'default' }) as Record<string, AnyRec>
-const catalog = import.meta.glob('../../../content/hardware/parts-catalog.json', { eager: true, import: 'default' }) as Record<string, AnyRec>
-
-const pick = (m: Record<string, AnyRec>, name: string) => Object.entries(m).find(([k]) => k.endsWith('/' + name))?.[1]
+const kb = 'knowledge/', boards = 'hardware/boards/', catalog = 'hardware/'
+const pick = (dir: string, name: string) => getJson<AnyRec>(dir + name) ?? undefined
 const lower = (s: unknown) => String(s ?? '').toLowerCase()
 const score = (hay: string, q: string) => q.split(/\s+/).filter(Boolean).reduce((n, w) => n + (hay.includes(w.toLowerCase()) ? 1 : 0), 0)
 const top = <T,>(items: T[], q: string, text: (t: T) => string, n = 5) =>

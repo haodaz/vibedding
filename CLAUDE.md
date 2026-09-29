@@ -15,6 +15,11 @@
 - `board` 的 goals 检查器在 `canvases/board/goals.ts`；模拟器只支持 Arduino 教学子集，见 `transpile.ts` 顶部注释
 - 新加 canvas：写组件 + 在 index.tsx 注册 + CANVAS_META 加一行
 
+## 封闭平台
+- `VITE_CLOSED=1` 时：登录门（Supabase 邮箱密码）、内容从 `content_docs` 表加载、`/api/agent/step` 验令牌。内容层 `src/content.ts` 是唯一入口（getJson / byPath / raw），组件不再直接 import content 文件
+- 改了 content/ 之后：`node tools/sync-content.mjs` 推上云。建账号：`node tools/add-user.mjs 邮箱`（密码在剪贴板）
+- `SUPABASE_SERVICE_ROLE_KEY` 只给 tools/ 脚本用，永远不进前端和 Vercel
+
 ## 三种运行模式
 - local：`npm run dev`，本地服务有真工具（pio、文件）。static：Vercel，`api/` 两个函数，工具集是 `STATIC_SERVER_TOOLS`，服务端工具由 `src/workshop/local-tools.ts` 在浏览器实现（localStorage）。direct：无后端，访客自填密钥直连模型
 - 规格（系统提示、工具 schema、OpenAI 翻译）只在 `platform/shared/spec.mjs` 一处，三端共用。改工具先改这里，再在 server/tools.mjs 或 local-tools.ts 加实现

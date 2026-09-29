@@ -5,6 +5,7 @@ import { KNOWLEDGE_TOOLS } from './knowledge'
 import { LOCAL_TOOLS } from './local-tools'
 import { detectMode, getDirectKey, getDirectModel, type ModeInfo } from './mode'
 import { systemFor, toolDefsFor, openaiStep } from '../../shared/spec.mjs'
+import { getToken } from '../auth'
 
 export type Block =
   | { type: 'text'; text: string }
@@ -71,9 +72,11 @@ export class Agent {
           try { j = { ...(await openaiStep({ apiKey: key, model: getDirectModel(), system: systemFor('static'), tools: toolDefsFor('static'), messages: this.messages })), mock: false, agentModel: getDirectModel() } }
           catch (e) { j = { error: (e as Error).message } }
         } else {
-          const res = await fetch('/api/agent/step', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: this.messages }) })
+          const token = await getToken()
+          const res = await fetch('/api/agent/step', { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify({ messages: this.messages }) })
           j = await res.json()
         }
+        if (j.error === 'unauthorized') { this.items.push({ kind: 'system', text: '登录已过期，刷新页面重新登录。' }); break }
         if (j.error === 'no-credentials') { this.items.push({ kind: 'system', text: '服务端还没配 AI 密钥（OPENAI_API_KEY）。' }); break }
         if (j.error) { this.items.push({ kind: 'system', text: '出错了：' + String(j.error) }); break }
         this.mock = !!j.mock; this.model = String(j.agentModel ?? '')

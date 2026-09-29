@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.." || exit 1
   grep -E '^(OPENAI_API_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_ANON_KEY)=' platform/.env
   grep -q '^AGENT_MODEL=' platform/.env && grep '^AGENT_MODEL=' platform/.env || echo 'AGENT_MODEL=gpt-5.6-luna'
   echo 'RATE_PER_MIN=12'
+  echo 'VITE_CLOSED=1'
 } | pbcopy
 n=$(pbpaste | wc -l | tr -d ' ')
 echo "已复制 $n 条到剪贴板：$(pbpaste | cut -d= -f1 | tr '\n' ' ')"

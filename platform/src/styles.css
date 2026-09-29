@@ -447,3 +447,15 @@ input[type=range] { accent-color: var(--amber); width: 100%; }
 .hero-cta { margin-top: 14px; }
 .ws-settings-form { display: flex; flex-direction: column; gap: 6px; }
 .ws-settings-form input { background: #0a0f1e; border: 1px solid var(--border-2); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-family: var(--mono); }
+
+/* ---------- 登录 ---------- */
+.login { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); }
+.login-bg { position: absolute; inset: 0; border-radius: 0; opacity: .55; }
+.login-bg .scene-shade { background: radial-gradient(60% 60% at 50% 50%, rgba(11,16,32,.2), rgba(11,16,32,.95)); }
+.login-card { position: relative; z-index: 1; width: min(92vw, 380px); background: rgba(14,20,40,.85); backdrop-filter: blur(18px); border: 1px solid var(--border-2); border-radius: 18px; padding: 28px 26px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.login-card input { background: #0a0f1e; border: 1px solid var(--border-2); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: var(--font); outline: none; }
+.login-card input:focus { border-color: var(--accent); }
+.login-card .chip.primary { padding: 10px; font-size: 14px; }
+.login-err { color: var(--red); font-size: 13px; }
+.sidebar-user { display: flex; gap: 6px; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linkbtn { background: none; border: 0; color: var(--accent); cursor: pointer; font-family: var(--mono); font-size: 10px; padding: 0; }

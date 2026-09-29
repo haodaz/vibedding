@@ -4,10 +4,10 @@ import { Scene } from './Scene'
 import { PartImg } from '../canvases/parts/PartImg'
 
 // 知识库浏览页：项目食谱 / 术语表 / 排障 / 代码片段 / 板子。数据与 AI 用的是同一份 JSON。
+import { getJson } from '../content'
 type AnyRec = Record<string, unknown>
-const kb = import.meta.glob('../../../content/knowledge/*.json', { eager: true, import: 'default' }) as Record<string, AnyRec>
-const boards = import.meta.glob('../../../content/hardware/boards/*.json', { eager: true, import: 'default' }) as Record<string, AnyRec>
-const pick = (m: Record<string, AnyRec>, name: string) => Object.entries(m).find(([k]) => k.endsWith('/' + name))?.[1]
+const kb = 'knowledge/', boards = 'hardware/boards/'
+const pick = (dir: string, name: string) => getJson<AnyRec>(dir + name) ?? undefined
 
 const TABS = [
   { id: 'projects', label: '项目食谱', desc: '想做点什么？从这里挑。每个都有零件、接线、步骤和代码骨架。' },
