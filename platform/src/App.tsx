@@ -52,7 +52,7 @@ function Shell({ email }: { email: string | null }) {
           <a className="brand" href={href('/')}>
             <span className="brand-led" />
             <span className="brand-name">vibedding<em>_</em></span>
-            <small>门外汉 × AI · 嵌入式自学平台</small>
+            <small>Embedding your world with AI</small>
           </a>
           <nav>
             {NAV.map((n) => (

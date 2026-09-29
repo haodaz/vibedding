@@ -1,4 +1,6 @@
-# Embeded · 门外汉 × AI 的嵌入式自学平台
+# Vibedding · Embedding your world with AI
+
+门外汉 × AI 的嵌入式自学与动手平台 · https://www.vibedding.com
 
 > 把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。
 >

@@ -16,6 +16,7 @@ export function Login() {
       <Scene name="hero_home" className="login-bg" />
       <form className="login-card" onSubmit={submit}>
         <div className="brand-name" style={{ fontSize: 26 }}>vibedding<em>_</em></div>
+        <p className="tagline">Embedding your world with AI</p>
         <p className="muted">门外汉 × AI · 动手做嵌入式。登录后进入。</p>
         <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="邮箱" required autoFocus />
         <input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="密码" required />
