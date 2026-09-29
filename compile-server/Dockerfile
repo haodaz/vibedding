@@ -10,6 +10,6 @@ WORKDIR /app
 # 构建上下文可能是仓库根目录，也可能是 compile-server/ 目录，两种都能找到 server.mjs
 COPY . /src
 RUN if [ -f /src/server.mjs ]; then cp /src/server.mjs /app/server.mjs; else cp /src/compile-server/server.mjs /app/server.mjs; fi && rm -rf /src
-ENV PORT=8787
-EXPOSE 8787
+ENV PORT=8080
+EXPOSE 8080
 CMD ["node", "server.mjs"]

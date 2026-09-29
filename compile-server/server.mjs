@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 const exec = promisify(execFile)
 
-const PORT = Number(process.env.PORT || 8787)
+const PORT = Number(process.env.PORT || 8080)
 const TOKEN = process.env.COMPILE_TOKEN || ''
 const PIO = process.env.PIO || 'pio'
 const MAX_FILE = 200_000, MAX_FILES = 20, TIMEOUT = Number(process.env.COMPILE_TIMEOUT || 240_000)
