@@ -5,7 +5,9 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, exec as execCb } from 'node:child_process'
+import { promisify } from 'node:util'
+const execAsync = promisify(execCb)
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { runTool } from './tools.mjs'
@@ -46,22 +48,25 @@ function hasCredentials() {
 }
 
 function sh(cmd) {
-  try { return execSync(cmd, { encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, PATH: process.env.HOME + '/.local/bin:' + process.env.PATH } }).trim() } catch { return '' }
+  try { return execSync(cmd, { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, PATH: process.env.HOME + '/.local/bin:' + process.env.PATH } }).trim() } catch { return '' }
 }
 
+// 状态：USB 扫描（system_profiler）很慢，后台每 6 秒扫一次，接口直接回缓存
+let usbCache = { ports: [], usb: [], pio: null, at: 0 }
+const shA = async (cmd) => { try { const { stdout } = await execAsync(cmd, { encoding: 'utf8', timeout: 20000, env: { ...process.env, PATH: process.env.HOME + '/.local/bin:' + process.env.PATH } }); return stdout.trim() } catch { return '' } }
+let scanning = false
+async function scanUsb() {
+  if (scanning) return; scanning = true
+  try {
+    const ports = (await shA('ls /dev/cu.* 2>/dev/null')).split('\n').filter((p) => p && !/Bluetooth|debug-console/i.test(p))
+    const usb = (await shA("system_profiler SPUSBDataType 2>/dev/null | grep -i -E 'st-link|stlink|stm32|ch340|cp210|ftdi|usb serial' | sed 's/^ *//'")).split('\n').filter(Boolean)
+    const pio = usbCache.pio ?? ((await shA('command -v pio')) ? await shA('pio --version') : null)
+    usbCache = { ports, usb, pio, at: Date.now() }
+  } finally { scanning = false }
+}
+scanUsb(); setInterval(scanUsb, 6000)
 function status() {
-  const ports = sh('ls /dev/cu.* 2>/dev/null').split('\n').filter((p) => p && !/Bluetooth|debug-console/i.test(p))
-  const usb = sh("system_profiler SPUSBDataType 2>/dev/null | grep -i -E 'st-link|stlink|stm32|ch340|cp210|ftdi|usb serial' | sed 's/^ *//'")
-    .split('\n').filter(Boolean)
-  return {
-    pio: sh('command -v pio') ? sh('pio --version') : null,
-    node: process.version,
-    ports,
-    usb,
-    ai: provider() === 'mock' ? null : agentModel(),
-    mode: 'local',
-    time: new Date().toISOString(),
-  }
+  return { pio: usbCache.pio, node: process.version, ports: usbCache.ports, usb: usbCache.usb, ai: provider() === 'mock' ? null : agentModel(), mode: 'local', time: new Date().toISOString() }
 }
 
 const SYSTEM = `你是一位有耐心的嵌入式导师，在辅导一个零基础、非科班、但很聪明的成年人学 STM32。

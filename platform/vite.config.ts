@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     port: 5173,
     fs: { allow: ['..'] },
-    proxy: { '/api': 'http://localhost:5174' },
+    proxy: { '/api': 'http://127.0.0.1:5174' },   // 用 127.0.0.1：这台 Mac 上 localhost 解析有 6 秒延迟
   },
   preview: { port: 4173, proxy: {} },   // 预览 = 纯静态，不代理 /api，用来模拟线上体验模式
   worker: { format: 'es' },

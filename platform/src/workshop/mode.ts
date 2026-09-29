@@ -8,7 +8,7 @@ export async function detectMode(): Promise<ModeInfo> {
   if (getDirectKey()) { cached = { mode: 'direct', ai: getDirectModel(), reason: '用你自己的密钥直连' }; return cached }
   try {
     // 不用 AbortSignal.timeout（有的内嵌浏览器没有这个 API，会直接抛错被当成"没有后端"）
-    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 4000)
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 12000)
     const r = await fetch('/api/status', { signal: ctl.signal }).finally(() => clearTimeout(timer))
     if (r.ok && (r.headers.get('content-type') ?? '').includes('json')) {
       const j = await r.json()
