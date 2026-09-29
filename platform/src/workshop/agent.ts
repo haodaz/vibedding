@@ -69,7 +69,7 @@ export class Agent {
         let j: Record<string, unknown>
         if (this.modeInfo.mode === 'direct') {
           const key = getDirectKey()
-          if (!key) { this.items.push({ kind: 'system', text: t('ws.err.nobackend') }); break }
+          if (!key) { this.items.push({ kind: 'system', text: t('ws.err.unavail') }); break }
           try { j = { ...(await openaiStep({ apiKey: key, model: getDirectModel(), system: systemFor('static', '', getLang()), tools: toolDefsFor('static'), messages: this.messages })), mock: false, agentModel: getDirectModel() } }
           catch (e) { j = { error: (e as Error).message } }
         } else {
@@ -78,7 +78,7 @@ export class Agent {
           j = await res.json()
         }
         if (j.error === 'unauthorized') { this.items.push({ kind: 'system', text: t('ws.err.auth') }); break }
-        if (j.error === 'no-credentials') { this.items.push({ kind: 'system', text: t('ws.err.nocred') }); break }
+        if (j.error === 'no-credentials') { this.items.push({ kind: 'system', text: t('ws.err.unavail') }); break }
         if (j.error) { this.items.push({ kind: 'system', text: '出错了：' + String(j.error) }); break }
         this.mock = !!j.mock; this.model = String(j.agentModel ?? '')
         const content = j.content as Block[]

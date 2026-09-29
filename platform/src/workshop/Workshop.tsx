@@ -6,7 +6,7 @@ import { BoardSvg, type PinState } from '../canvases/board/BoardSvg'
 import { Markdown } from '../Markdown'
 import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
-import { detectMode, getDirectKey, setDirectKey, getDirectModel, setDirectModel, type ModeInfo } from './mode'
+import { detectMode, type ModeInfo } from './mode'
 import { store } from './storage'
 import { t, getLang, useLang } from '../i18n'
 import { PartImg } from '../canvases/parts/PartImg'
@@ -68,7 +68,7 @@ export function Workshop() {
       <div className="ws-chat">
         <div className="ws-head">
           <div className="ws-title"><h1>{t('ws.title')}</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
-          <p>{t('ws.sub')}{a.mock && <span className="ws-mock"> {t('ws.mock')}</span>}{mode && mode.mode !== 'local' && <span className="ws-mock"> {mode.mode === 'static' ? t('ws.static') : t('ws.direct')}</span>}</p>
+          {mode && mode.mode !== 'local' && <p className="muted small">{t('ws.static')}</p>}
         </div>
         <div className="ws-log">
           {a.items.length === 0 && (
@@ -112,9 +112,28 @@ export function Workshop() {
         </div>
         <div className="ws-side-foot">
           <Projects key={a.items.length} mode={mode?.mode ?? 'local'} />
-          {mode && mode.mode !== 'local' && <Settings mode={mode} onChange={() => detectMode().then(setMode)} />}
         </div>
       </aside>
+      <Intro />
+    </div>
+  )
+}
+
+// 首次进入弹一次的说明
+function Intro() {
+  const [show, setShow] = useState(() => { try { return localStorage.getItem('vb:intro') !== '1' } catch { return false } })
+  if (!show) return null
+  const close = () => { try { localStorage.setItem('vb:intro', '1') } catch { /* */ } setShow(false) }
+  return (
+    <div className="intro-mask" onClick={close}>
+      <div className="intro-card" onClick={(e) => e.stopPropagation()}>
+        <div className="ws-empty-npc"><NpcImage name="npc_mentor" /></div>
+        <div>
+          <h2>{t('intro.title')}</h2>
+          <p>{t('intro.body')}</p>
+          <button className="chip primary" onClick={close}>{t('intro.ok')}</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -172,28 +191,6 @@ function Projects({ mode }: { mode: string }) {
     <div className="ws-tools ws-projects">
       <div className="canvas-head"><span className="canvas-title">📁 {t('ws.projects')}</span><span className="muted small">{mode === 'local' ? 'content/projects/' : backend === 'supabase' ? t('ws.projects.cloud') : t('ws.projects.local')}</span></div>
       <ul>{list.length ? list.map((l) => <li key={l}>{l}</li>) : <li className="muted">{t('ws.projects.none')}</li>}</ul>
-    </div>
-  )
-}
-
-function Settings({ mode, onChange }: { mode: ModeInfo; onChange: () => void }) {
-  const [key, setKey] = useState(getDirectKey())
-  const [model, setModel] = useState(getDirectModel())
-  const [open, setOpen] = useState(mode.mode === 'direct' && !getDirectKey())
-  return (
-    <div className="ws-tools ws-settings">
-      <div className="canvas-head"><span className="canvas-title">⚙ {t('ws.settings')}</span><button className="chip" onClick={() => setOpen(!open)}>{open ? t('ws.collapse') : t('ws.expand')}</button></div>
-      <ul>
-        <li><b>{t('ws.mode')}</b> {mode.reason}{mode.ai ? ` · ${mode.ai}` : ''}</li>
-        {open && (
-          <li className="ws-settings-form">
-            <div className="muted small">{mode.mode === 'direct' ? t('ws.key.direct') : t('ws.key.optional')}</div>
-            <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-…" />
-            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-5.6-luna" />
-            <div className="chips"><button className="chip primary" onClick={() => { setDirectKey(key.trim()); setDirectModel(model.trim() || 'gpt-5.6-luna'); onChange() }}>{t('ws.save')}</button>{getDirectKey() && <button className="chip" onClick={() => { setDirectKey(''); setKey(''); onChange() }}>{t('ws.clear')}</button>}</div>
-          </li>
-        )}
-      </ul>
     </div>
   )
 }

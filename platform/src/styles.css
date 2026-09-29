@@ -516,3 +516,8 @@ input[type=range] { accent-color: var(--amber); width: 100%; }
 .proj-detail { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; min-height: 300px; }
 .proj-h { font-family: var(--mono); color: var(--accent); font-size: 12px; letter-spacing: .1em; margin: 20px 0 4px; }
 @media (max-width: 900px) { .ws { grid-template-columns: 1fr !important; height: auto; } .ws-divider { display: none; } .ws-space { padding-left: 0; } .picker-cards { grid-template-columns: 1fr; } .proj-layout { grid-template-columns: 1fr; } }
+
+.intro-mask { position: fixed; inset: 0; background: rgba(5,8,16,.7); backdrop-filter: blur(6px); display: grid; place-items: center; z-index: 50; }
+.intro-card { display: grid; grid-template-columns: 140px 1fr; gap: 20px; align-items: center; width: min(92vw, 640px); background: rgba(14,20,40,.95); border: 1px solid var(--border-2); border-radius: 18px; padding: 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.intro-card h2 { margin: 0 0 8px; font-size: 24px; } .intro-card p { margin: 0 0 16px; font-size: 16px; line-height: 1.7; }
+@media (max-width: 700px) { .intro-card { grid-template-columns: 1fr; } }
