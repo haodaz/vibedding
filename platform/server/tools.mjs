@@ -90,9 +90,14 @@ export const TOOLS = [
   },
   {
     name: 'serial_read',
-    run: async ({ seconds = 3, baud = 115200 }) => {
-      const r = await sh('sh', ['-c', `timeout ${seconds} pio device monitor -b ${baud} --quiet 2>&1 || true`], ROOT, (seconds + 5) * 1000)
-      return r.out ? tail(r.out, 40) : '（这段时间串口没有输出）'
+    run: async ({ seconds = 3, baud = 115200, port }) => {
+      // pio device monitor 不能脚本化，用 PlatformIO 自带 python 的 pyserial 直接读
+      const py = process.env.HOME + '/.local/share/uv/tools/platformio/bin/python'
+      const ports = (await sh('sh', ['-c', 'ls /dev/cu.* 2>/dev/null | grep -v -i bluetooth | grep -v debug-console'], ROOT, 5000)).out.split('\n').filter(Boolean)
+      const p = port || ports[0]
+      if (!p) return '没有找到串口设备（板子插上了吗？）'
+      const r = await sh(py, [path.join(ROOT, 'tools', 'serial-read.py'), p, String(baud), String(seconds)], ROOT, (seconds + 8) * 1000)
+      return r.out ? `串口 ${p} @${baud}，${seconds} 秒：\n` + tail(r.out, 40) : `（${p} 这段时间没有输出）`
     },
   },
   {

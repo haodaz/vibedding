@@ -3,7 +3,7 @@ title: 0-2 认识你的板子
 goal: 填好 content/hardware/board.md，知道 LED 和串口在哪个脚
 hardware: 板子、ST-Link、数据线
 time: 45 分钟
-status: todo
+status: done
 ---
 ## 要做什么
 

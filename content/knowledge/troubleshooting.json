@@ -5,7 +5,11 @@
       "id": "pio_command_not_found",
       "stage": "环境",
       "symptom": "终端敲 pio 说 command not found，明明刚装完",
-      "signals": ["zsh: command not found: pio", "command not found: platformio", "No such file or directory"],
+      "signals": [
+        "zsh: command not found: pio",
+        "command not found: platformio",
+        "No such file or directory"
+      ],
       "causes": [
         {
           "cause": "pio 装在了一个不在 PATH 里的目录（比如 ~/.platformio/penv/bin 或 uv 的 tools 目录），终端不知道去哪找",
@@ -33,7 +37,12 @@
       "id": "python_version_too_old",
       "stage": "环境",
       "symptom": "安装 PlatformIO 时报 Python 版本不对，或者说找不到 python",
-      "signals": ["Python 3.6+ is required", "python: command not found", "SyntaxError: invalid syntax (在安装脚本里)", "xcrun: error"],
+      "signals": [
+        "Python 3.6+ is required",
+        "python: command not found",
+        "SyntaxError: invalid syntax (在安装脚本里)",
+        "xcrun: error"
+      ],
       "causes": [
         {
           "cause": "macOS 自带的 python3 是个占位壳，第一次用会要求装 Xcode Command Line Tools",
@@ -61,7 +70,13 @@
       "id": "permission_denied_install",
       "stage": "环境",
       "symptom": "安装时说 Permission denied，或者要求输管理员密码但我不想/不能输",
-      "signals": ["Permission denied", "EACCES", "Operation not permitted", "sudo: a password is required", "[Errno 13]"],
+      "signals": [
+        "Permission denied",
+        "EACCES",
+        "Operation not permitted",
+        "sudo: a password is required",
+        "[Errno 13]"
+      ],
       "causes": [
         {
           "cause": "试图往系统目录（/usr/bin、/Library）写东西，普通用户没权限",
@@ -89,7 +104,15 @@
       "id": "pio_download_failed",
       "stage": "环境",
       "symptom": "第一次编译卡在下载平台/工具链，转半天然后报网络错误",
-      "signals": ["Error: Could not install package", "HTTPClientError", "Connection reset", "timed out", "Downloading toolchain", "Failed to download", "SSL: CERTIFICATE_VERIFY_FAILED"],
+      "signals": [
+        "Error: Could not install package",
+        "HTTPClientError",
+        "Connection reset",
+        "timed out",
+        "Downloading toolchain",
+        "Failed to download",
+        "SSL: CERTIFICATE_VERIFY_FAILED"
+      ],
       "causes": [
         {
           "cause": "PlatformIO 的服务器在国外，直连慢或者被掐断",
@@ -117,7 +140,11 @@
       "id": "pio_project_not_found",
       "stage": "环境",
       "symptom": "pio run 说不是一个 PlatformIO 项目",
-      "signals": ["Not a PlatformIO project", "platformio.ini not found", "`platformio.ini` file"],
+      "signals": [
+        "Not a PlatformIO project",
+        "platformio.ini not found",
+        "`platformio.ini` file"
+      ],
       "causes": [
         {
           "cause": "终端当前目录不对，不在项目文件夹里",
@@ -139,7 +166,12 @@
       "id": "macos_gatekeeper_blocks_tool",
       "stage": "环境",
       "symptom": "编译或烧录时 macOS 弹窗说某个程序来自身份不明的开发者，或者进程直接被杀",
-      "signals": ["cannot be opened because the developer cannot be verified", "无法打开，因为无法验证开发者", "Killed: 9", "已损坏"],
+      "signals": [
+        "cannot be opened because the developer cannot be verified",
+        "无法打开，因为无法验证开发者",
+        "Killed: 9",
+        "已损坏"
+      ],
       "causes": [
         {
           "cause": "PlatformIO 下载的工具链二进制（arm-none-eabi-gcc、openocd）被 macOS Gatekeeper 拦了",
@@ -161,7 +193,12 @@
       "id": "library_not_found",
       "stage": "编译",
       "symptom": "编译说找不到某个 .h 头文件",
-      "signals": ["fatal error: xxx.h: No such file or directory", "No such file", "#include <", "compilation terminated"],
+      "signals": [
+        "fatal error: xxx.h: No such file or directory",
+        "No such file",
+        "#include <",
+        "compilation terminated"
+      ],
       "causes": [
         {
           "cause": "库没装。platformio.ini 的 lib_deps 里没写这个库",
@@ -195,7 +232,13 @@
       "id": "lib_deps_syntax_wrong",
       "stage": "编译",
       "symptom": "lib_deps 写了，但 pio 说找不到包、或者版本解析不了",
-      "signals": ["Could not find the package", "UnknownPackageError", "Could not find a version that satisfies", "VCS", "Invalid requirements"],
+      "signals": [
+        "Could not find the package",
+        "UnknownPackageError",
+        "Could not find a version that satisfies",
+        "VCS",
+        "Invalid requirements"
+      ],
       "causes": [
         {
           "cause": "库名不准确，pio 注册表里的名字是「作者/库名」，不是随口叫的名字",
@@ -229,7 +272,13 @@
       "id": "syntax_error_cpp",
       "stage": "编译",
       "symptom": "编译红字一大堆，说 expected 什么什么，或者 was not declared",
-      "signals": ["error: expected ';' before", "was not declared in this scope", "expected '}' at end of input", "stray '\\'", "undefined reference to"],
+      "signals": [
+        "error: expected ';' before",
+        "was not declared in this scope",
+        "expected '}' at end of input",
+        "stray '\\'",
+        "undefined reference to"
+      ],
       "causes": [
         {
           "cause": "漏了分号、括号不配对（往往是上一行漏的，报错却指向下一行）",
@@ -263,7 +312,13 @@
       "id": "flash_overflow",
       "stage": "编译",
       "symptom": "编译最后一步说 region FLASH overflowed 或者内存不够",
-      "signals": ["region `FLASH' overflowed", "region `RAM' overflowed", "section .text will not fit", "overflowed by", "Error: Program size is greater than maximum allowed"],
+      "signals": [
+        "region `FLASH' overflowed",
+        "region `RAM' overflowed",
+        "section .text will not fit",
+        "overflowed by",
+        "Error: Program size is greater than maximum allowed"
+      ],
       "causes": [
         {
           "cause": "库太大。比如同时用了 U8g2 全字体 + 浮点 printf + 多个大库，64KB Flash 塞不下",
@@ -291,7 +346,12 @@
       "id": "wrong_board_in_ini",
       "stage": "编译",
       "symptom": "编译能过但烧进去完全不跑，或者编译提示 board 不存在",
-      "signals": ["Unknown board ID", "board = ", "genericSTM32F103C8", "bluepill_f103c8"],
+      "signals": [
+        "Unknown board ID",
+        "board = ",
+        "genericSTM32F103C8",
+        "bluepill_f103c8"
+      ],
       "causes": [
         {
           "cause": "board 写错了，比如抄的是 Arduino IDE 的名字",
@@ -313,7 +373,12 @@
       "id": "build_cache_stale",
       "stage": "编译",
       "symptom": "改了代码但烧进去还是老行为，或者莫名其妙的编译错误怎么改都在",
-      "signals": ["行为不变", "改了没反应", ".pio 目录", "老报错一直在"],
+      "signals": [
+        "行为不变",
+        "改了没反应",
+        ".pio 目录",
+        "老报错一直在"
+      ],
       "causes": [
         {
           "cause": "编辑器没保存，或者编辑的是另一个副本文件",
@@ -341,7 +406,14 @@
       "id": "stlink_not_detected",
       "stage": "烧录",
       "symptom": "插上 ST-Link，烧录说找不到设备/打不开",
-      "signals": ["Error: open failed", "no device found", "libusb_open() failed", "LIBUSB_ERROR_ACCESS", "Can't find a STLink", "unable to open ST-Link"],
+      "signals": [
+        "Error: open failed",
+        "no device found",
+        "libusb_open() failed",
+        "LIBUSB_ERROR_ACCESS",
+        "Can't find a STLink",
+        "unable to open ST-Link"
+      ],
       "causes": [
         {
           "cause": "ST-Link 本身没被 macOS 识别（USB 线、口、或 ST-Link 是坏的）",
@@ -375,7 +447,13 @@
       "id": "unknown_chip_id_clone",
       "stage": "烧录",
       "symptom": "ST-Link 识别了，但烧录报 unknown chip id 或者 UNEXPECTED idcode",
-      "signals": ["unknown chip id", "UNEXPECTED idcode: 0x2ba01477", "Warn : UNEXPECTED idcode", "expected 1 of 1: 0x1ba01477", "Error: init mode failed"],
+      "signals": [
+        "unknown chip id",
+        "UNEXPECTED idcode: 0x2ba01477",
+        "Warn : UNEXPECTED idcode",
+        "expected 1 of 1: 0x1ba01477",
+        "Error: init mode failed"
+      ],
       "causes": [
         {
           "cause": "买到的是国产兼容芯片（CS32F103、GD32F103、APM32），OpenOCD 认不出 ID",
@@ -403,7 +481,15 @@
       "id": "target_not_found",
       "stage": "烧录",
       "symptom": "ST-Link 有了，但说找不到目标芯片 / 目标没响应",
-      "signals": ["Error: target not found", "no target", "Error: Target not examined yet", "Error: jtag status contains invalid mode value", "Polling target stm32f1x.cpu failed", "Error: couldn't bind", "0xFFFFFFFF"],
+      "signals": [
+        "Error: target not found",
+        "no target",
+        "Error: Target not examined yet",
+        "Error: jtag status contains invalid mode value",
+        "Polling target stm32f1x.cpu failed",
+        "Error: couldn't bind",
+        "0xFFFFFFFF"
+      ],
       "causes": [
         {
           "cause": "SWD 四根线有一根没接好：SWDIO、SWCLK、GND、3.3V。杜邦线松、插错排",
@@ -437,7 +523,13 @@
       "id": "boot_jumper_wrong",
       "stage": "烧录",
       "symptom": "烧录成功但程序不跑；或者串口烧录（无 ST-Link）时一直连不上",
-      "signals": ["BOOT0", "跳线帽", "烧录成功但没反应", "Failed to init device", "stm32flash"],
+      "signals": [
+        "BOOT0",
+        "跳线帽",
+        "烧录成功但没反应",
+        "Failed to init device",
+        "stm32flash"
+      ],
       "causes": [
         {
           "cause": "BOOT0 跳线在 1 的位置，芯片复位后进的是出厂 bootloader 而不是你的程序",
@@ -459,7 +551,14 @@
       "id": "flash_write_protected",
       "stage": "烧录",
       "symptom": "连上了，但烧录写不进去，说被保护",
-      "signals": ["Error: stm32x device protected", "flash write protected", "Error: failed erasing sectors", "RDP", "readout protection", "stm32x_write_options"],
+      "signals": [
+        "Error: stm32x device protected",
+        "flash write protected",
+        "Error: failed erasing sectors",
+        "RDP",
+        "readout protection",
+        "stm32x_write_options"
+      ],
       "causes": [
         {
           "cause": "芯片出厂或者被上一任主人开了读保护（RDP），二手/拆机片常见",
@@ -481,7 +580,12 @@
       "id": "usb_cable_charge_only",
       "stage": "烧录",
       "symptom": "插上 USB 电源灯亮，但电脑完全看不到设备（ST-Link 或串口都不出现）",
-      "signals": ["电源灯亮", "USB 设备列表没有", "system_profiler 里找不到", "ls /dev/cu.* 没变化"],
+      "signals": [
+        "电源灯亮",
+        "USB 设备列表没有",
+        "system_profiler 里找不到",
+        "ls /dev/cu.* 没变化"
+      ],
       "causes": [
         {
           "cause": "USB 线是充电线，里面只有两根电源线没有数据线（充电宝/风扇送的线大多是这种）",
@@ -509,7 +613,13 @@
       "id": "serial_driver_missing",
       "stage": "烧录",
       "symptom": "CH340 串口模块插上，/dev 里没出现 cu.usbserial 或 cu.wchusbserial",
-      "signals": ["ls /dev/cu.* 只有 Bluetooth", "找不到 cu.usbserial", "cu.wchusbserial", "CH340 驱动", "CH34x"],
+      "signals": [
+        "ls /dev/cu.* 只有 Bluetooth",
+        "找不到 cu.usbserial",
+        "cu.wchusbserial",
+        "CH340 驱动",
+        "CH34x"
+      ],
       "causes": [
         {
           "cause": "线是充电线（见上一条）",
@@ -537,7 +647,12 @@
       "id": "upload_ok_then_verify_fail",
       "stage": "烧录",
       "symptom": "烧录过程走完了，最后说 verify 失败或者 checksum 不对",
-      "signals": ["Error: checksum mismatch", "verify failed", "Verification failed", "diff 0 address 0x08000000"],
+      "signals": [
+        "Error: checksum mismatch",
+        "verify failed",
+        "Verification failed",
+        "diff 0 address 0x08000000"
+      ],
       "causes": [
         {
           "cause": "SWD 线太长或接触不良，写进去的数据出错",
@@ -565,7 +680,12 @@
       "id": "led_not_blinking_after_upload",
       "stage": "板子",
       "symptom": "烧录显示 SUCCESS，但板载灯不闪，什么反应都没有",
-      "signals": ["SUCCESS", "灯不亮", "没反应", "烧完没变化"],
+      "signals": [
+        "SUCCESS",
+        "灯不亮",
+        "没反应",
+        "烧完没变化"
+      ],
       "causes": [
         {
           "cause": "代码用的是 LED_BUILTIN 或者 PC13 以外的引脚",
@@ -599,7 +719,12 @@
       "id": "pc13_active_low",
       "stage": "板子",
       "symptom": "写 HIGH 灯灭、写 LOW 灯亮，和教程说的反过来",
-      "signals": ["HIGH 灭", "LOW 亮", "反了", "PC13"],
+      "signals": [
+        "HIGH 灭",
+        "LOW 亮",
+        "反了",
+        "PC13"
+      ],
       "causes": [
         {
           "cause": "蓝药丸板载 LED 一端接 3.3V 一端接 PC13，PC13 输出低电平时电流才流过去",
@@ -615,7 +740,11 @@
       "id": "runs_only_with_stlink_attached",
       "stage": "板子",
       "symptom": "接着 ST-Link 时程序能跑，拔掉 ST-Link 单独 USB 供电就不跑了",
-      "signals": ["拔掉 ST-Link 就停", "复位后不跑", "只在调试时工作"],
+      "signals": [
+        "拔掉 ST-Link 就停",
+        "复位后不跑",
+        "只在调试时工作"
+      ],
       "causes": [
         {
           "cause": "程序开头有 while(!Serial); 等 USB 串口连接，没接电脑串口就永远卡在那",
@@ -643,7 +772,12 @@
       "id": "board_hot",
       "stage": "板子",
       "symptom": "板子摸着很热，或者有的芯片烫手",
-      "signals": ["发热", "烫", "冒烟", "有焦味"],
+      "signals": [
+        "发热",
+        "烫",
+        "冒烟",
+        "有焦味"
+      ],
       "causes": [
         {
           "cause": "3.3V 稳压芯片（板上那个小方片）在带大负载，比如舵机/屏幕都从 3V3 取电",
@@ -677,7 +811,13 @@
       "id": "board_random_reset",
       "stage": "板子",
       "symptom": "程序跑一会儿自己重启，串口输出一直重复 setup 里的内容",
-      "signals": ["反复重启", "setup 重复执行", "串口输出循环", "看门狗", "brown-out"],
+      "signals": [
+        "反复重启",
+        "setup 重复执行",
+        "串口输出循环",
+        "看门狗",
+        "brown-out"
+      ],
       "causes": [
         {
           "cause": "供电不足。外设一动（舵机转、电机启动、屏幕刷新）电压跌下去芯片就复位",
@@ -705,7 +845,13 @@
       "id": "millis_delay_weird",
       "stage": "板子",
       "symptom": "delay 时间不对，1 秒闪成 8 秒，或者串口时间戳很奇怪",
-      "signals": ["delay 变慢", "时间不准", "HSE", "时钟", "8MHz"],
+      "signals": [
+        "delay 变慢",
+        "时间不准",
+        "HSE",
+        "时钟",
+        "8MHz"
+      ],
       "causes": [
         {
           "cause": "国产兼容芯片或克隆板晶振和默认时钟配置不匹配",
@@ -727,7 +873,13 @@
       "id": "serial_garbage_baud",
       "stage": "串口",
       "symptom": "串口监视器一堆乱码、问号、方块",
-      "signals": ["乱码", "???", "⸮", "方块", "不认识的字符"],
+      "signals": [
+        "乱码",
+        "???",
+        "⸮",
+        "方块",
+        "不认识的字符"
+      ],
       "causes": [
         {
           "cause": "波特率不一致：代码 Serial.begin(115200) 但监视器是 9600（或反过来）",
@@ -755,7 +907,12 @@
       "id": "serial_tx_rx_not_crossed",
       "stage": "串口",
       "symptom": "串口监视器什么都不显示，一片空白，波特率确认对了",
-      "signals": ["空白", "没输出", "monitor 卡着", "TX RX"],
+      "signals": [
+        "空白",
+        "没输出",
+        "monitor 卡着",
+        "TX RX"
+      ],
       "causes": [
         {
           "cause": "TX 接了 TX、RX 接了 RX。正确是板子 TX(PA9) → 模块 RX，板子 RX(PA10) → 模块 TX",
@@ -789,7 +946,12 @@
       "id": "serial_no_common_ground",
       "stage": "串口",
       "symptom": "串口时好时坏，偶尔有字，或者用手碰一下线就变",
-      "signals": ["时好时坏", "偶尔乱码", "碰一下就变", "断断续续"],
+      "signals": [
+        "时好时坏",
+        "偶尔乱码",
+        "碰一下就变",
+        "断断续续"
+      ],
       "causes": [
         {
           "cause": "没共地，或者地线接触不良",
@@ -811,7 +973,13 @@
       "id": "serial_port_busy",
       "stage": "串口",
       "symptom": "打开串口监视器说端口被占用 / 资源忙",
-      "signals": ["Resource busy", "could not open port", "Device or resource busy", "[Errno 16]", "Permission denied: '/dev/cu."],
+      "signals": [
+        "Resource busy",
+        "could not open port",
+        "Device or resource busy",
+        "[Errno 16]",
+        "Permission denied: '/dev/cu."
+      ],
       "causes": [
         {
           "cause": "另一个终端/程序还开着这个串口（上一个 pio device monitor 没关、Arduino IDE、screen）",
@@ -833,7 +1001,12 @@
       "id": "serial_port_not_listed",
       "stage": "串口",
       "symptom": "pio device list 里没有我的串口，或者有一堆不知道哪个是",
-      "signals": ["cu.Bluetooth-Incoming-Port", "cu.debug-console", "没有 usbserial", "哪个是我的"],
+      "signals": [
+        "cu.Bluetooth-Incoming-Port",
+        "cu.debug-console",
+        "没有 usbserial",
+        "哪个是我的"
+      ],
       "causes": [
         {
           "cause": "只有 Bluetooth 那些是系统自带的，你的设备根本没识别（线/驱动，见烧录章节）",
@@ -861,7 +1034,12 @@
       "id": "serial_print_float_or_chinese",
       "stage": "串口",
       "symptom": "打印浮点数只显示整数或问号；打印中文乱码",
-      "signals": ["浮点变成 ?", "小数没了", "中文乱码", "printf %f"],
+      "signals": [
+        "浮点变成 ?",
+        "小数没了",
+        "中文乱码",
+        "printf %f"
+      ],
       "causes": [
         {
           "cause": "用了 Serial.printf(\"%f\") 但默认没开浮点格式支持",
@@ -883,7 +1061,12 @@
       "id": "button_bounce",
       "stage": "GPIO",
       "symptom": "按一次按键，计数器加了好几下，或者 LED 状态乱跳",
-      "signals": ["按一次算多次", "抖动", "计数不准", "翻转两次"],
+      "signals": [
+        "按一次算多次",
+        "抖动",
+        "计数不准",
+        "翻转两次"
+      ],
       "causes": [
         {
           "cause": "机械按键按下的瞬间会弹跳几毫秒，程序读到几十次高低变化",
@@ -911,7 +1094,13 @@
       "id": "gpio_floating",
       "stage": "GPIO",
       "symptom": "没按按键的时候读数随机变，手靠近就变",
-      "signals": ["随机变", "手靠近就变", "悬空", "读数不稳", "忽 0 忽 1"],
+      "signals": [
+        "随机变",
+        "手靠近就变",
+        "悬空",
+        "读数不稳",
+        "忽 0 忽 1"
+      ],
       "causes": [
         {
           "cause": "引脚配成 INPUT 但没接上拉/下拉，按键松开时引脚什么都不接（悬空），像天线一样接收干扰",
@@ -933,7 +1122,11 @@
       "id": "gpio_reads_inverted",
       "stage": "GPIO",
       "symptom": "按下读到 0，松开读到 1，和我预期反了",
-      "signals": ["按下是 0", "反了", "LOW 是按下"],
+      "signals": [
+        "按下是 0",
+        "反了",
+        "LOW 是按下"
+      ],
       "causes": [
         {
           "cause": "用了 INPUT_PULLUP 接 GND，按下就是 LOW，这是正确且推荐的接法",
@@ -949,7 +1142,13 @@
       "id": "gpio_5v_tolerance",
       "stage": "GPIO",
       "symptom": "接了 5V 传感器的输出到 STM32 引脚，担心/已经烧了",
-      "signals": ["5V", "3.3V", "FT", "耐压", "会不会烧"],
+      "signals": [
+        "5V",
+        "3.3V",
+        "FT",
+        "耐压",
+        "会不会烧"
+      ],
       "causes": [
         {
           "cause": "蓝药丸大部分数字引脚是 5V 容忍的（FT），但 PA0-PA7、PB0/PB1 这些带 ADC 的不是",
@@ -971,7 +1170,12 @@
       "id": "servo_jitter",
       "stage": "PWM",
       "symptom": "舵机抖、嗡嗡响、位置不稳",
-      "signals": ["抖动", "嗡嗡", "来回颤", "不稳"],
+      "signals": [
+        "抖动",
+        "嗡嗡",
+        "来回颤",
+        "不稳"
+      ],
       "causes": [
         {
           "cause": "供电不足。舵机从板子 3V3 或 USB 的 5V 取电，电流不够，电压一跌舵机就重新找位置",
@@ -1005,7 +1209,11 @@
       "id": "servo_not_moving",
       "stage": "PWM",
       "symptom": "舵机完全不动，也不响",
-      "signals": ["不动", "没反应", "servo.attach"],
+      "signals": [
+        "不动",
+        "没反应",
+        "servo.attach"
+      ],
       "causes": [
         {
           "cause": "信号线接的引脚不支持定时器 PWM，或者 Servo 库不认",
@@ -1039,7 +1247,12 @@
       "id": "pwm_pin_not_supported",
       "stage": "PWM",
       "symptom": "analogWrite 没效果，LED 不变亮度，或者只有全亮/全灭",
-      "signals": ["analogWrite 无效", "不变亮度", "只有开关", "PWM"],
+      "signals": [
+        "analogWrite 无效",
+        "不变亮度",
+        "只有开关",
+        "PWM"
+      ],
       "causes": [
         {
           "cause": "引脚没有定时器输出功能（比如 PC13、PC14、PC15、PA13/PA14）",
@@ -1067,7 +1280,12 @@
       "id": "pwm_frequency_wrong",
       "stage": "PWM",
       "symptom": "蜂鸣器音调不对、电机有尖叫声、LED 肉眼可见闪",
-      "signals": ["尖叫", "音调不对", "肉眼闪", "频率"],
+      "signals": [
+        "尖叫",
+        "音调不对",
+        "肉眼闪",
+        "频率"
+      ],
       "causes": [
         {
           "cause": "PWM 频率太低（默认 1kHz），电机能听到，LED 靠近会闪",
@@ -1089,7 +1307,13 @@
       "id": "adc_reading_jumps",
       "stage": "ADC",
       "symptom": "analogRead 的值一直跳，没接东西也有读数",
-      "signals": ["跳动", "不稳定", "没接也有值", "噪声", "浮动"],
+      "signals": [
+        "跳动",
+        "不稳定",
+        "没接也有值",
+        "噪声",
+        "浮动"
+      ],
       "causes": [
         {
           "cause": "引脚悬空，读的是空气里的噪声，这是正常的",
@@ -1123,7 +1347,12 @@
       "id": "adc_5v_out_of_range",
       "stage": "ADC",
       "symptom": "传感器输出 0-5V，ADC 读数卡在最大值不变，或者担心烧引脚",
-      "signals": ["4095 不动", "满量程", "5V 传感器", "超量程"],
+      "signals": [
+        "4095 不动",
+        "满量程",
+        "5V 传感器",
+        "超量程"
+      ],
       "causes": [
         {
           "cause": "STM32 ADC 最大只能量 3.3V，5V 进去一律读满，而且长期会损坏引脚（ADC 引脚不是 5V 容忍的）",
@@ -1145,7 +1374,12 @@
       "id": "adc_vref_wrong",
       "stage": "ADC",
       "symptom": "算出来的电压和万用表对不上，整体偏大或偏小",
-      "signals": ["电压不准", "偏了 10%", "3.3 还是 3.0", "参考电压"],
+      "signals": [
+        "电压不准",
+        "偏了 10%",
+        "3.3 还是 3.0",
+        "参考电压"
+      ],
       "causes": [
         {
           "cause": "板子 3V3 实际不是 3.3V（USB 供电下常在 3.2-3.3 之间），公式却按 3.3 算",
@@ -1167,7 +1401,12 @@
       "id": "i2c_scanner_finds_nothing",
       "stage": "I2C",
       "symptom": "I2C 扫描程序一个地址都找不到",
-      "signals": ["No I2C devices found", "扫不到", "0 devices", "Wire"],
+      "signals": [
+        "No I2C devices found",
+        "扫不到",
+        "0 devices",
+        "Wire"
+      ],
       "causes": [
         {
           "cause": "SDA/SCL 接反或接错引脚。蓝药丸默认 I2C1：SCL=PB6、SDA=PB7",
@@ -1207,7 +1446,14 @@
       "id": "i2c_wrong_address",
       "stage": "I2C",
       "symptom": "扫描能扫到地址，但库初始化失败/屏幕不亮",
-      "signals": ["0x3C", "0x3D", "0x27", "0x3F", "begin() failed", "SSD1306 allocation failed"],
+      "signals": [
+        "0x3C",
+        "0x3D",
+        "0x27",
+        "0x3F",
+        "begin() failed",
+        "SSD1306 allocation failed"
+      ],
       "causes": [
         {
           "cause": "库默认地址和实际不一样。OLED 常见 0x3C（有的 0x3D），LCD1602 背板常见 0x27（有的 0x3F）",
@@ -1235,7 +1481,13 @@
       "id": "i2c_wire_too_long",
       "stage": "I2C",
       "symptom": "I2C 设备近了能用，线一长（>30cm）就时好时坏",
-      "signals": ["线长就坏", "偶尔读错", "NACK", "timeout", "花屏偶发"],
+      "signals": [
+        "线长就坏",
+        "偶尔读错",
+        "NACK",
+        "timeout",
+        "花屏偶发"
+      ],
       "causes": [
         {
           "cause": "I2C 本来就是板内短距离总线，线长电容大，信号边沿变钝",
@@ -1263,7 +1515,12 @@
       "id": "i2c_bus_stuck",
       "stage": "I2C",
       "symptom": "I2C 一开始好用，某次复位后就完全不响应，断电重上电又好",
-      "signals": ["复位后 I2C 死", "断电才恢复", "SDA 一直低", "bus busy"],
+      "signals": [
+        "复位后 I2C 死",
+        "断电才恢复",
+        "SDA 一直低",
+        "bus busy"
+      ],
       "causes": [
         {
           "cause": "复位发生在一次 I2C 传输中间，从设备还在等剩下的时钟，把 SDA 拉着不放",
@@ -1285,7 +1542,15 @@
       "id": "spi_display_white_screen",
       "stage": "SPI",
       "symptom": "SPI 屏幕（TFT）通电白屏或全亮，不显示任何内容",
-      "signals": ["白屏", "全白", "背光亮没内容", "TFT_eSPI", "ST7735", "ST7789", "ILI9341"],
+      "signals": [
+        "白屏",
+        "全白",
+        "背光亮没内容",
+        "TFT_eSPI",
+        "ST7735",
+        "ST7789",
+        "ILI9341"
+      ],
       "causes": [
         {
           "cause": "库里的引脚定义和实际接线不一致（CS、DC、RST 尤其）",
@@ -1319,7 +1584,14 @@
       "id": "spi_display_garbled",
       "stage": "SPI",
       "symptom": "屏幕能亮有内容但花屏、偏移、颠倒、颜色反",
-      "signals": ["花屏", "雪花", "偏移", "颠倒", "颜色反", "镜像"],
+      "signals": [
+        "花屏",
+        "雪花",
+        "偏移",
+        "颠倒",
+        "颜色反",
+        "镜像"
+      ],
       "causes": [
         {
           "cause": "驱动型号对了但是变种不对（比如 ST7735 有 GREENTAB/REDTAB/BLACKTAB，偏移不同）",
@@ -1353,7 +1625,12 @@
       "id": "spi_sd_card_fail",
       "stage": "SPI",
       "symptom": "SD 卡模块初始化失败 SD.begin() 返回 false",
-      "signals": ["SD.begin failed", "initialization failed", "Card Mount Failed", "SD 卡"],
+      "signals": [
+        "SD.begin failed",
+        "initialization failed",
+        "Card Mount Failed",
+        "SD 卡"
+      ],
       "causes": [
         {
           "cause": "CS 引脚没传给 SD.begin(csPin)",
@@ -1387,7 +1664,13 @@
       "id": "dht_reads_nan",
       "stage": "传感器",
       "symptom": "DHT11/DHT22 温湿度读出 NaN 或 -999 或 Failed to read",
-      "signals": ["nan", "NaN", "-999", "Failed to read from DHT sensor", "DHT"],
+      "signals": [
+        "nan",
+        "NaN",
+        "-999",
+        "Failed to read from DHT sensor",
+        "DHT"
+      ],
       "causes": [
         {
           "cause": "读得太频繁。DHT11 至少间隔 1 秒，DHT22 至少 2 秒",
@@ -1427,7 +1710,13 @@
       "id": "ds18b20_needs_pullup",
       "stage": "传感器",
       "symptom": "DS18B20 读出 -127 或 85 度",
-      "signals": ["-127", "85.00", "DEVICE_DISCONNECTED", "No more addresses", "OneWire"],
+      "signals": [
+        "-127",
+        "85.00",
+        "DEVICE_DISCONNECTED",
+        "No more addresses",
+        "OneWire"
+      ],
       "causes": [
         {
           "cause": "-127 = 没找到设备，最常见是没接 4.7K 上拉电阻（DATA 到 VCC）",
@@ -1461,7 +1750,13 @@
       "id": "ultrasonic_5v_echo",
       "stage": "传感器",
       "symptom": "HC-SR04 超声波读数一直 0 或不稳定，或者担心 5V 回波烧板子",
-      "signals": ["距离 0", "读数乱", "HC-SR04", "Echo 5V", "pulseIn 超时"],
+      "signals": [
+        "距离 0",
+        "读数乱",
+        "HC-SR04",
+        "Echo 5V",
+        "pulseIn 超时"
+      ],
       "causes": [
         {
           "cause": "HC-SR04 要 5V 供电，接了 3.3V 不工作或距离很短",
@@ -1495,7 +1790,12 @@
       "id": "sensor_module_polarity",
       "stage": "传感器",
       "symptom": "某个传感器模块接上后板子重启/发热，或者模块一直没读数",
-      "signals": ["接上就重启", "模块发热", "VCC GND 反", "极性"],
+      "signals": [
+        "接上就重启",
+        "模块发热",
+        "VCC GND 反",
+        "极性"
+      ],
       "causes": [
         {
           "cause": "VCC 和 GND 接反了",
@@ -1523,7 +1823,12 @@
       "id": "motor_direct_gpio_burn",
       "stage": "执行器",
       "symptom": "电机直接接 GPIO 不转/转一下就停，或者那个引脚之后就坏了",
-      "signals": ["电机不转", "引脚坏了", "直接接 GPIO", "转一下停"],
+      "signals": [
+        "电机不转",
+        "引脚坏了",
+        "直接接 GPIO",
+        "转一下停"
+      ],
       "causes": [
         {
           "cause": "GPIO 最大只能出 ~20mA，小电机启动要几百 mA。直接接要么不转要么把引脚烧了",
@@ -1551,7 +1856,12 @@
       "id": "relay_not_switching",
       "stage": "执行器",
       "symptom": "继电器模块灯亮但听不到咔哒声，或者根本不动",
-      "signals": ["继电器不吸合", "没有咔哒", "灯亮不动作", "高电平触发 低电平触发"],
+      "signals": [
+        "继电器不吸合",
+        "没有咔哒",
+        "灯亮不动作",
+        "高电平触发 低电平触发"
+      ],
       "causes": [
         {
           "cause": "继电器线圈要 5V，模块 VCC 接了 3.3V，或者 3.3V 的 GPIO 驱动不动 5V 模块的光耦",
@@ -1579,7 +1889,12 @@
       "id": "motor_noise_resets_board",
       "stage": "执行器",
       "symptom": "电机/舵机一启动，板子就重启，串口乱码，或者别的传感器读数乱",
-      "signals": ["电机一动就重启", "串口乱", "干扰", "传感器跟着乱"],
+      "signals": [
+        "电机一动就重启",
+        "串口乱",
+        "干扰",
+        "传感器跟着乱"
+      ],
       "causes": [
         {
           "cause": "电机和板子共用一个电源，电机启动瞬间把电压拉下去",
@@ -1607,7 +1922,12 @@
       "id": "led_strip_no_resistor",
       "stage": "执行器",
       "symptom": "LED 很暗、或者很亮一下就坏了、或者 LED 灯带只亮第一颗",
-      "signals": ["LED 太暗", "LED 烧了", "WS2812 只亮第一颗", "灯带"],
+      "signals": [
+        "LED 太暗",
+        "LED 烧了",
+        "WS2812 只亮第一颗",
+        "灯带"
+      ],
       "causes": [
         {
           "cause": "普通 LED 没串限流电阻，电流过大烧了",
@@ -1635,7 +1955,12 @@
       "id": "usb_power_insufficient",
       "stage": "电源",
       "symptom": "一切正常，但接上某个外设就全乱了：重启、暗、串口断",
-      "signals": ["USB 供电不够", "接上就不行", "电压掉", "PWR 灯变暗"],
+      "signals": [
+        "USB 供电不够",
+        "接上就不行",
+        "电压掉",
+        "PWR 灯变暗"
+      ],
       "causes": [
         {
           "cause": "电脑 USB 口只给 500mA，扣掉板子自己，外设能用的很少",
@@ -1663,7 +1988,12 @@
       "id": "no_common_ground_between_supplies",
       "stage": "电源",
       "symptom": "用了两个电源（USB 给板子、电池给电机），信号完全不听话",
-      "signals": ["双电源", "不听指令", "共地", "GND 没连"],
+      "signals": [
+        "双电源",
+        "不听指令",
+        "共地",
+        "GND 没连"
+      ],
       "causes": [
         {
           "cause": "两个电源的 GND 没连在一起，板子说的「高电平」对外设来说没有参照",
@@ -1685,7 +2015,12 @@
       "id": "sim_unsupported_syntax",
       "stage": "模拟器",
       "symptom": "代码在虚拟板子上跑不了或报错，但看着没问题",
-      "signals": ["模拟器不支持", "Unsupported", "虚拟板子报错", "真板能跑模拟器不能"],
+      "signals": [
+        "模拟器不支持",
+        "Unsupported",
+        "虚拟板子报错",
+        "真板能跑模拟器不能"
+      ],
       "causes": [
         {
           "cause": "模拟器只实现了一个 Arduino API 子集（pinMode/digitalWrite/delay/Serial.print 之类），高级功能（定时器中断、HAL 直接调用、DMA）不支持",
@@ -1713,7 +2048,12 @@
       "id": "sim_works_board_doesnt",
       "stage": "模拟器",
       "symptom": "虚拟板子上一切正常，烧到真板子就不行",
-      "signals": ["模拟器正常", "真板不行", "时序", "硬件差异"],
+      "signals": [
+        "模拟器正常",
+        "真板不行",
+        "时序",
+        "硬件差异"
+      ],
       "causes": [
         {
           "cause": "模拟器不模拟电气问题：没上拉、没共地、供电不足、5V 打 3.3V 引脚，这些真板全会暴露",
@@ -1741,7 +2081,13 @@
       "id": "ai_wrong_pin_name",
       "stage": "AI",
       "symptom": "AI 给的代码编译报某个引脚名 not declared，或者用了 D13 / A0 这种名字",
-      "signals": ["'D13' was not declared", "'A0' was not declared", "LED_BUILTIN", "GPIO_PIN_13 (Arduino 框架里)", "13 (纯数字)"],
+      "signals": [
+        "'D13' was not declared",
+        "'A0' was not declared",
+        "LED_BUILTIN",
+        "GPIO_PIN_13 (Arduino 框架里)",
+        "13 (纯数字)"
+      ],
       "causes": [
         {
           "cause": "AI 默认按 Arduino UNO 写，用了 D13/A0/13。STM32duino 里引脚名是 PA0、PB12、PC13 这样",
@@ -1769,7 +2115,13 @@
       "id": "ai_hallucinated_library",
       "stage": "AI",
       "symptom": "AI 让我装的库 pio 搜不到，或者库里根本没有它说的那个函数",
-      "signals": ["Could not find the package", "no member named", "编造", "库不存在", "函数不存在"],
+      "signals": [
+        "Could not find the package",
+        "no member named",
+        "编造",
+        "库不存在",
+        "函数不存在"
+      ],
       "causes": [
         {
           "cause": "AI 编了一个听起来合理但不存在的库名或函数名",
@@ -1797,7 +2149,12 @@
       "id": "ai_overconfident_fix",
       "stage": "AI",
       "symptom": "按 AI 说的改了三轮，问题还在，每次它都很确定",
-      "signals": ["改了没用", "AI 反复确定", "越改越乱", "循环"],
+      "signals": [
+        "改了没用",
+        "AI 反复确定",
+        "越改越乱",
+        "循环"
+      ],
       "causes": [
         {
           "cause": "AI 没拿到关键信息（完整报错、接线、platformio.ini），在猜",
@@ -1820,6 +2177,38 @@
       ],
       "explain": "AI 像一个只能通过电话帮你修车的师傅，你说「不动」他只能猜。你得告诉他仪表盘上每个灯、每个声音。而且有些事——比如油箱空了——不是修发动机能解决的。",
       "ask_ai": "我们已经试了 [N] 轮没解决。请先别给方案，先列出你为了定位这个问题「必须知道但我还没告诉你」的信息清单，我一条条补给你。目前已知：板子 STM32F103C8T6 蓝药丸，PlatformIO + STM32duino，现象 [描述]，完整报错 [粘贴]，platformio.ini [粘贴]，接线 [描述]。"
+    },
+    {
+      "id": "esp32_flash_verify_failed",
+      "stage": "烧录",
+      "symptom": "ESP32 烧录时连上了芯片，但报 Unable to verify flash chip connection 或 Packet content transfer stopped",
+      "signals": [
+        "Unable to verify flash chip connection",
+        "Packet content transfer stopped",
+        "A fatal error occurred"
+      ],
+      "causes": [
+        {
+          "cause": "上传波特率太高（921600），CH340 或线质量跟不上",
+          "probability": "高",
+          "check": "platformio.ini 里 upload_speed 改成 115200 再烧一次",
+          "fix": "upload_speed = 115200（或 460800）；稳定后再逐级提高"
+        },
+        {
+          "cause": "USB 线只能充电或接触不良",
+          "probability": "中",
+          "check": "换一根手机能传文件的数据线",
+          "fix": "换线"
+        },
+        {
+          "cause": "板子供电不足（USB 集线器）",
+          "probability": "低",
+          "check": "直接插电脑口",
+          "fix": "不经过集线器"
+        }
+      ],
+      "explain": "烧录像用电话报数：说得太快，对方听漏一个字就对不上账。降低语速（波特率）就好。",
+      "ask_ai": "我的板子是 ESP32（CH340 串口），PlatformIO 烧录报 Unable to verify flash chip connection，请按概率列出原因和验证方法。"
     }
   ]
 }

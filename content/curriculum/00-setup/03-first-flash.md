@@ -3,7 +3,7 @@ title: 0-3 第一次烧录
 goal: 板载 LED 眨眼，串口打出 hello from stm32
 hardware: 板子、ST-Link
 time: 30 分钟
-status: todo
+status: done
 ---
 ## 要做什么
 
