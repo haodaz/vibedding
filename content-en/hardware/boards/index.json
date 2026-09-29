@@ -1,0 +1,45 @@
+{
+  "note": "Board overview. Each board's full profile lives in <id>.json in this folder, using the same fields as the Blue Pill pin table. price is a rough USD range at typical US retailers (Amazon, Adafruit, SparkFun, DigiKey), for budgeting only",
+  "boards": [
+    {
+      "id": "bluepill",
+      "name": "Blue Pill STM32F103C8T6",
+      "mcu": "STM32F103C8T6",
+      "level": "Beginner",
+      "price": "$4-8 (board) + $8-12 ST-Link + $5-8 USB-TTL",
+      "why": "For the lowest budget and for people who want to learn a real STM32 directly; it has the most gotchas (clone chips, serial needs an extra adapter), so it suits learners with a platform or a mentor to lean on"
+    },
+    {
+      "id": "nucleo_f103rb",
+      "name": "Nucleo-F103RB (official ST board)",
+      "mcu": "STM32F103RBT6",
+      "level": "Beginner",
+      "price": "$12-15",
+      "why": "For people who want to learn STM32 without wasting time on flashing and serial: it has a built-in programmer and USB serial, works the moment you plug it in, and the chip is in the same family as the Blue Pill"
+    },
+    {
+      "id": "nucleo_f411re",
+      "name": "Nucleo-F411RE (official ST board)",
+      "mcu": "STM32F411RET6",
+      "level": "Intermediate",
+      "price": "$14-18",
+      "why": "For people who want a faster chip, far more Flash/RAM and a hardware FPU, for displays, audio and control-algorithm projects"
+    },
+    {
+      "id": "esp32_devkit",
+      "name": "ESP32 DevKit board",
+      "mcu": "ESP32-WROOM-32",
+      "level": "Beginner",
+      "price": "$8-15",
+      "why": "For people who want Wi-Fi, Bluetooth and small IoT gadgets; strong performance at a low price, but the pins are not 5V-tolerant and the boot pins are fussy"
+    },
+    {
+      "id": "arduino_uno",
+      "name": "Arduino UNO R3",
+      "mcu": "ATmega328P",
+      "level": "Beginner",
+      "price": "$8-15 (clone) to $28 (official)",
+      "why": "For complete beginners: the most tutorials, and 5V peripherals connect directly; but it has the weakest performance and memory, so you will outgrow it eventually"
+    }
+  ]
+}

@@ -51,17 +51,24 @@ function build(r: Record<string, string>) {
 }
 
 let loaded: Promise<void> | null = null
-export function initContent(): Promise<void> {
-  loaded ??= (async () => {
+let loadedLang = ''
+export function initContent(lang: 'zh' | 'en' = 'zh'): Promise<void> {
+  if (loaded && loadedLang === lang) return loaded
+  loadedLang = lang
+  loaded = (async () => {
     if (import.meta.env.VITE_CLOSED === '1') {
       const { supabase } = await import('./auth')
       if (!supabase) throw new Error('封闭模式需要配置 Supabase')
-      const { data, error } = await supabase.from('content_docs').select('path,body')
+      // 先拿中文做底，再用英文覆盖（英文没翻的条目回落到中文）
+      const { data, error } = await supabase.from('content_docs').select('path,body,lang').in('lang', lang === 'en' ? ['zh', 'en'] : ['zh'])
       if (error) throw new Error('内容加载失败：' + error.message)
-      build(Object.fromEntries((data ?? []).map((r) => [r.path as string, r.body as string])))
+      const map: Record<string, string> = {}
+      for (const r of (data ?? []).filter((r) => r.lang !== 'en')) map[r.path as string] = r.body as string
+      for (const r of (data ?? []).filter((r) => r.lang === 'en')) map[r.path as string] = r.body as string
+      build(map)
     } else {
       const { loadBundle } = await import('./content-bundle')
-      build(loadBundle())
+      build(loadBundle(lang))
     }
   })()
   return loaded

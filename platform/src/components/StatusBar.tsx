@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 
 interface Status { pio: string | null; node?: string; ports: string[]; usb: string[]; ai: string | null; mode?: string }
 
@@ -19,15 +20,15 @@ export function StatusBar({ done, total }: { done: number; total: number }) {
   return (
     <div className="statusbar">
       {st?.mode === 'static' || s === 'offline' ? (
-        <span className="st warn"><i />{s === 'offline' ? '纯静态 · 无后端' : '网页体验模式 · 虚拟板子'}</span>
+        <span className="st warn"><i />{s === 'offline' ? t('st.nobackend') : t('st.static')}</span>
       ) : (<>
-        <span className={'st ' + (board ? 'ok' : 'off')}><i />{board && st ? `板子已连接 ${st.usb[0] ?? st.ports[0]}` : '板子未连接'}</span>
-        <span className={'st ' + (st?.pio ? 'ok' : 'warn')}><i />{st?.pio ? 'PlatformIO ' + st.pio.replace(/^PlatformIO Core, version /, '') : 'PlatformIO 未安装'}</span>
+        <span className={'st ' + (board ? 'ok' : 'off')}><i />{board && st ? `${t('st.board.on')} ${st.usb[0] ?? st.ports[0]}` : t('st.board.off')}</span>
+        <span className={'st ' + (st?.pio ? 'ok' : 'warn')}><i />{st?.pio ? 'PlatformIO ' + st.pio.replace(/^PlatformIO Core, version /, '') : t('st.pio.off')}</span>
       </>)}
-      <span className={'st ' + (st?.ai ? 'ok' : 'off')}><i />{st?.ai ? 'AI ' + st.ai : s === 'offline' ? 'AI 需自填密钥' : 'AI 未配置'}</span>
+      <span className={'st ' + (st?.ai ? 'ok' : 'off')}><i />{st?.ai ? 'AI ' + st.ai : s === 'offline' ? t('st.ai.key') : t('st.ai.none')}</span>
       <span className="st spacer" />
       <span className="st">DAY {day}</span>
-      <span className="st">进度 {done}/{total}</span>
+      <span className="st">{t('progress')} {done}/{total}</span>
     </div>
   )
 }

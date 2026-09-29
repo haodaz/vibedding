@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Markdown } from '../Markdown'
 import { Scene } from './Scene'
 import { PartImg } from '../canvases/parts/PartImg'
+import { t, getLang } from '../i18n'
 
 // 知识库浏览页：项目食谱 / 术语表 / 排障 / 代码片段 / 板子。数据与 AI 用的是同一份 JSON。
 import { getJson } from '../content'
@@ -9,12 +10,19 @@ type AnyRec = Record<string, unknown>
 const kb = 'knowledge/', boards = 'hardware/boards/'
 const pick = (dir: string, name: string) => getJson<AnyRec>(dir + name) ?? undefined
 
-const TABS = [
+const TABS_ZH = [
   { id: 'projects', label: '项目食谱', desc: '想做点什么？从这里挑。每个都有零件、接线、步骤和代码骨架。' },
   { id: 'glossary', label: '术语表', desc: '每个词一个比喻、一句准确定义、一个常见误解。' },
   { id: 'troubleshooting', label: '排障', desc: '不工作的时候翻这里：症状 → 原因 → 一分钟验证。' },
   { id: 'snippets', label: '代码片段', desc: '可编译的最小程序，逐段解释。' },
   { id: 'boards', label: '板子', desc: '手里不是蓝药丸？看看你的板子。' },
+]
+const TABS_EN = [
+  { id: 'projects', label: 'Recipes', desc: 'Want to build something? Pick one. Each has parts, wiring, steps and a code skeleton.' },
+  { id: 'glossary', label: 'Glossary', desc: 'One analogy, one precise definition, one common misconception per term.' },
+  { id: 'troubleshooting', label: 'Troubleshooting', desc: 'When it does not work: symptom → causes → one-minute checks.' },
+  { id: 'snippets', label: 'Snippets', desc: 'Minimal programs that compile, explained line by line.' },
+  { id: 'boards', label: 'Boards', desc: 'Not a Blue Pill? Look up your board.' },
 ]
 
 export function Knowledge() {
@@ -22,16 +30,17 @@ export function Knowledge() {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const match = (s: string) => !q.trim() || s.toLowerCase().includes(q.trim().toLowerCase())
-  const meta = TABS.find((t) => t.id === tab)!
+  const TABS = getLang() === 'en' ? TABS_EN : TABS_ZH
+  const meta = TABS.find((x) => x.id === tab)!
   return (
     <>
       <Scene name="prompts_ai" className="hero small">
         <div className="eyebrow">// KNOWLEDGE</div>
-        <h1>知识库</h1>
-        <p>AI 用的就是这几份资料。一次编好，很多年不用改。你也可以直接翻。</p>
+        <h1>{t('kb.title')}</h1>
+        <p>{t('kb.sub')}</p>
       </Scene>
-      <div className="lab-tabs">{TABS.map((t) => <button key={t.id} className={'chip' + (tab === t.id ? ' on' : '')} onClick={() => { setTab(t.id); setOpen(null) }}>{t.label}</button>)}</div>
-      <div className="kb-search"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={'搜索' + meta.label + '…'} /><span className="muted small">{meta.desc}</span></div>
+      <div className="lab-tabs">{TABS.map((x) => <button key={x.id} className={'chip' + (tab === x.id ? ' on' : '')} onClick={() => { setTab(x.id); setOpen(null) }}>{x.label}</button>)}</div>
+      <div className="kb-search"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('kb.search') + meta.label + '…'} /><span className="muted small">{meta.desc}</span></div>
       {tab === 'projects' && <Projects q={match} open={open} setOpen={setOpen} />}
       {tab === 'glossary' && <Glossary q={match} open={open} setOpen={setOpen} />}
       {tab === 'troubleshooting' && <Trouble q={match} open={open} setOpen={setOpen} />}
@@ -42,7 +51,7 @@ export function Knowledge() {
 }
 
 type P = { q: (s: string) => boolean; open: string | null; setOpen: (s: string | null) => void }
-const Empty = ({ what }: { what: string }) => <div className="empty">{what}还没生成。跑一遍知识库汇编就会出现。</div>
+const Empty = ({ what }: { what: string }) => <div className="empty">{what} {t('kb.empty')}</div>
 
 function Projects({ q, open, setOpen }: P) {
   const j = pick(kb, 'projects.json') as { projects?: AnyRec[] } | undefined
@@ -63,15 +72,15 @@ function Projects({ q, open, setOpen }: P) {
             {on && (
               <div className="kb-body">
                 <div className="kb-parts">{(p.parts as AnyRec[]).map((x, i) => <span key={i} className="kb-part">{x.id ? <PartImg name={String(x.id)} /> : null}<span>{String(x.name)} ×{String(x.qty)}<em>{String(x.role)}</em></span></span>)}</div>
-                <h4>接线</h4>
+                <h4>WIRING</h4>
                 <ul>{(p.wiring as AnyRec[]).map((w, i) => <li key={i}><code>{String(w.from)}</code> → <code>{String(w.to)}</code>{w.note ? <span className="muted"> {String(w.note)}</span> : null}</li>)}</ul>
-                <h4>步骤</h4>
+                <h4>STEPS</h4>
                 <ol>{(p.steps as string[]).map((s, i) => <li key={i}>{s}</li>)}</ol>
-                <h4>会踩的坑</h4>
+                <h4>PITFALLS</h4>
                 <ul>{(p.pitfalls as string[]).map((s, i) => <li key={i}>{s}</li>)}</ul>
-                <h4>代码骨架</h4>
+                <h4>CODE</h4>
                 <Markdown text={'```cpp\n' + String(p.code_skeleton) + '\n```'} />
-                <div className="chips"><a className="chip ai" href={'#/make?q=' + encodeURIComponent('我想做：' + String(p.title))}>✦ 让 AI 带我做这个</a>{(p.concepts as string[]).map((c) => <span key={c} className="chip">{c}</span>)}</div>
+                <div className="chips"><a className="chip ai" href={'#/make?q=' + encodeURIComponent(String(p.title))}>{t('kb.ai')}</a>{(p.concepts as string[]).map((c) => <span key={c} className="chip">{c}</span>)}</div>
               </div>
             )}
           </div>
@@ -125,9 +134,9 @@ function Trouble({ q, open, setOpen }: P) {
             <button className="kb-head" onClick={() => setOpen(on ? null : id)}><span className="tag">{String(e.stage)}</span><b>{String(e.symptom)}</b><span className="muted small">{(e.signals as string[]).slice(0, 3).join(' / ')}</span></button>
             {on && (
               <div className="kb-body">
-                <ol className="kb-causes">{(e.causes as AnyRec[]).map((c, i) => <li key={i}><b>{String(c.cause)}</b> <span className={'prob p-' + String(c.probability)}>{String(c.probability)}</span><div className="muted">验证：{String(c.check)}</div><div>解决：{String(c.fix)}</div></li>)}</ol>
-                <p className="muted">原理：{String(e.explain)}</p>
-                <div className="chips"><a className="chip ai" href={'#/make?q=' + encodeURIComponent(String(e.ask_ai))}>✦ 问 AI：{String(e.ask_ai).slice(0, 30)}…</a></div>
+                <ol className="kb-causes">{(e.causes as AnyRec[]).map((c, i) => <li key={i}><b>{String(c.cause)}</b> <span className={'prob p-' + String(c.probability)}>{String(c.probability)}</span><div className="muted">→ {String(c.check)}</div><div>✔ {String(c.fix)}</div></li>)}</ol>
+                <p className="muted">{String(e.explain)}</p>
+                <div className="chips"><a className="chip ai" href={'#/make?q=' + encodeURIComponent(String(e.ask_ai))}>{t('kb.ask')}: {String(e.ask_ai).slice(0, 30)}…</a></div>
               </div>
             )}
           </div>

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CLOSED, signOut, useSession } from './auth'
 import { Login } from './components/Login'
-import { initContent } from './content'
-import { byPath, hardware, journal, modules, prompts, type Doc, type Mission } from './content'
+import { initContent, byPath, hardware, journal, modules, prompts, type Doc, type Mission } from './content'
 import { Markdown } from './Markdown'
 import { href, useHashRoute } from './router'
 import { StatusBar } from './components/StatusBar'
@@ -11,63 +10,91 @@ import { Canvas, CANVAS_META, DEFAULT_CODE } from './canvases'
 import { Scene } from './components/Scene'
 import { Workshop } from './workshop/Workshop'
 import { Knowledge } from './components/Knowledge'
+import { Projects } from './components/Projects'
+import { getLang, setLang, t, useLang, type Lang } from './i18n'
 
-const NAV = [
-  { path: '/make', key: '00', label: '直接做', hint: 'MAKE' },
-  { path: '/', key: '01', label: '学习路径', hint: 'PATH' },
-  { path: '/lab', key: '02', label: '实验台', hint: 'LAB' },
-  { path: '/kb', key: '03', label: '知识库', hint: 'KB' },
-  { path: '/journal', key: '04', label: '学习日志', hint: 'LOG' },
-  { path: '/prompts', key: '05', label: '提示词库', hint: 'PROMPTS' },
-  { path: '/hardware', key: '06', label: '我的硬件', hint: 'HW' },
-  { path: '/about', key: '07', label: '关于平台', hint: 'ABOUT' },
-]
+// 两种模式：开发（直接做 + 项目 + 硬件 + 知识库）/ 学习（路径 + 实验台 + 知识库 + 日志 + 提示词）
+type Mode = 'build' | 'learn'
+const MODE_KEY = 'vb:mode'
+const getMode = (): Mode | null => { try { const v = localStorage.getItem(MODE_KEY); return v === 'build' || v === 'learn' ? v : null } catch { return null } }
+const NAV: Record<Mode, { path: string; key: string; label: string; hint: string }[]> = {
+  build: [
+    { path: '/make', key: '01', label: 'nav.make', hint: 'BUILD' },
+    { path: '/projects', key: '02', label: 'nav.projects', hint: 'PROJECTS' },
+    { path: '/hardware', key: '03', label: 'nav.hardware', hint: 'HW' },
+    { path: '/kb', key: '04', label: 'nav.kb', hint: 'KB' },
+  ],
+  learn: [
+    { path: '/path', key: '01', label: 'nav.path', hint: 'PATH' },
+    { path: '/lab', key: '02', label: 'nav.lab', hint: 'LAB' },
+    { path: '/kb', key: '03', label: 'nav.kb', hint: 'KB' },
+    { path: '/journal', key: '04', label: 'nav.journal', hint: 'LOG' },
+    { path: '/prompts', key: '05', label: 'nav.prompts', hint: 'PROMPTS' },
+    { path: '/about', key: '06', label: 'nav.about', hint: 'ABOUT' },
+  ],
+}
 const STATUS_LABEL: Record<Mission['status'], string> = { todo: 'TODO', doing: 'DOING', done: 'DONE' }
 
 export default function App() {
   const { session, ready } = useSession()
-  const [loaded, setLoaded] = useState(false)
+  const lang = useLang()
+  const [loadedLang, setLoadedLang] = useState<Lang | ''>('')
   const [loadErr, setLoadErr] = useState('')
   const authed = !CLOSED || !!session
-  useEffect(() => { if (ready && authed && !loaded) initContent().then(() => setLoaded(true)).catch((e) => setLoadErr(String(e.message ?? e))) }, [ready, authed, loaded])
+  useEffect(() => { if (ready && authed && loadedLang !== lang) initContent(lang).then(() => setLoadedLang(lang)).catch((e) => setLoadErr(String(e.message ?? e))) }, [ready, authed, lang, loadedLang])
   if (!ready) return <div className="boot"><pre>[    0.000] checking session…</pre></div>
   if (CLOSED && !session) return <Login />
   if (loadErr) return <div className="boot"><pre style={{ color: 'var(--red)' }}>{loadErr}</pre></div>
-  if (!loaded) return <div className="boot"><pre>[    0.012] loading content…<span className="caret">▮</span></pre></div>
-  return <Shell email={session?.user.email ?? null} />
+  if (loadedLang !== lang) return <div className="boot"><pre>[    0.012] loading content…<span className="caret">▮</span></pre></div>
+  return <Shell email={session?.user.email ?? null} lang={lang} />
 }
 
-function Shell({ email }: { email: string | null }) {
+function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const route = useHashRoute()
+  const [mode, setModeState] = useState<Mode | null>(getMode)
+  const setMode = (m: Mode) => { try { localStorage.setItem(MODE_KEY, m) } catch { /* */ } setModeState(m) }
   const [booted, setBooted] = useState(() => { try { return sessionStorage.getItem('booted') === '1' } catch { return true } })
   const all = modules.flatMap((m) => m.missions)
   const done = all.filter((m) => m.status === 'done').length
   if (!booted) return <Boot onDone={() => { try { sessionStorage.setItem('booted', '1') } catch { /* */ } setBooted(true) }} />
+  // 路由推断模式：直接打开 /make 就是开发模式
+  const routeMode: Mode | null = route.startsWith('/make') || route.startsWith('/projects') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
+  const m: Mode | null = routeMode ?? mode
+  if (route === '/' ) return <ModePicker onPick={(x) => { setMode(x); location.hash = x === 'build' ? '/make' : '/path' }} />
+  if (!m) return <ModePicker onPick={(x) => { setMode(x); location.hash = x === 'build' ? '/make' : '/path' }} />
+  if (routeMode && routeMode !== mode) setMode(routeMode)
+  const isBuild = m === 'build'
   return (
     <div className="shell">
       <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
       <StatusBar done={done} total={all.length} />
-      <div className="layout">
+      <div className={'layout' + (isBuild && route.startsWith('/make') ? ' wide' : '')}>
         <aside className="sidebar">
           <a className="brand" href={href('/')}>
             <span className="brand-led" />
             <span className="brand-name">vibedding<em>_</em></span>
-            <small>Embedding your world with AI</small>
+            <small>{t('tagline')}</small>
           </a>
+          <div className="modeswitch">
+            <a href={href('/make')} className={isBuild ? 'on' : ''} onClick={() => setMode('build')}>⚡ {t('mode.build')}</a>
+            <a href={href('/path')} className={!isBuild ? 'on' : ''} onClick={() => setMode('learn')}>📖 {t('mode.learn')}</a>
+          </div>
           <nav>
-            {NAV.map((n) => (
+            {NAV[m].map((n) => (
               <a key={n.path} href={href(n.path)} className={isActive(route, n.path) ? 'active' : ''}>
-                <span className="key">{n.key}</span>{n.label}<span className="hint">{n.hint}</span>
+                <span className="key">{n.key}</span>{t(n.label)}<span className="hint">{n.hint}</span>
               </a>
             ))}
           </nav>
-          <div className="memmap">
-            <div className="memmap-label"><span>PROGRESS</span><span>{done}/{all.length}</span></div>
-            <div className="memmap-cells">{all.map((m) => <i key={m.path} className={m.status} title={m.fm.title} />)}</div>
-          </div>
+          {!isBuild && (
+            <div className="memmap">
+              <div className="memmap-label"><span>{t('progress').toUpperCase()}</span><span>{done}/{all.length}</span></div>
+              <div className="memmap-cells">{all.map((x) => <i key={x.path} className={x.status} title={x.fm.title} />)}</div>
+            </div>
+          )}
           <div className="sidebar-foot">
-            <span>{modules.length} modules · {all.length} missions</span>
-            {email ? <span className="sidebar-user">{email} <button className="linkbtn" onClick={() => signOut()}>退出</button></span> : <span>local · no cloud</span>}
+            <span className="langswitch"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button></span>
+            {email ? <span className="sidebar-user">{email} <button className="linkbtn" onClick={() => signOut()}>{t('logout')}</button></span> : <span>local · no cloud</span>}
           </div>
         </aside>
         <main className="content"><Page route={route} /></main>
@@ -76,23 +103,49 @@ function Shell({ email }: { email: string | null }) {
   )
 }
 
+function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
+  const lang = getLang()
+  return (
+    <div className="picker">
+      <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
+      <div className="picker-body">
+        <div className="brand-name" style={{ fontSize: 34 }}>vibedding<em>_</em></div>
+        <p className="tagline">{t('tagline')}</p>
+        <h1>{t('mode.pick')}</h1>
+        <div className="picker-cards">
+          <button className="picker-card" onClick={() => onPick('build')}>
+            <Scene name="hero_home" className="picker-art" />
+            <div className="picker-text"><b>⚡ {t('mode.build')}</b><p>{t('mode.build.desc')}</p></div>
+          </button>
+          <button className="picker-card" onClick={() => onPick('learn')}>
+            <Scene name="mod1_blink" className="picker-art" />
+            <div className="picker-text"><b>📖 {t('mode.learn')}</b><p>{t('mode.learn.desc')}</p></div>
+          </button>
+        </div>
+        <div className="langswitch big"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button></div>
+      </div>
+    </div>
+  )
+}
+
 function isActive(route: string, path: string) {
-  if (path === '/') return route === '/' || route.startsWith('/doc/curriculum')
+  if (path === '/path') return route === '/path' || route.startsWith('/doc/curriculum')
   const kind = path.slice(1)
   return route.startsWith(path) || route.startsWith('/doc/' + kind)
 }
 
 function Page({ route }: { route: string }) {
-  if (route === '/') return <Curriculum />
+  if (route === '/path') return <Curriculum />
   if (route.startsWith('/make')) return <Workshop />
-  if (route === '/kb') return <Knowledge />
+  if (route === '/projects') return <Projects />
   if (route === '/lab') return <Lab />
+  if (route === '/kb') return <Knowledge />
   if (route === '/journal') return <Journal />
-  if (route === '/prompts') return <List title="提示词库" subtitle="怎么向 AI 问硬件问题，才能少踩坑。每张卡都是踩过坑后总结的。" items={prompts} art="prompts_ai" />
-  if (route === '/hardware') return <List title="我的硬件" subtitle="板子、模块、线怎么接。只记录亲手验证过的东西，不抄手册。" items={hardware} art="mod0_setup" />
+  if (route === '/prompts') return <List title={t('prompts.title')} subtitle={t('prompts.sub')} items={prompts} art="prompts_ai" />
+  if (route === '/hardware') return <List title={t('hw.title')} subtitle={t('hw.sub')} items={hardware} art="mod0_setup" />
   if (route === '/about') return <About />
   if (route.startsWith('/doc/')) return <DocPage path={route.slice('/doc/'.length)} />
-  return <Empty title="404 · 页面不存在" />
+  return <Empty title={t('empty.404')} />
 }
 
 function Curriculum() {
@@ -100,13 +153,13 @@ function Curriculum() {
     <>
       <Scene name="hero_home" className="hero">
         <div className="eyebrow">// LEARNING PATH</div>
-        <h1>学习路径</h1>
-        <p className="mission">把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。</p>
-        <p>每个任务都以"做出一个看得见的东西"结束。顺序是建议，不是规定。卡住了就写日志，然后问 AI。</p>
+        <h1>{t('path.title')}</h1>
+        <p className="mission">{t('path.mission')}</p>
+        <p>{t('path.sub')}</p>
         <div className="chips hero-cta">
-          <a className="chip primary" href={href('/make?q=' + encodeURIComponent('要有光'))}>▶ 没有板子也能玩：说一句"要有光"</a>
-          <a className="chip" href={href('/kb')}>翻翻知识库</a>
-          <a className="chip" href={href('/doc/curriculum/00-setup/00-terminal.md')}>我有板子，从头开始</a>
+          <a className="chip primary" href={href('/make?q=' + encodeURIComponent(t('ws.suggest.1')))}>{t('path.cta.play')}</a>
+          <a className="chip" href={href('/kb')}>{t('path.cta.kb')}</a>
+          <a className="chip" href={href('/doc/curriculum/00-setup/00-terminal.md')}>{t('path.cta.start')}</a>
         </div>
       </Scene>
       {modules.map((m, mi) => (
@@ -118,7 +171,7 @@ function Curriculum() {
             <div className="module-text">
               <h2>{m.title}</h2>
               {m.index?.fm.summary && <p>{m.index.fm.summary}</p>}
-              <div className="module-stats">{m.missions.filter((x) => x.status === 'done').length}/{m.missions.length} 完成 · {m.missions.filter((x) => /```canvas/.test(x.body)).length} 个实验</div>
+              <div className="module-stats">{m.missions.filter((x) => x.status === 'done').length}/{m.missions.length} {t('path.done')} · {m.missions.filter((x) => /```canvas/.test(x.body)).length} {t('path.labs')}</div>
             </div>
           </a>
           <div className="cards">
@@ -132,11 +185,10 @@ function Curriculum() {
                 {ms.fm.goal && <p>{ms.fm.goal}</p>}
                 <div className="card-foot">
                   {ms.fm.hardware && <span className="meta">⌁ {ms.fm.hardware}</span>}
-                  {/```canvas/.test(ms.body) && <span className="meta tag-canvas">▣ 有实验</span>}
+                  {/```canvas/.test(ms.body) && <span className="meta tag-canvas">{t('path.hasLab')}</span>}
                 </div>
               </a>
             ))}
-            {m.missions.length === 0 && <div className="card ghost">还没有任务。写一个 md 文件放进 content/{m.dir}/ 就会出现在这里。</div>}
           </div>
         </section>
       ))}
@@ -156,18 +208,14 @@ function Lab() {
     <>
       <Scene name="lab_bench" className="hero small">
         <div className="eyebrow">// LAB</div>
-        <h1>实验台</h1>
-        <p>板子没到也能动手。这里的每个实验都可以嵌进任何一张任务卡（写一个 <code>```canvas</code> 代码块）。</p>
+        <h1>{t('lab.title')}</h1>
+        <p>{t('lab.sub')}</p>
       </Scene>
       <div className="lab-tabs">
-        {types.map((t) => <button key={t} className={'chip' + (open === t ? ' on' : '')} onClick={() => setOpen(t)}>{CANVAS_META[t].name}</button>)}
+        {types.map((x) => <button key={x} className={'chip' + (open === x ? ' on' : '')} onClick={() => setOpen(x)}>{CANVAS_META[x].name}</button>)}
       </div>
       <p className="muted">{CANVAS_META[open].desc}</p>
       <Canvas key={open} spec={{ type: open, props: LAB_PROPS[open] ?? { id: 'lab-' + open }, body: open === 'board' ? DEFAULT_CODE : '' }} />
-      <div className="lab-howto">
-        <h3>怎么在任务卡里嵌一个实验</h3>
-        <pre className="howto">{'```canvas\ntype: board\nid: my-blink\ngoals: pinmode:PC13, blink:PC13:200\ntask: 让 LED 每 200ms 眨一次\nrubric: 用了 pinMode；周期约 200ms\n---\n// 这里是初始代码（可省略）\n```'}</pre>
-      </div>
     </>
   )
 }
@@ -177,21 +225,18 @@ function Journal() {
     <>
       <Scene name="journal_night" className="hero small">
         <div className="eyebrow">// LOG</div>
-        <h1>学习日志</h1>
-        <p>按天记。记"我以为 / 实际发生 / 学到了什么"，比记代码更有用。这些日志以后会被提炼成课程。</p>
+        <h1>{t('journal.title')}</h1>
+        <p>{t('journal.sub')}</p>
       </Scene>
       <div className="timeline">
         {journal.map((d) => (
           <a key={d.path} href={href('/doc/' + d.path)} className="entry">
             <time>{d.fm.date ?? d.slug}</time>
-            <div>
-              <h3>{d.fm.title ?? d.slug}</h3>
-              {d.fm.summary && <p>{d.fm.summary}</p>}
-            </div>
+            <div><h3>{d.fm.title ?? d.slug}</h3>{d.fm.summary && <p>{d.fm.summary}</p>}</div>
             {d.fm.mood && <span className="mood">{d.fm.mood}</span>}
           </a>
         ))}
-        {journal.length === 0 && <Empty title="还没有日志" />}
+        {journal.length === 0 && <Empty title="—" />}
       </div>
     </>
   )
@@ -212,7 +257,7 @@ function List({ title, subtitle, items, art }: { title: string; subtitle: string
             {d.fm.summary && <p>{d.fm.summary}</p>}
           </a>
         ))}
-        {items.length === 0 && <Empty title="空空如也" />}
+        {items.length === 0 && <Empty title="—" />}
       </div>
     </>
   )
@@ -220,13 +265,13 @@ function List({ title, subtitle, items, art }: { title: string; subtitle: string
 
 function DocPage({ path }: { path: string }) {
   const doc = byPath(path)
-  if (!doc) return <Empty title="找不到这篇文档" />
-  const backTo = doc.kind === 'curriculum' ? '/' : '/' + doc.kind
+  if (!doc) return <Empty title={t('empty.404')} />
+  const backTo = doc.kind === 'curriculum' ? '/path' : '/' + doc.kind
   const mod = modules.find((m) => m.dir === doc.dir)
   const art = doc.fm.art ?? mod?.index?.fm.art ?? (doc.kind === 'journal' ? 'journal_night' : doc.kind === 'prompts' ? 'prompts_ai' : doc.kind === 'hardware' ? 'mod0_setup' : 'hero_home')
   return (
     <>
-      <a className="back" href={href(backTo)}>← 返回</a>
+      <a className="back" href={href(backTo)}>{t('doc.back')}</a>
       <Scene name={art} className="doc-art" />
       <header className="page-head doc-head">
         <div className="eyebrow">// {doc.path}</div>
@@ -241,8 +286,8 @@ function DocPage({ path }: { path: string }) {
       <Markdown text={doc.body} />
       {doc.kind === 'curriculum' && doc.slug !== 'index' && (
         <div className="doc-foot">
-          <p className="muted">不想自己写？<a className="chip ai" href={href('/make')}>✦ 让 AI 来做：{doc.fm.goal ?? doc.fm.title}</a></p>
-          <p className="muted">做完了？把 <code>content/{doc.path}</code> 里的 <code>status</code> 改成 <code>done</code>，然后写一篇日志。或者直接跟 AI 说"这个任务完成了"。</p>
+          <p className="muted"><a className="chip ai" href={href('/make?q=' + encodeURIComponent(doc.fm.goal ?? doc.fm.title ?? ''))}>{t('doc.ai')}{doc.fm.goal ?? doc.fm.title}</a></p>
+          <p className="muted">{t('doc.done')}</p>
         </div>
       )}
     </>
@@ -254,10 +299,10 @@ function About() {
     <>
       <header className="page-head">
         <div className="eyebrow">// ABOUT</div>
-        <h1>关于平台</h1>
-        <p className="mission">把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。</p>
+        <h1>{t('about.title')}</h1>
+        <p className="mission">{t('path.mission')}</p>
       </header>
-      <Markdown text={ABOUT} />
+      <Markdown text={getLang() === 'en' ? ABOUT_EN : ABOUT} />
     </>
   )
 }
@@ -265,28 +310,33 @@ const ABOUT = `
 ## 这是什么
 一个人、一块 STM32、一个 AI。边学边把过程铺成路，让下一个门外汉能照着走。
 
-## 三层内容
-| 层 | 是什么 | 在哪 |
+## 两种模式
+| 模式 | 给谁 | 有什么 |
 |---|---|---|
-| 日志 | 原始、按天、有情绪、有弯路 | \`content/journal/\` |
-| 任务卡 | 结构化、有验收、有常见坑、可嵌实验 | \`content/curriculum/\` |
-| 提示词 & 硬件笔记 | 跨任务的方法论和亲测事实 | \`content/prompts/\` \`content/hardware/\` |
+| 开发 | 想直接做出东西的人 | 说一句话，AI 出方案、采购清单、写代码、跑、烧；项目和零件都在这里管 |
+| 学习 | 想弄明白的人 | 任务卡、实验台、知识库、日志。一步一步自己动手 |
 
 ## 门槛在哪
-| 层 | 平台的应对 |
-|---|---|
-| 环境 | 一键脚本 + 体检脚本，看到全绿 |
-| 终端 | 只教 8 条，每条命令能复制 |
-| git | 只教 5 条，讲成"存档点" |
-| 链路 | 模块 0 走一遍代码→芯片的整条路 |
-| 报错 | 报错求助模板 |
-| 不知道下一步 | 任务卡 + 学习路径 |
-| AI 能不能信 | \`prompts/04-ai-lies.md\` 持续积累 |
+环境、终端、git、链路、报错、不知道下一步、不知道 AI 能不能信。平台的工作是把这些墙拆成台阶。
 
-## 全部本地
-内容是 markdown，平台是本地网页，固件用 PlatformIO 编译。没有账号，没有云。\`git\` 就是你的存档。
+## 本事攒在资料里
+AI 用的是六份知识库：元件、项目食谱、代码片段、排障、术语表、板子档案。一次编好，很多年不用改。
+`
+const ABOUT_EN = `
+## What this is
+One person, one STM32, one AI. Learn by building, and pave the road so the next beginner can follow.
 
-设计文档在项目的 \`docs/\` 目录。
+## Two modes
+| Mode | For | What you get |
+|---|---|---|
+| Build | People who want a working thing | Say what you want; the AI plans, makes the shopping list, writes code, runs and flashes. Projects and parts live here |
+| Learn | People who want to understand | Missions, lab bench, knowledge base, journal. Step by step, hands on |
+
+## Where the barriers are
+Environment, terminal, git, the toolchain, error messages, not knowing the next step, not knowing whether to trust the AI. This platform turns those walls into steps.
+
+## The skill lives in the data
+The AI reads six knowledge bases: parts, project recipes, code snippets, troubleshooting, glossary, board profiles. Written once, good for years.
 `
 
 function Empty({ title }: { title: string }) { return <div className="empty">{title}</div> }

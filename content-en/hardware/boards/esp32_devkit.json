@@ -1,0 +1,80 @@
+{
+  "id": "esp32_devkit",
+  "name": "ESP32 DevKit board (ESP32-WROOM-32, 30-pin)",
+  "mcu": "ESP32-D0WDQ6 (ESP32-WROOM-32 module)",
+  "core": "Dual-core Xtensa LX6 240MHz + Wi-Fi + Bluetooth",
+  "flash": "4MB (SPI Flash inside the module)",
+  "ram": "520KB SRAM (about 320KB actually available to your program)",
+  "pio": {
+    "board": "esp32dev",
+    "platform": "espressif32",
+    "framework": "arduino",
+    "upload_protocol": "esptool"
+  },
+  "led": {
+    "pin": "2",
+    "active": "high"
+  },
+  "button": {
+    "pin": "0",
+    "note": "The BOOT button is on GPIO0 and reads LOW when pressed. After boot you can use it as an ordinary button (pinMode(0, INPUT_PULLUP)). The other button, EN, is reset"
+  },
+  "buses": {
+    "i2c": "Default SDA GPIO21 / SCL GPIO22 (Wire.begin() with no arguments uses this pair; you can also pick any pins with Wire.begin(sda, scl))",
+    "spi": "VSPI (the default SPI): SCK 18 / MISO 19 / MOSI 23 / CS 5; HSPI: SCK 14 / MISO 12 / MOSI 13 / CS 15",
+    "uart": "Serial (UART0): TX GPIO1 / RX GPIO3, wired to the onboard USB-serial chip, so you see output as soon as you plug in USB; Serial2 (UART2): TX 17 / RX 16 for external modules; Serial1's default pins are taken by the Flash, so to use it call Serial1.begin(115200, SERIAL_8N1, rx, tx) with your own pins"
+  },
+  "adc_pins": ["32", "33", "34", "35", "36 (VP)", "39 (VN)", "0", "2", "4", "12", "13", "14", "15", "25", "26", "27"],
+  "pwm_pins": ["Any output-capable GPIO can analogWrite (the internal LEDC has 16 channels)", "34, 35, 36 and 39 are input-only and cannot do PWM"],
+  "power": "3.3V logic, and the I/O is NOT 5V-tolerant! Signal lines from 5V sensors need a voltage divider or a level shifter. The VIN header pin is USB 5V straight in (you can also feed the board 5V here); the 3V3 pin comes from the onboard AMS1117 regulator and can supply roughly 300-500mA (verify). Wi-Fi transmit bursts can draw up to 500mA, so a poor USB cable causes mysterious resets",
+  "flash_how": "The board has a built-in USB-serial chip (CP2102 or CH340). Plug a micro-USB cable into your computer and run pio run -t upload; it enters download mode automatically. Windows and older macOS may need the CP210x or CH340 driver. If it hangs at Connecting........_____, hold the BOOT button for 2 seconds while it prints the dots, then release (some boards need this every time; a 10uF capacitor between EN and GND fixes it). Add upload_speed = 921600 to platformio.ini for much faster uploads. Serial: pio device monitor at 115200 baud",
+  "gotchas": [
+    "The I/O is not 5V-tolerant. This is the most common mistake when coming from the UNO: a 5V module's output signal cannot connect directly to the ESP32",
+    "There are many board variants (30-pin DOIT V1, 38-pin DevKitC, etc.) with slightly different header layouts, but the GPIO numbers are universal; read the numbers printed on the board (verify against the board in your hand)",
+    "GPIO34, 35, 36 and 39 are input-only with no internal pull-up; add an external pull-up resistor for buttons",
+    "ADC2 channels (GPIO0, 2, 4, 12-15, 25-27) can't be read while Wi-Fi is on. For Wi-Fi plus analog, use the ADC1 pins: 32, 33, 34, 35, 36, 39",
+    "The ADC is 12-bit (0-4095) but nonlinear and clipped at the top; readings near 3.3V are inaccurate. Don't rely on it where precision matters",
+    "Strapping (boot) pins: GPIO0 (LOW while pressing BOOT enters download mode), GPIO2, GPIO5, GPIO12, GPIO15. If a peripheral pulls these to the wrong level at power-up, boot fails; GPIO12 in particular must not be HIGH at power-up",
+    "GPIO6-11 connect to the internal Flash. 30-pin boards simply don't expose them; 38-pin boards do, but never use them",
+    "analogWrite works directly on ESP32 Arduino 2.x/3.x; the ledcSetup/ledcAttachPin calls in older tutorials are the low-level way, replaced by ledcAttach in 3.x",
+    "Serial is UART0 over USB. Don't use GPIO1/GPIO3 as ordinary I/O or serial output breaks",
+    "Most versions have the onboard LED on GPIO2, but some boards have no onboard LED (other than the power LED); don't assume your program isn't running",
+    "HardwareTimer, IWatchdog and friends are STM32duino-only APIs and don't exist on ESP32; the ESP32 uses its own timerBegin / esp_task_wdt",
+    "The board is wide and covers every hole on both sides of a breadboard; buy a large breadboard or join two together"
+  ],
+  "left": [
+    { "name": "EN", "funcs": ["复位"], "note": "Pull LOW to reset; in parallel with the EN button" },
+    { "name": "VP / GPIO36", "funcs": ["GPIO", "ADC1_0", "仅输入"], "note": "Input only, no pull-up. ADC works even with Wi-Fi on", "danger": true },
+    { "name": "VN / GPIO39", "funcs": ["GPIO", "ADC1_3", "仅输入"], "note": "Input only, no pull-up", "danger": true },
+    { "name": "D34 / GPIO34", "funcs": ["GPIO", "ADC1_6", "仅输入"], "note": "Input only, no pull-up", "danger": true },
+    { "name": "D35 / GPIO35", "funcs": ["GPIO", "ADC1_7", "仅输入"], "note": "Input only, no pull-up", "danger": true },
+    { "name": "D32 / GPIO32", "funcs": ["GPIO", "ADC1_4", "PWM", "TOUCH9"], "note": "First choice for reading a potentiometer (unaffected by Wi-Fi)" },
+    { "name": "D33 / GPIO33", "funcs": ["GPIO", "ADC1_5", "PWM", "TOUCH8"] },
+    { "name": "D25 / GPIO25", "funcs": ["GPIO", "ADC2_8", "PWM", "DAC1"], "note": "A true analog output (DAC); can produce sound" },
+    { "name": "D26 / GPIO26", "funcs": ["GPIO", "ADC2_9", "PWM", "DAC2"] },
+    { "name": "D27 / GPIO27", "funcs": ["GPIO", "ADC2_7", "PWM", "TOUCH7"] },
+    { "name": "D14 / GPIO14", "funcs": ["GPIO", "ADC2_6", "PWM", "SPI_HSCK", "TOUCH6"], "note": "Outputs a short PWM burst at power-up" },
+    { "name": "D12 / GPIO12", "funcs": ["GPIO", "ADC2_5", "PWM", "SPI_HMISO", "TOUCH5"], "note": "Strapping pin: must be LOW at power-up or boot fails. Don't add a pull-up", "danger": true },
+    { "name": "D13 / GPIO13", "funcs": ["GPIO", "ADC2_4", "PWM", "SPI_HMOSI", "TOUCH4"] },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "VIN", "funcs": ["电源"], "note": "USB 5V straight out; you can also feed the board 5V here. Power 5V modules from this pin" }
+  ],
+  "right": [
+    { "name": "D23 / GPIO23", "funcs": ["GPIO", "PWM", "SPI_MOSI"], "note": "Default SPI MOSI" },
+    { "name": "D22 / GPIO22", "funcs": ["GPIO", "PWM", "I2C_SCL"], "note": "Default I2C SCL; the OLED goes here" },
+    { "name": "TX0 / GPIO1", "funcs": ["GPIO", "UART0_TX"], "note": "Wired to the USB-serial chip; don't use as I/O", "danger": true },
+    { "name": "RX0 / GPIO3", "funcs": ["GPIO", "UART0_RX"], "note": "Wired to the USB-serial chip; don't use as I/O", "danger": true },
+    { "name": "D21 / GPIO21", "funcs": ["GPIO", "PWM", "I2C_SDA"], "note": "Default I2C SDA; the OLED goes here" },
+    { "name": "D19 / GPIO19", "funcs": ["GPIO", "PWM", "SPI_MISO"], "note": "Default SPI MISO" },
+    { "name": "D18 / GPIO18", "funcs": ["GPIO", "PWM", "SPI_SCK"], "note": "Default SPI clock" },
+    { "name": "D5 / GPIO5", "funcs": ["GPIO", "PWM", "SPI_CS"], "note": "Default SPI chip select. Strapping pin; outputs a short PWM burst at power-up" },
+    { "name": "TX2 / GPIO17", "funcs": ["GPIO", "PWM", "UART2_TX"], "note": "Serial2; connect to a Bluetooth/GPS module's RX" },
+    { "name": "RX2 / GPIO16", "funcs": ["GPIO", "PWM", "UART2_RX"], "note": "Serial2; connect to the module's TX" },
+    { "name": "D4 / GPIO4", "funcs": ["GPIO", "ADC2_0", "PWM", "TOUCH0"] },
+    { "name": "D2 / GPIO2", "funcs": ["GPIO", "ADC2_2", "PWM", "LED", "TOUCH2"], "note": "Onboard blue LED, active-high. Also a strapping pin; must be LOW or floating while downloading" },
+    { "name": "D15 / GPIO15", "funcs": ["GPIO", "ADC2_3", "PWM", "SPI_HCS", "TOUCH3"], "note": "Strapping pin: LOW at power-up silences the boot log" },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "3V3", "funcs": ["电源"], "note": "Onboard LDO output; powers sensors and the OLED" }
+  ],
+  "bottom": []
+}

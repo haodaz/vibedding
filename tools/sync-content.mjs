@@ -23,19 +23,24 @@ async function walk(dir, base = '') {
   }
   return out
 }
-const files = await walk(path.join(ROOT, 'content'))
 const rows = []
-for (const rel of files) {
-  const kind = rel.split('/')[0] === 'hardware' && rel.startsWith('hardware/boards/') ? 'boards' : rel.split('/')[0]
-  rows.push({ path: rel, kind, body: await fs.readFile(path.join(ROOT, 'content', rel), 'utf8'), updated_at: new Date().toISOString() })
+const files = []
+for (const [dir, lang] of [['content', 'zh'], ['content-en', 'en']]) {
+  const list = await walk(path.join(ROOT, dir)).catch(() => [])
+  for (const rel of list) {
+    const kind = rel.startsWith('hardware/boards/') ? 'boards' : rel.split('/')[0]
+    rows.push({ lang, path: rel, kind, body: await fs.readFile(path.join(ROOT, dir, rel), 'utf8'), updated_at: new Date().toISOString() })
+    files.push(lang + ':' + rel)
+  }
 }
 for (let i = 0; i < rows.length; i += 50) {
   const { error } = await sb.from('content_docs').upsert(rows.slice(i, i + 50))
   if (error) { console.error('写入失败：', error.message); process.exit(1) }
 }
-console.log(`已同步 ${rows.length} 个文件（${(rows.reduce((n, r) => n + r.body.length, 0) / 1024).toFixed(0)} KB）`)
+console.log(`已同步 ${rows.length} 个文件（zh ${rows.filter((r) => r.lang === 'zh').length} / en ${rows.filter((r) => r.lang === 'en').length}）（${(rows.reduce((n, r) => n + r.body.length, 0) / 1024).toFixed(0)} KB）`)
 if (process.argv.includes('--prune')) {
-  const { data } = await sb.from('content_docs').select('path')
-  const stale = (data ?? []).map((r) => r.path).filter((p) => !files.includes(p))
-  if (stale.length) { await sb.from('content_docs').delete().in('path', stale); console.log('删掉云端多余的', stale.length, '个') }
+  const { data } = await sb.from('content_docs').select('path,lang')
+  const stale = (data ?? []).filter((r) => !files.includes(r.lang + ':' + r.path))
+  for (const r of stale) await sb.from('content_docs').delete().eq('lang', r.lang).eq('path', r.path)
+  if (stale.length) console.log('删掉云端多余的', stale.length, '个')
 }

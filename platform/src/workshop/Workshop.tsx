@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Agent, type Item } from './agent'
+import { Agent, type Item, type HumanAsk } from './agent'
 import { HumanCard } from './HumanCard'
 import { BomCard } from './BomCard'
 import { BoardSvg, type PinState } from '../canvases/board/BoardSvg'
@@ -8,11 +8,22 @@ import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
 import { detectMode, getDirectKey, setDirectKey, getDirectModel, setDirectModel, type ModeInfo } from './mode'
 import { store } from './storage'
+import { t, getLang, useLang } from '../i18n'
+import { PartImg } from '../canvases/parts/PartImg'
+import { partByName } from '../canvases/parts/catalog'
+import { Wiring, parseWires } from '../canvases/parts/Wiring'
 
-const SUGGEST = ['要有光', '让板载的灯眨起来', '我想做一个自动浇花的东西', '做一个桌面温湿度小站', '继续上次的项目']
-const TOOL_LABEL: Record<string, string> = { search_projects: '查项目食谱', search_troubleshooting: '查排障库', explain_concept: '查术语表', get_snippet: '取代码片段', list_boards: '看板子列表', read_board_profile: '读板子档案', part_detail: '查元件档案', search_parts: '查元件库', add_part: '收录元件', read_inventory: '看库存', update_inventory: '更新库存', save_project: '保存项目', list_projects: '列项目', read_project: '读项目', read_pinout: '查引脚表', read_board: '读板子档案', list_parts: '看套件清单', check_env: '检查环境', read_file: '读文件', list_files: '列目录', write_firmware: '写固件', pio_build: '编译', pio_upload: '烧录', serial_read: '读串口', append_journal: '记日志', record_ai_mistake: '记错误', sim_run: '虚拟板子运行' }
+const TOOL_LABEL: Record<string, [string, string]> = {
+  search_projects: ['查项目食谱', 'search recipes'], search_troubleshooting: ['查排障库', 'search troubleshooting'], explain_concept: ['查术语表', 'glossary'], get_snippet: ['取代码片段', 'get snippet'], list_boards: ['看板子列表', 'list boards'], read_board_profile: ['读板子档案', 'board profile'], part_detail: ['查元件档案', 'part detail'],
+  search_parts: ['查元件库', 'search parts'], add_part: ['收录元件', 'add part'], read_inventory: ['看库存', 'read inventory'], update_inventory: ['更新库存', 'update inventory'], save_project: ['保存项目', 'save project'], list_projects: ['列项目', 'list projects'], read_project: ['读项目', 'read project'], add_troubleshooting: ['记排障', 'add troubleshooting'],
+  read_pinout: ['查引脚表', 'pinout'], read_board: ['读板子档案', 'board'], list_parts: ['看套件清单', 'kit list'], check_env: ['检查环境', 'check env'], read_file: ['读文件', 'read file'], list_files: ['列目录', 'list files'], write_firmware: ['写固件', 'write firmware'], pio_build: ['编译', 'build'], pio_upload: ['烧录', 'flash'], serial_read: ['读串口', 'read serial'], append_journal: ['记日志', 'journal'], record_ai_mistake: ['记错误', 'log mistake'], sim_run: ['虚拟板子运行', 'run on virtual board'],
+}
+const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
+
+type Tab = 'board' | 'assembly' | 'code' | 'serial' | 'project'
 
 export function Workshop() {
+  const lang = useLang()
   const [, tick] = useState(0)
   const [live, setLive] = useState<SimLive>({ pins: {}, serial: '', running: false })
   const agent = useRef<Agent | null>(null)
@@ -23,65 +34,126 @@ export function Workshop() {
   const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [a.items.length, a.busy])
+  const submit = (s: string) => { if (!s.trim() || a.busy) return; setText(''); a.send(s.trim()) }
 
-  const submit = (t: string) => { if (!t.trim() || a.busy) return; setText(''); a.send(t.trim()) }
+  // 工作区：自动跟着最近发生的事切标签
+  const [tab, setTab] = useState<Tab>('board')
+  const [auto, setAuto] = useState(true)
+  const latestWire = [...a.items].reverse().find((i) => i.kind === 'human' && i.ask.kind === 'wire') as Extract<Item, { kind: 'human' }> | undefined
+  const latestCode = [...a.items].reverse().find((i) => i.kind === 'tool' && i.name === 'write_firmware' && /\.(cpp|c|h|ino)$/.test(String(i.input.path))) as Extract<Item, { kind: 'tool' }> | undefined
+  const latestProject = [...a.items].reverse().find((i) => i.kind === 'tool' && i.name === 'save_project') as Extract<Item, { kind: 'tool' }> | undefined
+  const lastKind = a.items.length ? a.items[a.items.length - 1] : null
+  useEffect(() => {
+    if (!auto || !lastKind) return
+    if (lastKind.kind === 'human' && lastKind.ask.kind === 'wire') setTab('assembly')
+    else if (lastKind.kind === 'tool' && lastKind.name === 'sim_run') setTab('board')
+    else if (lastKind.kind === 'tool' && lastKind.name === 'write_firmware') setTab('code')
+    else if (lastKind.kind === 'tool' && lastKind.name === 'save_project') setTab('project')
+  }, [a.items.length, auto, lastKind])
+  useEffect(() => { if (live.running && auto) setTab('board') }, [live.running, auto])
+
+  // 可拖动分栏
+  const [split, setSplit] = useState(() => { try { return Number(localStorage.getItem('vb:split')) || 44 } catch { return 44 } })
+  const dragging = useRef(false)
+  const onDrag = (e: React.MouseEvent) => {
+    if (!dragging.current) return
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const pct = Math.min(70, Math.max(28, ((e.clientX - box.left) / box.width) * 100))
+    setSplit(pct); try { localStorage.setItem('vb:split', String(pct)) } catch { /* */ }
+  }
+  const suggest = [1, 2, 3, 4, 5].map((i) => t('ws.suggest.' + i, lang))
 
   return (
-    <div className="ws">
+    <div className="ws" style={{ gridTemplateColumns: `${split}% 6px 1fr` }} onMouseMove={onDrag} onMouseUp={() => (dragging.current = false)} onMouseLeave={() => (dragging.current = false)}>
       <div className="ws-chat">
         <div className="ws-head">
-          <div className="eyebrow">// MAKE</div>
-          <div className="ws-title"><h1>直接做</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
-          <p>说你要什么，我来写代码、跑、烧。我够不着的（插线、按键、跑命令）会弹卡片请你搭把手。{a.mock && <span className="ws-mock">现在是演示剧本（还没配 AI 密钥），只会演"要有光"。</span>}{mode && mode.mode !== 'local' && <span className="ws-mock">{mode.mode === 'static' ? '网页体验模式：能出方案、写代码、在虚拟板子上跑；真烧录要在本地模式。' : '没有后端：在右侧设置里填自己的密钥，直接从浏览器用。'}</span>}</p>
+          <div className="ws-title"><h1>{t('ws.title')}</h1>{a.items.length > 0 && <ResetButton onReset={() => a.reset()} />}</div>
+          <p>{t('ws.sub')}{a.mock && <span className="ws-mock"> {t('ws.mock')}</span>}{mode && mode.mode !== 'local' && <span className="ws-mock"> {mode.mode === 'static' ? t('ws.static') : t('ws.direct')}</span>}</p>
         </div>
         <div className="ws-log">
           {a.items.length === 0 && (
             <div className="ws-empty">
               <div className="ws-empty-npc"><NpcImage name="npc_mentor" /></div>
-              <div>
-                <p>比如说：</p>
-                <div className="chips">{SUGGEST.map((s) => <button key={s} className="chip" onClick={() => submit(s)}>{s}</button>)}</div>
-              </div>
+              <div><p>{t('ws.eg')}</p><div className="chips">{suggest.map((s) => <button key={s} className="chip" onClick={() => submit(s)}>{s}</button>)}</div></div>
             </div>
           )}
           {a.items.map((it, i) => <Row key={i} it={it} onAnswer={(id, s) => a.answerHuman(id, s)} />)}
-          {a.busy && !a.items.some((i) => i.kind === 'human' && i.answer === undefined) && <div className="ws-thinking"><span className="dots" />{a.model && <em>{a.model}</em>}</div>}
+          {a.busy && !a.items.some((i) => (i.kind === 'human' || i.kind === 'bom') && i.answer === undefined) && <div className="ws-thinking"><span className="dots" />{a.model && <em>{a.model}</em>}</div>}
           <div ref={endRef} />
         </div>
         <form className="ws-input" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={a.busy ? '我在做……' : '要做什么？'} disabled={a.busy} autoFocus />
-          <button className="chip primary" disabled={a.busy || !text.trim()}>发送</button>
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={a.busy ? t('ws.busy') : t('ws.placeholder')} disabled={a.busy} autoFocus />
+          <button className="chip primary" disabled={a.busy || !text.trim()}>{t('ws.send')}</button>
         </form>
       </div>
-      <aside className="ws-side">
-        <div className="ws-board">
-          <div className="canvas-head"><span className="canvas-title">▣ 虚拟板子</span><span className={'led ' + (live.running ? 'on' : '')} /></div>
-          <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />
-          <pre className="serial-out ws-serial">{live.serial || '（AI 跑 sim_run 时这里会动）'}</pre>
+      <div className="ws-divider" onMouseDown={() => (dragging.current = true)} />
+      <aside className="ws-space">
+        <div className="ws-tabs">
+          {(['board', 'assembly', 'code', 'serial', 'project'] as Tab[]).map((k) => (
+            <button key={k} className={'chip' + (tab === k ? ' on' : '')} onClick={() => { setTab(k); setAuto(false) }}>
+              {k === 'board' ? '▣ ' : k === 'assembly' ? '🧩 ' : k === 'code' ? '⌘ ' : k === 'serial' ? '⇄ ' : '📁 '}{t('ws.' + k)}
+              {k === 'assembly' && latestWire && !latestWire.answer && <i className="dot" />}
+            </button>
+          ))}
+          <button className={'chip small' + (auto ? ' on' : '')} onClick={() => setAuto(!auto)} title="auto-follow">{auto ? '◉' : '○'}</button>
         </div>
-        <Projects key={a.items.length} mode={mode?.mode ?? 'local'} />
-        {mode && mode.mode !== 'local' && <Settings mode={mode} onChange={() => detectMode().then(setMode)} />}
-        <div className="ws-tools">
-          <div className="canvas-head"><span className="canvas-title">▣ 我有的工具</span></div>
-          <ul>
-            <li><b>查</b> 项目食谱 · 元件库 · 代码片段 · 排障库 · 术语表 · 板子档案</li>
-            <li><b>做</b> 写固件 · 编译 · 烧录 · 读串口 · 虚拟板子</li>
-            <li><b>记</b> 日志 · 我犯过的错</li>
-            <li><b>请你</b> 接线 · 按键 · 粘贴运行 · 观察</li>
-          </ul>
+        <div className="ws-panel">
+          {tab === 'board' && (
+            <div className="ws-boardpane">
+              <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />
+              <div className="serial-head"><span>Serial <em>115200</em></span><span className={'led ' + (live.running ? 'on' : '')} /></div>
+              <pre className="serial-out ws-serial">{live.serial || t('ws.serial.idle')}</pre>
+            </div>
+          )}
+          {tab === 'assembly' && <Assembly ask={latestWire?.ask} />}
+          {tab === 'code' && (latestCode ? <div className="ws-code"><div className="serial-head"><span>{String(latestCode.input.path)}</span></div><Markdown text={'```cpp\n' + String(latestCode.input.content) + '\n```'} /></div> : <div className="ws-idle">{t('ws.code.idle')}</div>)}
+          {tab === 'serial' && <pre className="serial-out ws-serial big">{live.serial || t('ws.serial.idle')}</pre>}
+          {tab === 'project' && <ProjectPane mode={mode?.mode ?? 'local'} slug={latestProject ? String(latestProject.input.slug) : null} />}
+        </div>
+        <div className="ws-side-foot">
+          <Projects key={a.items.length} mode={mode?.mode ?? 'local'} />
+          {mode && mode.mode !== 'local' && <Settings mode={mode} onChange={() => detectMode().then(setMode)} />}
         </div>
       </aside>
     </div>
   )
 }
 
-// 不用浏览器的 confirm 弹窗（内嵌浏览器里可能被拦掉），改成点两次确认
+// 组装面板：宜家说明书式。零件大图 + 接线图 + 步骤 + 安全提示
+function Assembly({ ask }: { ask?: HumanAsk }) {
+  if (!ask) return <div className="ws-idle">{t('ws.assembly.idle')}</div>
+  const parts = (ask.parts ?? []).filter((p) => partByName(p))
+  const wires = ask.wires ? parseWires(ask.wires) : []
+  const left = parts.filter((p) => /^(part_)?bluepill$/.test(p)); const right = parts.filter((p) => !left.includes(p))
+  return (
+    <div className="asm">
+      <div className="asm-head"><b>{ask.title}</b>{ask.why && <p className="muted">{ask.why}</p>}</div>
+      {parts.length > 0 && <div className="asm-parts">{parts.map((p, i) => <div key={p} className="asm-part"><span className="asm-n">{i + 1}</span><div className="asm-img"><PartImg name={p} /></div><span>{partByName(p)?.label}</span></div>)}</div>}
+      {wires.length > 0 && <Wiring title={ask.title} left={left.length ? left : [wires[0].from]} right={right.length ? right : [wires[0].to]} wires={wires} />}
+      <ol className="asm-steps">{ask.steps.map((s, i) => <li key={i}><span className="asm-n">{i + 1}</span>{s}</li>)}</ol>
+      {ask.expect && <p className="hcard-expect">👀 {t('card.expect')}{ask.expect}</p>}
+      {ask.safety && <p className="hcard-safety">⚠ {t('card.safety')}: {ask.safety}</p>}
+    </div>
+  )
+}
+
+function ProjectPane({ mode, slug }: { mode: string; slug: string | null }) {
+  const [txt, setTxt] = useState('')
+  useEffect(() => {
+    if (!slug) return
+    if (mode === 'local') fetch('/api/tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'read_project', input: { slug } }) }).then((r) => r.json()).then((j) => setTxt(String(j.result ?? ''))).catch(() => {})
+    else store.get<Record<string, { title: string; brief?: string; bom?: string; plan?: string }>>('projects').then((ps) => { const p = ps?.[slug]; setTxt(p ? ['plan', 'bom', 'brief'].filter((k) => p[k as 'plan']).map((k) => `## ${k}\n${p[k as 'plan']}`).join('\n\n') : '') })
+  }, [mode, slug])
+  if (!slug) return <div className="ws-idle">{t('ws.projects.none')}</div>
+  return <div className="ws-code"><div className="serial-head"><span>{slug}</span></div><Markdown text={txt.replace(/^---[\s\S]*?---\n/gm, '')} /></div>
+}
+
 function ResetButton({ onReset }: { onReset: () => void }) {
   const [arm, setArm] = useState(false)
-  useEffect(() => { if (!arm) return; const t = setTimeout(() => setArm(false), 3000); return () => clearTimeout(t) }, [arm])
+  useEffect(() => { if (!arm) return; const x = setTimeout(() => setArm(false), 3000); return () => clearTimeout(x) }, [arm])
   return arm
-    ? <button className="chip warn" onClick={() => { setArm(false); onReset() }}>再点一次清空（项目文件不会删）</button>
-    : <button className="chip" onClick={() => setArm(true)}>＋ 新对话</button>
+    ? <button className="chip warn" onClick={() => { setArm(false); onReset() }}>{t('ws.new.confirm')}</button>
+    : <button className="chip" onClick={() => setArm(true)}>{t('ws.new')}</button>
 }
 
 function Projects({ mode }: { mode: string }) {
@@ -98,8 +170,8 @@ function Projects({ mode }: { mode: string }) {
   }, [mode])
   return (
     <div className="ws-tools ws-projects">
-      <div className="canvas-head"><span className="canvas-title">▣ 我的项目</span><span className="muted small">{mode === 'local' ? 'content/projects/' : backend === 'supabase' ? '云端保存（匿名账号）' : '存在你的浏览器里'}</span></div>
-      <ul>{list.length ? list.map((l) => <li key={l}>{l}</li>) : <li className="muted">还没有。说一个需求就会有。</li>}</ul>
+      <div className="canvas-head"><span className="canvas-title">📁 {t('ws.projects')}</span><span className="muted small">{mode === 'local' ? 'content/projects/' : backend === 'supabase' ? t('ws.projects.cloud') : t('ws.projects.local')}</span></div>
+      <ul>{list.length ? list.map((l) => <li key={l}>{l}</li>) : <li className="muted">{t('ws.projects.none')}</li>}</ul>
     </div>
   )
 }
@@ -110,15 +182,15 @@ function Settings({ mode, onChange }: { mode: ModeInfo; onChange: () => void }) 
   const [open, setOpen] = useState(mode.mode === 'direct' && !getDirectKey())
   return (
     <div className="ws-tools ws-settings">
-      <div className="canvas-head"><span className="canvas-title">▣ 设置</span><button className="chip" onClick={() => setOpen(!open)}>{open ? '收起' : '展开'}</button></div>
+      <div className="canvas-head"><span className="canvas-title">⚙ {t('ws.settings')}</span><button className="chip" onClick={() => setOpen(!open)}>{open ? t('ws.collapse') : t('ws.expand')}</button></div>
       <ul>
-        <li><b>模式</b> {mode.reason}{mode.ai ? ` · ${mode.ai}` : ''}</li>
+        <li><b>{t('ws.mode')}</b> {mode.reason}{mode.ai ? ` · ${mode.ai}` : ''}</li>
         {open && (
           <li className="ws-settings-form">
-            <div className="muted small">{mode.mode === 'direct' ? '这里没有后端。填你自己的 OpenAI 密钥，浏览器直接调模型。密钥只存在这台浏览器的本地存储里，不会发给任何人。' : '服务端已配好模型。想用自己的密钥直连也可以填在这里（优先级更高）。'}</div>
+            <div className="muted small">{mode.mode === 'direct' ? t('ws.key.direct') : t('ws.key.optional')}</div>
             <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-…" />
-            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="模型，如 gpt-5.6-luna" />
-            <div className="chips"><button className="chip primary" onClick={() => { setDirectKey(key.trim()); setDirectModel(model.trim() || 'gpt-5.6-luna'); onChange() }}>保存</button>{getDirectKey() && <button className="chip" onClick={() => { setDirectKey(''); setKey(''); onChange() }}>清除</button>}</div>
+            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-5.6-luna" />
+            <div className="chips"><button className="chip primary" onClick={() => { setDirectKey(key.trim()); setDirectModel(model.trim() || 'gpt-5.6-luna'); onChange() }}>{t('ws.save')}</button>{getDirectKey() && <button className="chip" onClick={() => { setDirectKey(''); setKey(''); onChange() }}>{t('ws.clear')}</button>}</div>
           </li>
         )}
       </ul>
@@ -137,10 +209,10 @@ function Row({ it, onAnswer }: { it: Item; onAnswer: (id: string, s: string) => 
     <div className={'ws-row tool' + (it.error ? ' err' : '')}>
       <button className="tool-chip" onClick={() => setOpen(!open)}>
         <span className={'led ' + (it.running ? 'on' : it.error ? 'err' : 'ok')} />
-        {TOOL_LABEL[it.name] ?? it.name}
+        {label(it.name)}
         {it.name === 'write_firmware' && <code>{String(it.input.path ?? '')}</code>}
-        {it.name === 'read_pinout' && it.input.filter ? <code>{String(it.input.filter)}</code> : null}
-        <span className="muted">{it.running ? '运行中…' : open ? '收起' : '看详情'}</span>
+        {(it.name === 'read_pinout' || it.name.startsWith('search_') || it.name === 'get_snippet' || it.name === 'explain_concept') && it.input.query ? <code>{String(it.input.query)}</code> : null}
+        <span className="muted">{it.running ? '…' : open ? '−' : '+'}</span>
       </button>
       {open && (
         <div className="tool-detail">

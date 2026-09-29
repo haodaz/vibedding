@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PartImg } from '../canvases/parts/PartImg'
 import { partByName } from '../canvases/parts/catalog'
+import { t, getLang } from '../i18n'
 
 export interface BomItem { id?: string; name: string; qty: number; role: string; why?: string; price: string; buy: string; have?: boolean; catalog?: boolean; optional?: boolean }
 export interface BomAsk { title: string; items: BomItem[]; note?: string }
@@ -23,7 +24,7 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
   }
   return (
     <div className={'bom' + (done ? ' done' : '')}>
-      <div className="bom-head"><span className="hcard-kind">🛒 采购清单</span><b>{ask.title}</b></div>
+      <div className="bom-head"><span className="hcard-kind">🛒 {t('bom.title')}</span><b>{ask.title}</b></div>
       <div className="bom-list">
         {ask.items.map((it, i) => {
           const sprite = it.id && partByName(it.id) ? it.id : null
@@ -31,14 +32,14 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
             <div key={i} className={'bom-item' + (have[i] ? ' have' : '') + (skip[i] ? ' skip' : '')}>
               <div className="bom-img">{sprite ? <PartImg name={sprite} /> : <span className="bom-noimg">▫</span>}</div>
               <div className="bom-main">
-                <div className="bom-name"><b>{it.name}</b>{it.optional && <span className="tag opt">可选</span>}{it.catalog === false && <span className="tag warn" title="不在知识库里，下单前核对">需核对</span>}</div>
+                <div className="bom-name"><b>{it.name}</b>{it.optional && <span className="tag opt">{t('bom.opt')}</span>}{it.catalog === false && <span className="tag warn">{t('bom.check')}</span>}</div>
                 <div className="bom-role">{it.role}</div>
-                <div className="muted small">搜「{it.buy}」{it.why ? ' · ' + it.why : ''}</div>
+                <div className="muted small">{t('bom.search')}「{it.buy}」{it.why ? ' · ' + it.why : ''}</div>
               </div>
               <div className="bom-right">
-                <div className="mono">¥{it.price}{it.qty > 1 ? ` × ${it.qty}` : ''}</div>
-                <label><input type="checkbox" checked={have[i]} disabled={done} onChange={(e) => setHave(have.map((h, j) => (j === i ? e.target.checked : h)))} />已有</label>
-                <label><input type="checkbox" checked={skip[i]} disabled={done} onChange={(e) => setSkip(skip.map((h, j) => (j === i ? e.target.checked : h)))} />不要</label>
+                <div className="mono">{getLang() === 'en' ? '$' : '¥'}{it.price}{it.qty > 1 ? ` × ${it.qty}` : ''}</div>
+                <label><input type="checkbox" checked={have[i]} disabled={done} onChange={(e) => setHave(have.map((h, j) => (j === i ? e.target.checked : h)))} />{t('bom.have')}</label>
+                <label><input type="checkbox" checked={skip[i]} disabled={done} onChange={(e) => setSkip(skip.map((h, j) => (j === i ? e.target.checked : h)))} />{t('bom.skip')}</label>
               </div>
             </div>
           )
@@ -46,11 +47,11 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
       </div>
       {ask.note && <p className="hcard-expect">⚠ {ask.note}</p>}
       <div className="bom-foot">
-        <div className="bom-total">要买 <b>{toBuy.length}</b> 件 · 预算约 <b>¥{total.toFixed(0)}</b><span className="muted small">（按区间中值估）</span></div>
+        <div className="bom-total">{t('bom.tobuy')} <b>{toBuy.length}</b> {t('bom.items')} · {t('bom.budget')} <b>{getLang() === 'en' ? '$' : '¥'}{total.toFixed(0)}</b><span className="muted small">{t('bom.mid')}</span></div>
         {done ? <div className="hcard-answer">✔ {answer}</div> : (
           <div className="chips">
-            <button className="chip" onClick={async () => { await navigator.clipboard.writeText(buyText); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? '✔ 已复制' : '⎘ 复制购物清单'}</button>
-            <button className="chip primary" onClick={confirm}>就这样，记下来</button>
+            <button className="chip" onClick={async () => { await navigator.clipboard.writeText(buyText); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? t('card.copied') : t('bom.copy')}</button>
+            <button className="chip primary" onClick={confirm}>{t('bom.confirm')}</button>
           </div>
         )}
       </div>

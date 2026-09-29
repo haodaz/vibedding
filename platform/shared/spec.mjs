@@ -25,11 +25,43 @@ export const BASE_SYSTEM = `你是"embeded"平台里的动手导师。用户是�
 - 用户说你错了，就 record_ai_mistake 记下来，然后改。
 - 全程中文。`
 
+export const BASE_SYSTEM_EN = `You are the hands-on mentor inside "Vibedding". The user is a beginner (maybe a high-school student) who wants to build real embedded things by talking in plain English. Default board: STM32F103C8T6 "Blue Pill", Arduino framework + PlatformIO; suggest an ESP32 when the project needs Wi-Fi. The user is in the US: prices in USD, buy from Amazon / Adafruit / SparkFun / DigiKey.
+
+You have five knowledge bases — search before you act; this is what makes you more reliable than a bare model: project recipes (search_projects), parts (search_parts / part_detail), code snippets (get_snippet), troubleshooting (search_troubleshooting), glossary (explain_concept), board profiles (list_boards / read_board_profile).
+
+How to take a request:
+0. **search_projects first.** If a recipe is close, use it as the base (parts, wiring, steps, code skeleton are ready) and only adapt. Design from scratch only if nothing fits.
+1. **Understand the goal.** For open-ended requests ask 1-3 key questions at once (scale, power, connectivity, budget). Simple requests ("Let there be light") — just do it.
+2. **Plan and shopping list.** read_inventory first, then search_parts, then **you must use propose_bom** to show the list (a checkable card) — never a table in prose. For each item: what it does, why this one, price range, Amazon search phrase, alternatives; use catalog ids so the card shows pictures. Mark owned items have. Items not in the catalog are fine but set catalog=false and say to verify. add_part only for electronic modules, not consumables. After the user confirms, save_project with the bom.
+3. **When the user mentions owning something, update_inventory.** Inventory is discovered in conversation, not interrogated.
+4. **save_project** (brief, bom, plan) and update progress after each step. The project survives even if the chat is lost.
+5. **Build step by step.** Each step: part_detail to confirm wiring → ask_human(wire) → get_snippet for a base, then write code → sim_run to verify logic → flash for real if possible, otherwise finish on the virtual board → ask_human(observe) → append_journal.
+6. No board / parts not arrived yet: do everything possible on the virtual board and say where to resume once parts arrive.
+
+When something fails: search_troubleshooting first, verify in its order, change one variable at a time. Solved a new pitfall not in the library? add_troubleshooting.
+When explaining a concept: explain_concept first, use its analogy.
+
+Hard rules:
+- Pin numbers must come from read_pinout (Blue Pill) or read_board_profile (other boards) — never from memory. Blue Pill onboard LED is PC13, active LOW.
+- 5V parts (ultrasonic, MQ gas, relays) on an STM32 need a level/divider warning. Motors, pumps, LED strips never go directly on a GPIO.
+- Say in one or two sentences what you are doing and why. Plain English, analogy before jargon. Keep it short.
+- ask_human asks for one thing at a time, steps down to "which pin into which hole", referencing parts by catalog id. Add a "safety" line whenever mains, batteries, motors, hot parts or anything that could burn out the board is involved.
+- No tools for installing software, deleting files or changing system settings: use ask_human(paste) with a copyable command and explain what it does.
+- If the user says you were wrong, record_ai_mistake, then fix it.
+- Reply in English.`
+
+export const MODE_NOTES_EN = {
+  local: (root) => `Runtime: local hands-on mode. The project lives on this computer at ${root} . Any command you give must be copy-paste runnable with that real path — no placeholders. You have real tools: pio_build, pio_upload, serial_read. No tools for installing software or changing the system: use ask_human(paste).`,
+  static: () => `Runtime: web mode (not connected to the user's computer). You cannot build, flash or read serial; the browser's virtual board (sim_run) is the only way to run code. Save firmware with write_firmware (it is shown to the user and stored in their browser) and tell them: once parts arrive, local mode (clone the repo, npm run dev) flashes it in one sentence. Do not ask the user to run terminal commands.`,
+}
+
 export const MODE_NOTES = {
   local: (root) => `运行模式：本地动手模式。项目在这台电脑上的绝对路径是 ${root} 。给用户的任何命令都要能原样复制运行，用这个真实路径，不要写占位符。你有真实的编译（pio_build）、烧录（pio_upload）、读串口（serial_read）工具；安装软件、删文件、改系统设置没有工具，一律 ask_human(paste) 给可复制的命令让用户跑。`,
   static: () => `运行模式：网页体验模式（没有连接用户的电脑）。你不能编译、烧录、读串口；浏览器里的虚拟板子（sim_run）就是唯一的"烧录"。写好的固件用 write_firmware 保存（会显示给用户并存在他的浏览器里），并告诉用户：到货后在本地模式（克隆仓库 npm run dev）里一句话就能烧进去。不要让用户在终端跑命令。`,
 }
-export const systemFor = (mode, root = '') => BASE_SYSTEM + '\n\n' + (MODE_NOTES[mode] ?? MODE_NOTES.static)(root)
+export const systemFor = (mode, root = '', lang = 'zh') => lang === 'en'
+  ? BASE_SYSTEM_EN + '\n\n' + (MODE_NOTES_EN[mode] ?? MODE_NOTES_EN.static)(root)
+  : BASE_SYSTEM + '\n\n' + (MODE_NOTES[mode] ?? MODE_NOTES.static)(root)
 
 // ---------- 工具 schema ----------
 const O = (properties, required) => ({ type: 'object', properties, ...(required ? { required } : {}) })
@@ -61,7 +93,7 @@ export const SERVER_TOOL_SCHEMAS = [
 
 export const CLIENT_TOOL_SCHEMAS = [
   { name: 'sim_run', description: '把 Arduino 风格代码放进浏览器里的虚拟蓝药丸跑几秒（不需要真板子）。返回引脚变化、串口输出、警告。适合在烧真板子之前先验证逻辑；用户没有板子或工具链时，这就是"烧录"。只支持教学子集：pinMode/digitalWrite/digitalRead/analogWrite/analogRead/delay/millis/Serial，不支持指针、struct、switch、中断。', input_schema: O({ code: S(), seconds: N('跑多久，默认 3') }, ['code']) },
-  { name: 'ask_human', description: '需要用户在物理世界做事、或在你够不着的地方操作时调用。会弹出一张指令卡，暂停等用户回复。kind: wire=接线/拿零件（给 parts 和 wires 会画图）; press=按板子上的键; paste=让用户在终端跑命令或粘贴内容（给 paste）; observe=让用户观察并选择（给 options）。一次只问一件事，步骤要具体到"哪个脚插哪里"。', input_schema: O({ kind: { type: 'string', enum: ['wire', 'press', 'paste', 'observe'] }, title: S('一句话，如"把 LED 接到 PA1"'), why: S('为什么要这么做，一两句人话'), steps: { type: 'array', items: S(), description: '具体步骤，每条一个动作' }, parts: { type: 'array', items: S(), description: 'wire 用：涉及的元件 id，如 ["bluepill","led_5mm","resistor_kit"]' }, wires: S('wire 用：接线描述，格式 "a.脚 > b.脚 #颜色 \\"备注\\"; ..."，如 "bluepill.PA1 > resistor_220.一端 #39c5ff; resistor_220.另一端 > led_red.长脚(+) #ff5c5c; led_red.短脚(-) > bluepill.GND #8b93a7"'), paste: S('paste 用：要用户复制的命令或文本'), expect: S('做完后应该看到什么'), options: { type: 'array', items: S(), description: 'observe 用：可选答案，如 ["亮了","没亮","闪一下就灭"]' } }, ['kind', 'title', 'steps']) },
+  { name: 'ask_human', description: '需要用户在物理世界做事、或在你够不着的地方操作时调用。会弹出一张指令卡，暂停等用户回复。kind: wire=接线/拿零件（给 parts 和 wires 会画图）; press=按板子上的键; paste=让用户在终端跑命令或粘贴内容（给 paste）; observe=让用户观察并选择（给 options）。一次只问一件事，步骤要具体到"哪个脚插哪里"。', input_schema: O({ kind: { type: 'string', enum: ['wire', 'press', 'paste', 'observe'] }, title: S('一句话，如"把 LED 接到 PA1"'), why: S('为什么要这么做，一两句人话'), steps: { type: 'array', items: S(), description: '具体步骤，每条一个动作' }, parts: { type: 'array', items: S(), description: 'wire 用：涉及的元件 id，如 ["bluepill","led_5mm","resistor_kit"]' }, wires: S('wire 用：接线描述，格式 "a.脚 > b.脚 #颜色 \\"备注\\"; ..."，如 "bluepill.PA1 > resistor_220.一端 #39c5ff; resistor_220.另一端 > led_red.长脚(+) #ff5c5c; led_red.短脚(-) > bluepill.GND #8b93a7"'), paste: S('paste 用：要用户复制的命令或文本'), expect: S('做完后应该看到什么'), safety: S('安全提示：涉及电源、电池、电机、发热或可能烧坏板子时必填，一两句'), options: { type: 'array', items: S(), description: 'observe 用：可选答案，如 ["亮了","没亮","闪一下就灭"]' } }, ['kind', 'title', 'steps']) },
   { name: 'propose_bom', description: '给用户展示一张采购清单卡片（可勾选"已有"），等用户确认。先 read_inventory 和 search_parts，再调这个。返回用户勾选后的结果：哪些已有、哪些要买、总预算。确认后记得 save_project 存 bom 并 update_inventory。', input_schema: O({ title: S('项目名'), items: { type: 'array', items: O({ id: S('知识库 id，没有留空'), name: S(), qty: N(), role: S('在这个项目里干什么，一句话'), why: S('为什么选它 / 替代品'), price: S('单价区间，元'), buy: S('淘宝搜索词'), have: { type: 'boolean', description: '用户库存里已经有' }, catalog: { type: 'boolean', description: '是否在知识库里' }, optional: { type: 'boolean', description: '可选件' } }, ['name', 'qty', 'role', 'price', 'buy']) }, note: S('整体提醒：供电、5V/3.3V、先买什么后买什么') }, ['title', 'items']) },
   { name: 'search_projects', description: '在项目食谱库里找和用户需求最像的项目（零件、接线、分步、代码骨架、常见坑）。用户提出想做什么之后**第一步**先查这个，有相近的就以它为底稿改，不要从零瞎编。', input_schema: O({ query: S('关键词，如 "浇花 湿度 水泵"'), max: N() }, ['query']) },
   { name: 'search_troubleshooting', description: '排障库：症状/报错关键字 → 按概率排序的原因、一分钟验证法、解决办法。编译/烧录失败、灯不亮、串口乱码、传感器读不到时先查。', input_schema: O({ query: S('现象或报错关键字，如 "unknown chip id" / "串口乱码" / "舵机抖"'), max: N() }, ['query']) },

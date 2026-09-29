@@ -13,17 +13,18 @@ export function provider() {
 }
 export const agentModel = () => process.env.AGENT_MODEL || (provider() === 'openai' ? 'gpt-5.6-luna' : 'claude-opus-5')
 export const SYSTEM = systemFor('local', ROOT)
+const sys = (lang) => systemFor('local', ROOT, lang)
 
 let anthropic = null
-async function stepAnthropic(messages) {
+async function stepAnthropic(messages, lang) {
   anthropic ??= new Anthropic()
-  const res = await anthropic.messages.create({ model: agentModel(), max_tokens: 8000, system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }], tools: toolDefsFor('local'), messages })
+  const res = await anthropic.messages.create({ model: agentModel(), max_tokens: 8000, system: [{ type: 'text', text: sys(lang), cache_control: { type: 'ephemeral' } }], tools: toolDefsFor('local'), messages })
   return { content: res.content, stop_reason: res.stop_reason, model: res.model, usage: res.usage, stop_details: res.stop_details ?? null }
 }
 
-export async function step({ messages, mock }) {
+export async function step({ messages, mock, lang = 'zh' }) {
   const p = mock || process.env.AGENT_MOCK === '1' ? 'mock' : provider()
   if (p === 'mock') return mockStep(messages)
-  if (p === 'openai') return openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model: agentModel(), system: SYSTEM, tools: toolDefsFor('local'), messages, reasoning: process.env.AGENT_REASONING })
-  return stepAnthropic(messages)
+  if (p === 'openai') return openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages, reasoning: process.env.AGENT_REASONING })
+  return stepAnthropic(messages, lang)
 }

@@ -102,7 +102,7 @@ http.createServer(async (req, res) => {
       for await (const chunk of req) raw += chunk
       const body = JSON.parse(raw)
       const mock = provider() === 'mock' || !!body.mock
-      return json(res, 200, { ...(await step({ messages: body.messages, mock })), mock, agentModel: mock ? 'mock' : agentModel(), mode: 'local' })
+      return json(res, 200, { ...(await step({ messages: body.messages, mock, lang: body.lang })), mock, agentModel: mock ? 'mock' : agentModel(), mode: 'local' })
     }
     if (req.url === '/api/tool' && req.method === 'POST') {
       let raw = ''

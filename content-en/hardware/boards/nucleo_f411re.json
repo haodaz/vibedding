@@ -1,0 +1,95 @@
+{
+  "id": "nucleo_f411re",
+  "name": "Nucleo-F411RE (official ST board)",
+  "mcu": "STM32F411RET6",
+  "core": "Cortex-M4F 100MHz (with hardware floating point)",
+  "flash": "512KB",
+  "ram": "128KB",
+  "pio": {
+    "board": "nucleo_f411re",
+    "platform": "ststm32",
+    "framework": "arduino",
+    "upload_protocol": "stlink"
+  },
+  "led": {
+    "pin": "PA5",
+    "active": "high"
+  },
+  "button": {
+    "pin": "PC13",
+    "note": "Blue USER button B1, with an onboard pull-up; reads LOW when pressed. The black button is RESET"
+  },
+  "buses": {
+    "i2c": "I2C1: SCL PB8 (D15) / SDA PB9 (D14), the two pins at the top-right corner of the Arduino header",
+    "spi": "SPI1: SCK PA5 (D13) / MISO PA6 (D12) / MOSI PA7 (D11) / CS usually PB6 (D10). Note that SCK and the onboard LED share the same pin, PA5",
+    "uart": "Serial (USART2): TX PA2 / RX PA3, wired straight to the onboard ST-Link's USB virtual COM port; USART1: TX PA9 (D8) / RX PA10 (D2); USART6: TX PC6 (Morpho) / RX PC7 (D9)"
+  },
+  "adc_pins": ["PA0 (A0)", "PA1 (A1)", "PA4 (A2)", "PB0 (A3)", "PC1 (A4)", "PC0 (A5)"],
+  "pwm_pins": ["PA0 (A0)", "PA1 (A1)", "PB0 (A3)", "PA10 (D2)", "PB3 (D3)", "PB5 (D4)", "PB4 (D5)", "PB10 (D6)", "PA8 (D7)", "PA9 (D8)", "PC7 (D9)", "PB6 (D10)", "PA7 (D11)", "PA6 (D12)", "PA5 (D13)", "PB9 (D14)", "PB8 (D15)"],
+  "power": "3.3V logic. On the F4 series the vast majority of I/O pins are 5V-tolerant (FT) in digital mode, but when configured as ADC analog inputs the limit is still 3.3V (verify). The board is powered over USB; the 5V header pin supplies about 300mA and the 3V3 pin about 300mA. You can also feed 7-12V into VIN",
+  "flash_how": "Exactly like the F103RB: the top half of the board is a built-in ST-Link V2-1, and one mini-B USB cable to your computer handles flashing, power and serial; nothing else to buy. pio run -t upload flashes directly; LD1 blinks red/green while flashing. A USB drive named NODE_F411RE appears on your computer, and dragging a .bin onto it flashes too. pio device monitor for serial",
+  "gotchas": [
+    "The onboard LED LD2 is on PA5 (D13), active-high. PA5 is also SPI1 SCK, so the LED flickers when you use SPI; that's normal",
+    "Unlike the F103, the F411's PA5 has a timer channel (TIM2_CH1), so analogWrite(PA5) does produce PWM and the onboard LED can do a breathing effect",
+    "D0/D1 (PA3/PA2) are disconnected by default (SB62/SB63 open) because USART2 goes to the ST-Link virtual COM port. Serial output over USB works fine, but there's no signal on the D0/D1 header pins (verify)",
+    "The USER button on PC13 reads LOW when pressed; pinMode(PC13, INPUT) is enough",
+    "The F411 has no DAC and no Ethernet/USB-host style peripherals; don't be misled by the 'F4' label. Its strengths are a high clock, lots of RAM and an FPU",
+    "There's only one ADC (ADC1), 12-bit, with fast enough sampling; but the Arduino header only exposes six channels A0-A5. More are on the Morpho headers (PC2, PC3, PC4, PC5, PB1)",
+    "A4/A5 (PC1/PC0) are not I2C pins; use D14/D15 for I2C",
+    "PC14/PC15 are taken by the 32.768kHz crystal and PC13 is the button; don't use these three as ordinary I/O",
+    "The USB port is mini-B, not the same as a phone cable",
+    "512KB Flash and 128KB RAM are plenty: U8g2 full-buffer mode plus a CJK font fit with room to spare, which is what makes this board more comfortable than the F103 series"
+  ],
+  "left": [
+    { "name": "NC", "funcs": ["空"], "note": "Not connected" },
+    { "name": "IOREF", "funcs": ["电源"], "note": "Wired to 3.3V; tells shields this board's logic level" },
+    { "name": "RESET", "funcs": ["复位"], "note": "Pull to ground to reset" },
+    { "name": "3V3", "funcs": ["电源"], "note": "For powering sensors, about 300mA" },
+    { "name": "5V", "funcs": ["电源"], "note": "5V straight from USB" },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "VIN", "funcs": ["电源"], "note": "External 7-12V supply input" },
+    { "name": "A0 / PA0", "funcs": ["GPIO", "ADC0", "PWM", "WKUP"], "note": "Use this to read the potentiometer", "danger": true },
+    { "name": "A1 / PA1", "funcs": ["GPIO", "ADC1", "PWM"], "danger": true },
+    { "name": "A2 / PA4", "funcs": ["GPIO", "ADC4", "SPI1_NSS"], "note": "No PWM", "danger": true },
+    { "name": "A3 / PB0", "funcs": ["GPIO", "ADC8", "PWM"], "danger": true },
+    { "name": "A4 / PC1", "funcs": ["GPIO", "ADC11"], "note": "Not an I2C pin", "danger": true },
+    { "name": "A5 / PC0", "funcs": ["GPIO", "ADC10"], "note": "Not an I2C pin", "danger": true }
+  ],
+  "right": [
+    { "name": "D15 / PB8", "funcs": ["GPIO", "PWM", "I2C1_SCL"], "note": "SCL for the OLED" },
+    { "name": "D14 / PB9", "funcs": ["GPIO", "PWM", "I2C1_SDA"], "note": "SDA for the OLED" },
+    { "name": "AREF", "funcs": ["电源"], "note": "ADC reference voltage; normally leave it alone" },
+    { "name": "GND", "funcs": ["电源"] },
+    { "name": "D13 / PA5", "funcs": ["GPIO", "LED", "PWM", "SPI1_SCK", "ADC5"], "note": "Onboard LED LD2, active-high; on the F411 it can do PWM breathing. Also the SPI clock" },
+    { "name": "D12 / PA6", "funcs": ["GPIO", "PWM", "SPI1_MISO", "ADC6"] },
+    { "name": "D11 / PA7", "funcs": ["GPIO", "PWM", "SPI1_MOSI", "ADC7"] },
+    { "name": "D10 / PB6", "funcs": ["GPIO", "PWM", "SPI_CS", "I2C1_SCL"], "note": "The usual SPI chip-select pin" },
+    { "name": "D9 / PC7", "funcs": ["GPIO", "PWM", "UART6_RX"] },
+    { "name": "D8 / PA9", "funcs": ["GPIO", "PWM", "UART1_TX"], "note": "Connect to an external serial module's RX" },
+    { "name": "D7 / PA8", "funcs": ["GPIO", "PWM", "I2C3_SCL"] },
+    { "name": "D6 / PB10", "funcs": ["GPIO", "PWM", "I2C2_SCL", "SPI2_SCK"] },
+    { "name": "D5 / PB4", "funcs": ["GPIO", "PWM", "JTAG"], "note": "JTAG isn't enabled by default on the F4; safe to use" },
+    { "name": "D4 / PB5", "funcs": ["GPIO", "PWM"] },
+    { "name": "D3 / PB3", "funcs": ["GPIO", "PWM", "JTAG", "I2C2_SDA"] },
+    { "name": "D2 / PA10", "funcs": ["GPIO", "PWM", "UART1_RX"], "note": "Connect to an external serial module's TX" },
+    { "name": "D1 / PA2", "funcs": ["GPIO", "UART2_TX", "ADC2"], "note": "Taken by the ST-Link virtual COM port; no signal on the header pin by default (verify)" },
+    { "name": "D0 / PA3", "funcs": ["GPIO", "UART2_RX", "ADC3"], "note": "Same as above" }
+  ],
+  "bottom": [
+    { "name": "PC13", "funcs": ["GPIO", "按键"], "note": "Blue USER button, LOW when pressed. On Morpho header CN7" },
+    { "name": "PC14", "funcs": ["GPIO", "OSC32"], "note": "Taken by the 32.768kHz crystal" },
+    { "name": "PC15", "funcs": ["GPIO", "OSC32"], "note": "Same as above" },
+    { "name": "PB12", "funcs": ["GPIO", "SPI2_NSS"], "note": "Morpho only; good for buttons and relays" },
+    { "name": "PB13", "funcs": ["GPIO", "SPI2_SCK", "PWM"] },
+    { "name": "PB14", "funcs": ["GPIO", "SPI2_MISO", "PWM"] },
+    { "name": "PB15", "funcs": ["GPIO", "SPI2_MOSI", "PWM"] },
+    { "name": "PB1", "funcs": ["GPIO", "ADC9", "PWM"] },
+    { "name": "PC2", "funcs": ["GPIO", "ADC12", "SPI2_MISO"] },
+    { "name": "PC3", "funcs": ["GPIO", "ADC13", "SPI2_MOSI"] },
+    { "name": "PC6", "funcs": ["GPIO", "PWM", "UART6_TX"] },
+    { "name": "PC10", "funcs": ["GPIO", "SPI3_SCK"] },
+    { "name": "PA13", "funcs": ["SWD"], "note": "SWDIO, wired to the onboard ST-Link; leave it alone" },
+    { "name": "PA14", "funcs": ["SWD"], "note": "SWCLK, same as above" }
+  ]
+}

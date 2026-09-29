@@ -10,7 +10,7 @@ export const supabase: SupabaseClient | null = URL_ && KEY_ ? createClient(URL_,
 export async function signIn(email: string, password: string) {
   if (!supabase) throw new Error('没有配置 Supabase')
   const { error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) throw new Error(error.message === 'Invalid login credentials' ? '邮箱或密码不对' : error.message)
+  if (error) throw new Error(error.message === 'Invalid login credentials' ? (await import('./i18n')).t('login.bad') : error.message)
 }
 export async function signOut() { await supabase?.auth.signOut() }
 export async function getToken(): Promise<string | null> { const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } }; return data.session?.access_token ?? null }

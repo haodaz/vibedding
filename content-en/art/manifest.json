@@ -1,0 +1,170 @@
+{
+  "style": "半写实插画风格，电影感光影，深蓝与墨绿色调的夜间工作台，青绿色和琥珀色的点光源，细节丰富，没有文字，没有logo，没有水印",
+  "scenes": [
+    {
+      "name": "hero_home",
+      "prompt": "深夜的创客工作台全景，桌上一块蓝色的小型微控制器开发板正亮着一颗绿色LED，旁边有示波器、电烙铁、面包板和一台笔记本电脑，屏幕发出微光，杜邦线散落，暖色台灯"
+    },
+    {
+      "name": "mod0_setup",
+      "prompt": "刚拆开的电子开发套件摆在木质桌面上，一块蓝色微控制器开发板、一个小巧的USB烧录器、一捆彩色杜邦线、几个小传感器模块和面包板，包装盒半开，俯视构图，柔和台灯"
+    },
+    {
+      "name": "mod1_blink",
+      "prompt": "微距特写，一块蓝色微控制器开发板上一颗绿色LED正在发光，光晕柔和，浅景深，背景是虚化的面包板和电阻，黑色桌面"
+    },
+    {
+      "name": "mod2_talk",
+      "prompt": "笔记本电脑屏幕上滚动着一行行发光的终端日志，一根USB线从电脑连到桌上的一块小型开发板，开发板上有指示灯闪烁，夜间，蓝色屏幕光照亮桌面"
+    },
+    {
+      "name": "mod3_sense",
+      "prompt": "面包板上插着温湿度传感器、光敏电阻和一块正在显示波形的小型OLED屏幕，连着一块蓝色微控制器开发板，杜邦线整齐，微距，柔和的青色屏幕光"
+    },
+    {
+      "name": "mod4_time",
+      "prompt": "示波器屏幕上显示着一条清晰的绿色方波，旁边桌上放着一块微控制器开发板和探头，深色实验室，仪器指示灯，电影感"
+    },
+    {
+      "name": "mod5_onion",
+      "prompt": "放大镜下一颗方形的微控制器芯片，可以看到细密的管脚，旁边摊开着厚厚的芯片参考手册，手册上有引脚图和寄存器表格，暖色台灯，深色木桌"
+    },
+    {
+      "name": "mod6_capstone",
+      "prompt": "桌面上一个自制的桌面温湿度小站，小型OLED屏幕亮着，3D打印的白色外壳，旁边有一杯咖啡和一盆小绿植，清晨的窗光，温馨"
+    },
+    {
+      "name": "lab_bench",
+      "prompt": "电子实验台俯视图，面包板、数字万用表、烙铁架、镊子、几块开发板和一盒整齐的电阻，工具排列整齐，深色防静电台面，顶部工作灯"
+    },
+    {
+      "name": "journal_night",
+      "prompt": "深夜台灯下一本摊开的笔记本，手写的电路草图和笔记，旁边放着一块小型开发板和一支笔，一杯冒着热气的茶，温暖安静"
+    },
+    {
+      "name": "prompts_ai",
+      "prompt": "一块半透明的全息屏幕悬浮在工作台上方，屏幕里是发光的电路图和代码，桌上有开发板和键盘，青色与紫色的光，未来感"
+    }
+  ],
+  "npcs": [
+    {
+      "name": "npc_mentor",
+      "prompt": "四十岁左右的亚洲女性嵌入式工程师，短发，戴细框眼镜，穿深色工装夹克，胸前口袋插着一支笔，手里拿着一块蓝色的小型微控制器开发板，表情温和自信，微微笑"
+    }
+  ],
+  "parts_style": "电子元件产品图，半写实插画风格，居中完整不裁切，纯正绿色平涂背景，背景没有阴影和渐变，柔和棚拍光，细节清晰，没有文字，没有logo，没有水印",
+  "parts": [
+    {
+      "name": "part_bluepill",
+      "label": "STM32 Blue Pill",
+      "prompt": "一块蓝色的STM32F103C8T6最小系统开发板（俗称蓝药丸），俯视正上方视角，两排排针，板上有一颗方形黑色芯片、微型USB口、两个黄色跳线帽、一个复位按钮",
+      "what": "The star of the show. One STM32 chip plus the bare minimum around it, with two rows of header pins exposing the I/O",
+      "task": "0-2"
+    },
+    {
+      "name": "part_stlink",
+      "label": "ST-Link V2 programmer",
+      "prompt": "一个铝合金外壳的USB烧录器ST-Link V2，像U盘形状，一端是USB接口，另一端是10针排针，正面视角",
+      "what": "The tool that writes your program from the computer into the chip. Four wires: SWDIO, SWCLK, GND, 3.3V",
+      "task": "0-3"
+    },
+    {
+      "name": "part_usb_serial",
+      "label": "USB-to-serial adapter (CH340)",
+      "prompt": "一个小型USB转TTL串口模块，带CH340芯片，一端是USB-A接口，另一端有六根排针，板子上有一个小跳线帽，俯视",
+      "what": "Lets the board talk to your computer. Board TX goes to its RX, crossed over",
+      "task": "2-1"
+    },
+    {
+      "name": "part_breadboard",
+      "label": "Breadboard",
+      "prompt": "一块白色的半尺寸电子面包板，俯视正上方，密密的插孔排列整齐，两侧有红蓝电源轨",
+      "what": "Build circuits by plugging in wires, no soldering. The 5 holes in each column are connected",
+      "task": "1-1"
+    },
+    {
+      "name": "part_led_red",
+      "label": "Red LED",
+      "prompt": "一颗5毫米红色发光二极管，透明红色圆头，两根金属长脚一长一短，正面略俯视",
+      "what": "Light-emitting diode. Long leg is positive, short leg is negative, and it must have a resistor in series",
+      "task": "1-1"
+    },
+    {
+      "name": "part_led_yellow",
+      "label": "Yellow LED",
+      "prompt": "一颗5毫米黄色发光二极管，透明黄色圆头，两根金属长脚一长一短，正面略俯视",
+      "what": "Same as above, different color",
+      "task": "4-3"
+    },
+    {
+      "name": "part_resistor_220",
+      "label": "220Ω resistor",
+      "prompt": "一只轴向引线的碳膜电阻，米色圆柱体，色环从左到右为红色、红色、棕色、金色，两端有长长的银色引脚，水平放置",
+      "what": "Limits current. Red-red-brown-gold = 220Ω, the standard partner for an LED",
+      "task": "1-1"
+    },
+    {
+      "name": "part_resistor_10k",
+      "label": "10kΩ resistor",
+      "prompt": "一只轴向引线的碳膜电阻，米色圆柱体，色环从左到右为棕色、黑色、橙色、金色，两端有长长的银色引脚，水平放置",
+      "what": "Used as a pull-up. Brown-black-orange-gold = 10kΩ",
+      "task": "1-2"
+    },
+    {
+      "name": "part_button",
+      "label": "Tactile push button",
+      "prompt": "一个6x6毫米四脚轻触开关按键，黑色方形塑料按钮，四根金属弯脚，俯视略斜",
+      "what": "Conducts while pressed, opens when released. The four legs come in two connected pairs",
+      "task": "1-2"
+    },
+    {
+      "name": "part_potentiometer",
+      "label": "Potentiometer",
+      "prompt": "一个蓝色的可调电位器模块，顶部有白色旋钮，底部三根排针，正面略俯视",
+      "what": "A variable resistor. Turn the knob and the voltage on the middle pin follows; great for practicing ADC",
+      "task": "3-1"
+    },
+    {
+      "name": "part_ldr",
+      "label": "Photoresistor (LDR)",
+      "prompt": "一只光敏电阻LDR，圆形扁平的头部有蛇形金属纹路，两根长引脚，正面略俯视",
+      "what": "Brighter light, lower resistance. Use it to build a night light",
+      "task": "3-1"
+    },
+    {
+      "name": "part_dht11",
+      "label": "DHT11 temperature & humidity sensor",
+      "prompt": "一个蓝色方块状的DHT11温湿度传感器模块，蓝色塑料外壳上有网格状开孔，下方三根排针，正面视角",
+      "what": "Reads temperature and humidity over a single data wire. Your first time using a library someone else wrote",
+      "task": "3-2"
+    },
+    {
+      "name": "part_oled",
+      "label": "0.96\" OLED display",
+      "prompt": "一块0.96英寸的小型OLED显示屏模块，蓝色电路板，黑色屏幕上显示着一条青色波形线条，顶部四根排针（GND VCC SCL SDA），正面视角",
+      "what": "A small screen driven by two I2C wires, 128x64 pixels",
+      "task": "3-3"
+    },
+    {
+      "name": "part_buzzer",
+      "label": "Buzzer",
+      "prompt": "一个黑色圆柱形的有源蜂鸣器，顶部中间有一个小孔，底部两根引脚，正面略俯视",
+      "what": "Beeps when powered. With PWM you can play different pitches",
+      "task": "4-1"
+    },
+    {
+      "name": "part_jumper",
+      "label": "Jumper wires",
+      "prompt": "一小捆彩虹色的杜邦跳线，红黄绿蓝紫等颜色并排排列成扁平排线，两端是黑色塑料接头，斜放",
+      "what": "For wiring. Male ends go into the breadboard, female ends onto header pins",
+      "task": "0-2"
+    },
+    {
+      "name": "part_usb_cable",
+      "label": "Micro USB cable",
+      "prompt": "一根黑色的Micro USB数据线，一端是USB-A接头，另一端是Micro USB接头，线缆盘成一个松松的圈",
+      "what": "Powers the board and carries serial. Beware: some cables are charge-only and carry no data",
+      "task": "0-2"
+    }
+  ]
+}

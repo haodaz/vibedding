@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     const messages = body?.messages
     if (!Array.isArray(messages) || messages.length > 200) return res.status(400).json({ error: 'bad messages' })
     const model = process.env.AGENT_MODEL || 'gpt-5.6-luna'
-    const out = await openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model, system: systemFor('static'), tools: toolDefsFor('static'), messages, reasoning: process.env.AGENT_REASONING })
+    const out = await openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model, system: systemFor('static', '', body.lang === 'en' ? 'en' : 'zh'), tools: toolDefsFor('static'), messages, reasoning: process.env.AGENT_REASONING })
     return res.status(200).json({ ...out, mock: false, agentModel: model, mode: 'static' })
   } catch (e) {
     return res.status(500).json({ error: e.message })

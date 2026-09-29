@@ -1,0 +1,413 @@
+{
+  "id": "bluepill",
+  "name": "Blue Pill STM32F103C8T6",
+  "mcu": "STM32F103C8T6",
+  "core": "Cortex-M3 72MHz",
+  "flash": "64KB (the chip on most boards actually has 128KB, but don’t count on it; plan for 64KB)",
+  "ram": "20KB",
+  "pio": {
+    "board": "bluepill_f103c8",
+    "platform": "ststm32",
+    "framework": "arduino",
+    "upload_protocol": "stlink"
+  },
+  "led": {
+    "pin": "PC13",
+    "active": "low"
+  },
+  "button": null,
+  "buses": {
+    "i2c": "I2C1: SCL PB6 / SDA PB7 (default); SCL PB8 / SDA PB9 (remapped; this course uses this pair for the OLED, with Wire.setSDA(PB9); Wire.setSCL(PB8); in code); I2C2: SCL PB10 / SDA PB11",
+    "spi": "SPI1: SCK PA5 / MISO PA6 / MOSI PA7 / NSS PA4; SPI2: SCK PB13 / MISO PB14 / MOSI PB15 / NSS PB12",
+    "uart": "UART1: TX PA9 / RX PA10 (Serial uses this pair by default; you need a USB-TTL adapter); UART2: TX PA2 / RX PA3; UART3: TX PB10 / RX PB11"
+  },
+  "adc_pins": [
+    "PA0",
+    "PA1",
+    "PA2",
+    "PA3",
+    "PA4",
+    "PA5",
+    "PA6",
+    "PA7",
+    "PB0",
+    "PB1"
+  ],
+  "pwm_pins": [
+    "PA0",
+    "PA1",
+    "PA2",
+    "PA3",
+    "PA6",
+    "PA7",
+    "PA8",
+    "PA9",
+    "PA10",
+    "PB0",
+    "PB1",
+    "PB6",
+    "PB7",
+    "PB8",
+    "PB9"
+  ],
+  "power": "3.3V logic. 5V-tolerant (FT) pins: PA8-PA15, PB2-PB15, PC13-PC15. NOT 5V-tolerant: PA0-PA7, PB0, PB1 (anything with an ADC function). The 5V header pin is straight from USB; 3.3V comes from a small onboard LDO with only about 100-150mA to spare for peripherals: fine for an OLED and sensors, not for servos or LED strips",
+  "flash_how": "The board has no built-in programmer, so buy an ST-Link V2 (the USB-stick style one, about $8-12). Use 4 jumper wires to connect the ST-Link’s 3.3V, SWDIO, SWCLK and GND to the 4 header pins at the bottom of the board (labeled 3.3 / SWIO / SWCLK / GND), plug the ST-Link into your computer’s USB port, then run pio run -t upload. Leave both yellow jumpers (BOOT0/BOOT1) in their default 0 position; flashing over ST-Link doesn’t require touching them. The board’s micro-USB port only supplies power by default; it can’t flash and isn’t a serial port (unless you set up USB CDC separately). For serial output, buy a separate USB-TTL adapter and connect it to PA9/PA10",
+  "gotchas": [
+    "The onboard LED on PC13 is active-low: digitalWrite(PC13, LOW) turns it on, the opposite of the UNO",
+    "PC13 has very weak drive (about 3mA); it can only light its own LED. Don’t use it to drive anything else",
+    "Many cheap boards carry a CKS32/GD32 compatible chip rather than a genuine ST part. If ST-Link reports UNEXPECTED idcode or unknown device, that’s usually why; add upload_flags = -c set CPUTAPID 0x2ba01477 to platformio.ini",
+    "Serial goes out the PA9/PA10 hardware UART by default, not USB. Plugging the board’s USB port into your computer won’t create a serial device; you need a separate USB-TTL adapter (TX to RX, RX to TX, crossed over!)",
+    "To use the USB port as a serial port, add build_flags = -D PIO_FRAMEWORK_ARDUINO_ENABLE_CDC -D USBCON to platformio.ini. Also, many boards ship with the wrong USB D+ pull-up resistor (R10, 10kΩ instead of 1.5kΩ), so the computer won’t recognize the board until you swap it for 1.5kΩ",
+    "PA0-PA7, PB0 and PB1 are not 5V-tolerant. Don’t connect a 5V sensor’s output directly to these pins; use FT pins like PB10-PB15, or add a voltage divider",
+    "PB3, PB4 and PA15 are taken by JTAG by default. STM32duino releases them automatically when you call pinMode, but if one of these pins acts strangely, suspect this first",
+    "PA11 and PA12 are USB D-/D+ and have pull-up resistors on the board; avoid using them as ordinary GPIO",
+    "Power the board only through USB 5V or the 3.3 header pin. Don’t feed the 5V header pin from a 3.3V supply, and don’t power it from two places at once",
+    "Flash is nominally 64KB; U8g2 plus a CJK font can easily blow past it. Watch the Flash usage percentage when you compile"
+  ],
+  "left": [
+    {
+      "name": "VBAT",
+      "funcs": [
+        "电源"
+      ],
+      "note": "RTC backup battery; you won't need it for now"
+    },
+    {
+      "name": "PC13",
+      "funcs": [
+        "GPIO",
+        "LED"
+      ],
+      "note": "The onboard LED is on this pin. Active-low (lights when LOW). Weak drive; don't hang a big load on it",
+      "verified": false
+    },
+    {
+      "name": "PC14",
+      "funcs": [
+        "GPIO",
+        "OSC32"
+      ],
+      "note": "For the external 32.768kHz crystal; normally not used as GPIO"
+    },
+    {
+      "name": "PC15",
+      "funcs": [
+        "GPIO",
+        "OSC32"
+      ],
+      "note": "Same as above"
+    },
+    {
+      "name": "PA0",
+      "funcs": [
+        "GPIO",
+        "ADC0",
+        "PWM",
+        "WKUP"
+      ],
+      "note": "Task 3-1 reads the potentiometer on this pin"
+    },
+    {
+      "name": "PA1",
+      "funcs": [
+        "GPIO",
+        "ADC1",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PA2",
+      "funcs": [
+        "GPIO",
+        "ADC2",
+        "PWM",
+        "UART2_TX"
+      ]
+    },
+    {
+      "name": "PA3",
+      "funcs": [
+        "GPIO",
+        "ADC3",
+        "PWM",
+        "UART2_RX"
+      ]
+    },
+    {
+      "name": "PA4",
+      "funcs": [
+        "GPIO",
+        "ADC4",
+        "SPI1_NSS"
+      ]
+    },
+    {
+      "name": "PA5",
+      "funcs": [
+        "GPIO",
+        "ADC5",
+        "SPI1_SCK"
+      ]
+    },
+    {
+      "name": "PA6",
+      "funcs": [
+        "GPIO",
+        "ADC6",
+        "PWM",
+        "SPI1_MISO"
+      ]
+    },
+    {
+      "name": "PA7",
+      "funcs": [
+        "GPIO",
+        "ADC7",
+        "PWM",
+        "SPI1_MOSI"
+      ]
+    },
+    {
+      "name": "PB0",
+      "funcs": [
+        "GPIO",
+        "ADC8",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PB1",
+      "funcs": [
+        "GPIO",
+        "ADC9",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PB10",
+      "funcs": [
+        "GPIO",
+        "I2C2_SCL",
+        "UART3_TX"
+      ]
+    },
+    {
+      "name": "PB11",
+      "funcs": [
+        "GPIO",
+        "I2C2_SDA",
+        "UART3_RX"
+      ]
+    },
+    {
+      "name": "R",
+      "funcs": [
+        "复位"
+      ],
+      "note": "Pull to ground to reset, same as pressing the RESET button"
+    },
+    {
+      "name": "3.3",
+      "funcs": [
+        "电源"
+      ],
+      "note": "Chip supply. Power your sensors from here too"
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源"
+      ],
+      "note": "Every ground must be tied together. Forgetting a common ground is the second most common beginner mistake"
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源"
+      ]
+    }
+  ],
+  "right": [
+    {
+      "name": "3.3",
+      "funcs": [
+        "电源"
+      ]
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源"
+      ]
+    },
+    {
+      "name": "5V",
+      "funcs": [
+        "电源"
+      ],
+      "note": "5V straight from USB. Power 5V modules from here"
+    },
+    {
+      "name": "PB9",
+      "funcs": [
+        "GPIO",
+        "PWM",
+        "I2C1_SDA"
+      ],
+      "note": "SDA for the OLED in Task 3-3"
+    },
+    {
+      "name": "PB8",
+      "funcs": [
+        "GPIO",
+        "PWM",
+        "I2C1_SCL"
+      ],
+      "note": "SCL for the OLED in Task 3-3"
+    },
+    {
+      "name": "PB7",
+      "funcs": [
+        "GPIO",
+        "I2C1_SDA"
+      ]
+    },
+    {
+      "name": "PB6",
+      "funcs": [
+        "GPIO",
+        "PWM",
+        "I2C1_SCL"
+      ]
+    },
+    {
+      "name": "PB5",
+      "funcs": [
+        "GPIO"
+      ]
+    },
+    {
+      "name": "PB4",
+      "funcs": [
+        "GPIO",
+        "JTAG"
+      ],
+      "note": "Taken by JTAG by default; release it before using it as GPIO"
+    },
+    {
+      "name": "PB3",
+      "funcs": [
+        "GPIO",
+        "JTAG"
+      ],
+      "note": "Same as above"
+    },
+    {
+      "name": "PA15",
+      "funcs": [
+        "GPIO",
+        "JTAG"
+      ],
+      "note": "Same as above"
+    },
+    {
+      "name": "PA12",
+      "funcs": [
+        "GPIO",
+        "USB_D+"
+      ],
+      "note": "USB data line. Leave it alone when using USB serial"
+    },
+    {
+      "name": "PA11",
+      "funcs": [
+        "GPIO",
+        "USB_D-"
+      ],
+      "note": "Same as above"
+    },
+    {
+      "name": "PA10",
+      "funcs": [
+        "GPIO",
+        "UART1_RX"
+      ],
+      "note": "Task 2-1: connect to the serial adapter's TX"
+    },
+    {
+      "name": "PA9",
+      "funcs": [
+        "GPIO",
+        "UART1_TX"
+      ],
+      "note": "Task 2-1: connect to the serial adapter's RX. TX goes to RX, crossed over!"
+    },
+    {
+      "name": "PA8",
+      "funcs": [
+        "GPIO",
+        "PWM"
+      ]
+    },
+    {
+      "name": "PB15",
+      "funcs": [
+        "GPIO",
+        "SPI2_MOSI"
+      ]
+    },
+    {
+      "name": "PB14",
+      "funcs": [
+        "GPIO",
+        "SPI2_MISO"
+      ]
+    },
+    {
+      "name": "PB13",
+      "funcs": [
+        "GPIO",
+        "SPI2_SCK"
+      ]
+    },
+    {
+      "name": "PB12",
+      "funcs": [
+        "GPIO",
+        "SPI2_NSS"
+      ]
+    }
+  ],
+  "bottom": [
+    {
+      "name": "3.3",
+      "funcs": [
+        "电源",
+        "SWD"
+      ],
+      "note": "3.3V from the ST-Link"
+    },
+    {
+      "name": "SWIO",
+      "funcs": [
+        "SWD"
+      ],
+      "note": "ST-Link SWDIO. Programming data line"
+    },
+    {
+      "name": "SWCLK",
+      "funcs": [
+        "SWD"
+      ],
+      "note": "ST-Link SWCLK. Programming clock line"
+    },
+    {
+      "name": "GND",
+      "funcs": [
+        "电源",
+        "SWD"
+      ],
+      "note": "ST-Link GND"
+    }
+  ]
+}

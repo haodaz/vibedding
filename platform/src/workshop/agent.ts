@@ -6,11 +6,12 @@ import { LOCAL_TOOLS } from './local-tools'
 import { detectMode, getDirectKey, getDirectModel, type ModeInfo } from './mode'
 import { systemFor, toolDefsFor, openaiStep } from '../../shared/spec.mjs'
 import { getToken } from '../auth'
+import { getLang, t } from '../i18n'
 
 export type Block =
   | { type: 'text'; text: string }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-export interface HumanAsk { kind: 'wire' | 'press' | 'paste' | 'observe'; title: string; why?: string; steps: string[]; parts?: string[]; wires?: string; paste?: string; expect?: string; options?: string[] }
+export interface HumanAsk { kind: 'wire' | 'press' | 'paste' | 'observe'; title: string; why?: string; steps: string[]; parts?: string[]; wires?: string; paste?: string; expect?: string; safety?: string; options?: string[] }
 
 export type Item =
   | { kind: 'user'; text: string }
@@ -68,16 +69,16 @@ export class Agent {
         let j: Record<string, unknown>
         if (this.modeInfo.mode === 'direct') {
           const key = getDirectKey()
-          if (!key) { this.items.push({ kind: 'system', text: '这里没有后端。在右侧"设置"里填你自己的 OpenAI 密钥就能直接用（密钥只存在你的浏览器里）。' }); break }
-          try { j = { ...(await openaiStep({ apiKey: key, model: getDirectModel(), system: systemFor('static'), tools: toolDefsFor('static'), messages: this.messages })), mock: false, agentModel: getDirectModel() } }
+          if (!key) { this.items.push({ kind: 'system', text: t('ws.err.nobackend') }); break }
+          try { j = { ...(await openaiStep({ apiKey: key, model: getDirectModel(), system: systemFor('static', '', getLang()), tools: toolDefsFor('static'), messages: this.messages })), mock: false, agentModel: getDirectModel() } }
           catch (e) { j = { error: (e as Error).message } }
         } else {
           const token = await getToken()
-          const res = await fetch('/api/agent/step', { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify({ messages: this.messages }) })
+          const res = await fetch('/api/agent/step', { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify({ messages: this.messages, lang: getLang() }) })
           j = await res.json()
         }
-        if (j.error === 'unauthorized') { this.items.push({ kind: 'system', text: '登录已过期，刷新页面重新登录。' }); break }
-        if (j.error === 'no-credentials') { this.items.push({ kind: 'system', text: '服务端还没配 AI 密钥（OPENAI_API_KEY）。' }); break }
+        if (j.error === 'unauthorized') { this.items.push({ kind: 'system', text: t('ws.err.auth') }); break }
+        if (j.error === 'no-credentials') { this.items.push({ kind: 'system', text: t('ws.err.nocred') }); break }
         if (j.error) { this.items.push({ kind: 'system', text: '出错了：' + String(j.error) }); break }
         this.mock = !!j.mock; this.model = String(j.agentModel ?? '')
         const content = j.content as Block[]
@@ -85,7 +86,7 @@ export class Agent {
         for (const b of content) if (b.type === 'text' && b.text.trim()) this.items.push({ kind: 'assistant', text: b.text })
         const uses = content.filter((b): b is Extract<Block, { type: 'tool_use' }> => b.type === 'tool_use')
         this.emit()
-        if (j.stop_reason === 'refusal') { this.items.push({ kind: 'system', text: '模型拒绝了这个请求。' }); break }
+        if (j.stop_reason === 'refusal') { this.items.push({ kind: 'system', text: t('ws.err.refusal') }); break }
         if (!uses.length) break
         const results: unknown[] = []
         for (const u of uses) {
@@ -95,7 +96,7 @@ export class Agent {
         this.messages.push({ role: 'user', content: results })
       }
     } catch (e) {
-      this.items.push({ kind: 'system', text: '连不上本地服务：' + (e as Error).message })
+      this.items.push({ kind: 'system', text: t('ws.err.conn') + (e as Error).message })
     }
     this.busy = false; this.emit()
   }
