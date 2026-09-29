@@ -1,0 +1,1907 @@
+{
+  "note": "An embedded-systems glossary for people starting from zero. Every term has four layers: an everyday metaphor, a precise definition, a common misconception, and a concrete example on the Blue Pill (STM32F103C8T6). Pins and functions in the examples assume the Arduino framework + PlatformIO. Each term's related field lists ids of other terms in this file, so the front end can link between them.",
+  "terms": [
+    {
+      "id": "voltage",
+      "term": "Voltage (V)",
+      "category": "Electronics basics",
+      "metaphor": "The height of a water tower. The taller the tower, the harder the water pushes on its way down. Voltage is the electrical \"height difference\": the bigger the difference, the harder it pushes electrons.",
+      "definition": "The difference in electric potential between two points, measured in volts (V). Voltage is always relative: it is \"point A compared to point B.\" When people quote the voltage of a single point, they mean relative to GND.",
+      "misconception": "Many people assume high voltage is automatically dangerous or means \"more electricity.\" Voltage is only the push. If no current flows, nothing happens. You can touch a 9V battery because your body's resistance is so high that hardly any current gets through.",
+      "example": "The chip on the Blue Pill (STM32F103C8T6) runs at 3.3V; the regulator on the board steps the 5V from USB down to 3.3V. When a pin outputs HIGH it sits at 3.3V relative to GND, and LOW is 0V.",
+      "related": [
+        "current",
+        "ground",
+        "ohms_law",
+        "logic_level"
+      ]
+    },
+    {
+      "id": "current",
+      "term": "Current (A / mA)",
+      "category": "Electronics basics",
+      "metaphor": "How much water flows through a pipe each second. A fatter pipe and a bigger drop mean more flow.",
+      "definition": "The amount of charge passing through a conductor per unit of time, measured in amperes (A). Embedded work mostly deals in milliamps (mA, one thousandth of an amp).",
+      "misconception": "Thinking current is a fixed amount that gets \"pushed out.\" Current is a result: voltage and resistance together decide it (Ohm's law). The power supply only provides voltage; how much flows depends on the load.",
+      "example": "A single GPIO pin on the Blue Pill (STM32F103C8T6) can safely source about 20mA, and all pins together have a total limit. An LED is plenty bright at 5–10mA, which is why you put a current-limiting resistor in series with it.",
+      "related": [
+        "voltage",
+        "resistance",
+        "current_limiting",
+        "ohms_law"
+      ]
+    },
+    {
+      "id": "resistance",
+      "term": "Resistance (Ω)",
+      "category": "Electronics basics",
+      "metaphor": "How narrow and rough a pipe is. The narrower and rougher, the harder it is for water to get through.",
+      "definition": "How much a conductor opposes the flow of current, measured in ohms (Ω). \"A resistor\" also means the little two-legged component with colored bands, made specifically to provide a known resistance.",
+      "misconception": "Assuming a bigger resistor is always \"safer.\" Too much resistance drops the current so far that an LED won't light or a sensor reads wrong. Resistors are meant to be calculated, not maximized.",
+      "example": "Putting a 220Ω–1kΩ resistor in series with an LED is the most common use. Take 3.3V, subtract the LED's roughly 2V, and you have 1.3V left; divide by 330Ω and you get about 4mA, which is bright enough and safe.",
+      "related": [
+        "ohms_law",
+        "current_limiting",
+        "voltage_divider",
+        "pull_up_pull_down"
+      ]
+    },
+    {
+      "id": "ohms_law",
+      "term": "Ohm's law",
+      "category": "Electronics basics",
+      "metaphor": "The fixed relationship between tower height, pipe width, and flow: a bigger drop means more flow, a thinner pipe means less.",
+      "definition": "Voltage = Current × Resistance, or V = I × R. Know any two and you can find the third. It is just about the only formula you truly have to be able to work in embedded.",
+      "misconception": "Memorizing the formula without knowing where it applies. You use it every time you hook up an LED or a sensor or wonder whether a pin will fry: first decide how much current you want, then work out what resistor gives you that.",
+      "example": "The onboard LED on PC13 is active-low, and the board already has a series resistor for it, so digitalWrite(PC13, LOW) lights it up with no math. For an external LED you have to pick the resistor yourself with V = I × R.",
+      "related": [
+        "voltage",
+        "current",
+        "resistance",
+        "current_limiting"
+      ]
+    },
+    {
+      "id": "series_parallel",
+      "term": "Series / parallel",
+      "category": "Electronics basics",
+      "metaphor": "Series is a line of people crossing a log bridge single file: if one stops, everyone stops. Parallel is several bridges side by side: if one goes down, the others still work.",
+      "definition": "Series: components connected end to end; the same current flows through each and the voltage is shared. Parallel: components connected across the same two points; they see the same voltage and share the current.",
+      "misconception": "Thinking you can wire several LEDs straight in parallel on one pin. Small differences between LEDs make one blaze and another glow dimly, and the combined current can exceed the pin's limit. Every LED needs its own current-limiting resistor.",
+      "example": "An external LED and its current-limiting resistor are in series, so the same current flows through both. Several sensors sharing the board's 3.3V and GND are in parallel across the power supply.",
+      "related": [
+        "voltage_divider",
+        "resistance",
+        "current",
+        "common_ground"
+      ]
+    },
+    {
+      "id": "voltage_divider",
+      "term": "Voltage divider",
+      "category": "Electronics basics",
+      "metaphor": "A staircase of fixed height with a landing part way up. How high the landing sits depends on the ratio of stairs above it to stairs below.",
+      "definition": "Two resistors in series split the voltage at their midpoint according to their ratio: Vout = Vin × R2 / (R1 + R2). Used to \"shrink\" a high voltage down, or to turn a change in resistance into a change in voltage.",
+      "misconception": "Using a divider as a power supply. A divider can only deliver a tiny current; connect a real load and the voltage collapses. It is only suitable for feeding measurement inputs like an ADC that draw almost nothing.",
+      "example": "A potentiometer is really an adjustable voltage divider. Connect its ends to 3.3V and GND and the middle wiper to PA0, and analogRead(PA0) follows the knob.",
+      "related": [
+        "resistance",
+        "series_parallel",
+        "adc",
+        "potentiometer"
+      ]
+    },
+    {
+      "id": "pull_up_pull_down",
+      "term": "Pull-up / pull-down resistor",
+      "category": "Electronics basics",
+      "metaphor": "A door held either closed or open by a spring. When nobody is pushing it, it has a definite position instead of flapping half open.",
+      "definition": "A resistor that ties a pin to HIGH (pull-up) or LOW (pull-down) by default, so the pin has a defined logic level when nothing else is driving it. Typical values are 4.7kΩ–10kΩ.",
+      "misconception": "Assuming a pin with no button pressed reads 0. A floating pin jumps around with electrical noise from the surroundings and reads random values. This is the number one cause of \"my button is possessed\" for beginners.",
+      "example": "For a button, use pinMode(PB12, INPUT_PULLUP) and the chip enables its internal pull-up. Wire one side of the button to PB12 and the other to GND: it reads HIGH when released and LOW when pressed. The SCL/SDA lines of an I2C bus must also have pull-up resistors.",
+      "related": [
+        "gpio",
+        "button",
+        "floating",
+        "i2c"
+      ]
+    },
+    {
+      "id": "floating",
+      "term": "Floating (pin)",
+      "category": "Electronics basics",
+      "metaphor": "A feather drifting in the air. It goes wherever the breeze takes it, with no fixed position.",
+      "definition": "The state of a pin or wire that is not connected to any defined voltage level. A floating input pin randomly reads HIGH or LOW depending on interference.",
+      "misconception": "Believing \"nothing connected\" equals \"reads LOW.\" It is the opposite: nothing connected means you read noise, and you need a pull-up or pull-down to give it a default.",
+      "example": "Set a pin to INPUT (without PULLUP), connect nothing to it, and print digitalRead in a loop over Serial. You will see 0s and 1s jumping around, and it changes when you bring your hand near. That is floating.",
+      "related": [
+        "pull_up_pull_down",
+        "gpio",
+        "noise"
+      ]
+    },
+    {
+      "id": "common_ground",
+      "term": "Common ground",
+      "category": "Electronics basics",
+      "metaphor": "Two people comparing heights need to stand on the same floor. If one is on the floor and one is on a step, the comparison is meaningless.",
+      "definition": "Connecting the GND of every module that shares power or talks to another so they all agree on the same zero reference for voltage.",
+      "misconception": "Thinking the signal wires alone are enough for communication. Connect only TX and RX for UART without GND and the two sides may disagree on what \"0V\" is; you get garbage or nothing at all.",
+      "example": "To read the Blue Pill (STM32F103C8T6)'s output with a USB-to-serial adapter, you need three wires: adapter RX to board PA9 (TX), adapter TX to PA10 (RX), and adapter GND to board GND. That third wire is not optional.",
+      "related": [
+        "ground",
+        "uart",
+        "voltage",
+        "wiring"
+      ]
+    },
+    {
+      "id": "ground",
+      "term": "Ground (GND)",
+      "category": "Electronics basics",
+      "metaphor": "Sea level. When you say how tall a mountain is, you mean relative to sea level. When you say how many volts something is, you mean relative to GND.",
+      "definition": "The agreed zero-volt reference in a circuit, usually the negative side of the power supply. Every pin labeled GND or G on the board is connected internally.",
+      "misconception": "Thinking GND is \"where there is no electricity\" or \"where the current ends.\" Current flows out of the supply's positive side, through the load, and back into GND. GND is part of the loop and current flows through it just the same.",
+      "example": "The Blue Pill (STM32F103C8T6) has several G pins on both sides; any of them works. The GND wire to an ST-Link is what gives the programmer and the board a common ground.",
+      "related": [
+        "common_ground",
+        "voltage",
+        "power_supply"
+      ]
+    },
+    {
+      "id": "short_circuit",
+      "term": "Short circuit",
+      "category": "Electronics basics",
+      "metaphor": "Someone runs a fat pipe straight from the water tower to the ground. All the water rushes out there, nothing reaches anywhere else, and the pipe may burst.",
+      "definition": "A very low-resistance path between the supply's positive and negative sides (or between two points at different voltages), causing a huge current. It can destroy the supply, the regulator, wires, or the chip.",
+      "misconception": "Thinking a short always makes smoke. When 3.3V is shorted to GND, USB power usually current-limits to protect itself, and all you see is a dead board or a \"USB device drawing too much power\" warning on your computer. A jumper wire plugged in one row off is the most common cause.",
+      "example": "Before powering up, set your multimeter to continuity (beep) mode and test between 3.3V and GND on the board. If it beeps, you have a short; do not plug in USB yet. This habit saves a lot of boards.",
+      "related": [
+        "current",
+        "multimeter",
+        "power_supply",
+        "current_limiting"
+      ]
+    },
+    {
+      "id": "current_limiting",
+      "term": "Current limiting",
+      "category": "Electronics basics",
+      "metaphor": "A flow valve on a faucet, so that no matter how hard the water pushes, it won't blast the cup off the counter.",
+      "definition": "Keeping the current through a load within a safe range, using a series resistor or a dedicated circuit.",
+      "misconception": "Thinking an LED on 3.3V is \"low voltage\" and needs no limiting. An LED is not a resistor: once the voltage passes its turn-on point, current shoots up. Without a limit you will very likely burn out the LED or the pin.",
+      "example": "External LED on PA1: PA1 → 330Ω resistor → LED long leg (anode) → LED short leg → GND. The onboard LED on PC13 already has its current-limiting resistor.",
+      "related": [
+        "resistance",
+        "ohms_law",
+        "led",
+        "current"
+      ]
+    },
+    {
+      "id": "duty_cycle",
+      "term": "Duty cycle",
+      "category": "Electronics basics",
+      "metaphor": "How many seconds out of every minute a light is on. 30 on, 30 off is 50%; 54 on, 6 off is 90%. Switch fast enough and your eyes read it as \"different brightness.\"",
+      "definition": "The percentage of one period during which the signal is HIGH. PWM controls average power by changing the duty cycle.",
+      "misconception": "Thinking duty cycle changes the voltage. At every instant the pin is either 3.3V or 0V; only the average changes. For an LED or motor that looks like adjusting voltage, but circuits that need a true analog voltage won't be fooled.",
+      "example": "analogWrite(PA8, 64) is roughly 25% duty cycle (on a 0–255 scale), so the LED is at a quarter brightness. A servo's angle is also set by a PWM signal with a specific duty cycle.",
+      "related": [
+        "pwm",
+        "timer",
+        "servo",
+        "dac"
+      ]
+    },
+    {
+      "id": "capacitor",
+      "term": "Capacitor",
+      "category": "Electronics basics",
+      "metaphor": "A small bucket hooked onto a water pipe. When pressure dips, the bucket tops it up; when pressure spikes, the bucket soaks some of it up. The flow comes out smoother.",
+      "definition": "A component that stores electric charge, measured in farads (F); microfarads (μF) and nanofarads (nF) are the everyday units. In DC circuits it is mostly used for filtering, smoothing, and decoupling.",
+      "misconception": "Thinking a capacitor can power things for a long time like a battery. An ordinary capacitor holds very little energy and empties in an instant. Its job is to smooth, not to supply.",
+      "example": "Next to every power pin on the Blue Pill (STM32F103C8T6)'s chip sits a small 100nF capacitor (a decoupling cap) that covers sudden bursts of current draw. When you add a servo, a 100μF capacitor across its power supply cuts down on random resets.",
+      "related": [
+        "power_supply",
+        "noise",
+        "pcb",
+        "voltage"
+      ]
+    },
+    {
+      "id": "diode",
+      "term": "Diode",
+      "category": "Electronics basics",
+      "metaphor": "A one-way door. You can push it open from one side, but it won't budge from the other.",
+      "definition": "A semiconductor component that lets current flow in one direction only. Forward it drops about 0.7V (silicon); reversed it blocks. An LED is a diode that happens to emit light.",
+      "misconception": "Thinking a backwards diode burns out. A regular signal diode wired backwards simply doesn't conduct, no harm done; a backwards LED just stays dark and is usually fine. What actually burns things is wiring one forward straight across the supply with no current limiting.",
+      "example": "Put a diode backwards across a relay or motor coil (a flyback diode). When power cuts off, the reverse voltage spike from the coil has somewhere to go instead of damaging the pin.",
+      "related": [
+        "led",
+        "relay",
+        "current_limiting",
+        "transistor"
+      ]
+    },
+    {
+      "id": "led",
+      "term": "Light-emitting diode (LED)",
+      "category": "Electronics basics",
+      "metaphor": "A tiny light bulb that cares about direction: positive to HIGH and negative to LOW and it lights; flip it and it plays dead.",
+      "definition": "A diode that gives off light when current flows through it. The long leg is positive (anode), the short leg is negative (cathode). Forward voltage is about 1.8–3.3V depending on the color.",
+      "misconception": "Treating an LED like a regular bulb that lights at any voltage, brighter being better. LED current must be limited or it almost always burns out, and brightness is set by current, not voltage.",
+      "example": "The onboard LED on the Blue Pill (STM32F103C8T6) has one side on 3.3V and the other going through a resistor to PC13. So the LED lights when PC13 outputs LOW and goes off on HIGH. In the first \"blink\" lesson many people think the program is backwards; it is just how the circuit is designed.",
+      "related": [
+        "diode",
+        "current_limiting",
+        "gpio",
+        "pwm"
+      ]
+    },
+    {
+      "id": "transistor",
+      "term": "Transistor (BJT)",
+      "category": "Electronics basics",
+      "metaphor": "A valve on a water pipe with a very light handle: a tiny bit of effort controls a big flow.",
+      "definition": "A three-pin semiconductor (base B, collector C, emitter E) that uses a small base current to control a large collector-to-emitter current. Used as a switch or an amplifier.",
+      "misconception": "Thinking an MCU pin can drive a motor or relay directly. A pin gives 20mA at most; motors want hundreds of mA. Wire them directly and you fry the pin or nothing moves. A transistor or MOSFET is the go-between.",
+      "example": "PB0 → 1kΩ resistor → transistor base, emitter to GND, collector to the relay coil. PB0 outputs HIGH, the transistor turns on, and the relay clicks in.",
+      "related": [
+        "mosfet",
+        "relay",
+        "current",
+        "driver"
+      ]
+    },
+    {
+      "id": "mosfet",
+      "term": "MOSFET",
+      "category": "Electronics basics",
+      "metaphor": "The electric valve, upgraded: it switches on \"pressure\" alone rather than \"flow,\" the control side uses almost no effort, and it can pass a lot more water.",
+      "definition": "Metal-oxide-semiconductor field-effect transistor. The gate (G) voltage controls conduction from drain (D) to source (S). It draws almost no control current, which makes it great for switching large currents.",
+      "misconception": "Assuming any MOSFET will switch from 3.3V. Many need 10V on the gate to turn fully on; at 3.3V they are only half open, get hot, and can burn out. Pick a \"logic-level MOSFET\" such as the AO3400 or IRLZ44N.",
+      "example": "To power the dog feeder's motor, use a logic-level N-channel MOSFET: PA8 to G, one motor lead to D, S to GND, the other motor lead to the supply's positive side. Output PWM on PA8 and you get speed control too.",
+      "related": [
+        "transistor",
+        "driver",
+        "dc_motor",
+        "pwm"
+      ]
+    },
+    {
+      "id": "pcb",
+      "term": "Printed circuit board (PCB)",
+      "category": "Electronics basics",
+      "metaphor": "Take a tangle of wires, flatten it, and print it onto a board. Each \"wire\" becomes a copper trace, and components get soldered in fixed spots.",
+      "definition": "A board made of an insulating base with copper traces that holds and connects electronic components. The Blue Pill (STM32F103C8T6) itself is a PCB.",
+      "misconception": "Calling the PCB \"the chip.\" The PCB is just the board that carries and connects things; the black squares on it are the chips. \"Laying out a board\" means designing the PCB traces, not designing a chip.",
+      "example": "The Blue Pill (STM32F103C8T6) is a two-layer PCB with the STM32 chip, crystals, and reset button on the front and pin labels silkscreened on the back. For your own projects, start on a breadboard and have a PCB made once the design settles.",
+      "related": [
+        "breadboard",
+        "silkscreen",
+        "schematic",
+        "soldering_iron"
+      ]
+    },
+    {
+      "id": "breadboard",
+      "term": "Breadboard",
+      "category": "Electronics basics",
+      "metaphor": "A Lego baseplate for electronics. Push a component's legs into the holes and it's connected; pull it out and it's disconnected. No glue, no solder.",
+      "definition": "A solderless prototyping board with metal strips inside that connect certain holes together: in the middle area each column of 5 holes is connected, and the long strips along the sides (power rails) are connected along their whole length.",
+      "misconception": "Plugging things in without knowing which holes connect. The classic mistake is putting both legs of a component in the same column (you just shorted it out), or assuming a power rail runs unbroken down the whole board (on some breadboards it is split in the middle).",
+      "example": "Straddle the Blue Pill (STM32F103C8T6) across the center trench so each row of pins lands on its own side. Run 3.3V and G out to the side rails with jumper wires, and sensors can draw power from the rails.",
+      "related": [
+        "dupont_wire",
+        "pcb",
+        "wiring",
+        "short_circuit"
+      ]
+    },
+    {
+      "id": "logic_level",
+      "term": "Logic level (3.3V / 5V)",
+      "category": "Electronics basics",
+      "metaphor": "Two countries with different standards for \"loud.\" One says 3 decibels counts as shouting, the other says it takes 5. When they talk, one side might not hear, or might get its ears blown out.",
+      "definition": "The voltage ranges a digital circuit uses to represent 0 and 1. STM32 uses 3.3V logic; Arduino UNO and similar use 5V logic. When connecting the two, check whether the pins are \"5V tolerant.\"",
+      "misconception": "Connecting 3.3V and 5V devices without a second thought. A 5V signal into a 3.3V pin can kill the chip; a 3.3V signal into a 5V device may read as 0. Use a level shifter or pick compatible pins.",
+      "example": "Most digital pins on the Blue Pill (STM32F103C8T6) are 5V tolerant (marked FT in the datasheet), but the ADC pins (PA0–PA7 and others) must never see 5V. When buying sensors, prefer ones that support 3.3V.",
+      "related": [
+        "voltage",
+        "gpio",
+        "datasheet",
+        "voltage_divider"
+      ]
+    },
+    {
+      "id": "power_supply",
+      "term": "Power supply / voltage regulator",
+      "category": "Electronics basics",
+      "metaphor": "The water utility and the pressure-reducing valve at your building. City pressure is high; the valve brings it down to what your faucets can handle.",
+      "definition": "The part of the circuit that provides a stable voltage. A regulator (such as an LDO) turns a higher input voltage into a fixed lower output, for example 5V to 3.3V.",
+      "misconception": "Thinking the board's 3.3V pin can power anything. The Blue Pill (STM32F103C8T6)'s onboard regulator is tiny and can only spare roughly 100–200mA for external parts. Hang a servo or motor on it and the board resets or the regulator gets hot enough to burn. Big loads need their own supply.",
+      "example": "The Blue Pill (STM32F103C8T6)'s 5V pin is wired straight to USB 5V; the 3.3V pin is the regulator's output. For a servo, power it from the 5V pin or an external supply, connect only the signal wire to a GPIO, and share ground.",
+      "related": [
+        "voltage",
+        "ground",
+        "capacitor",
+        "servo"
+      ]
+    },
+    {
+      "id": "mcu",
+      "term": "Microcontroller (MCU)",
+      "category": "Chips & boards",
+      "metaphor": "A thumbnail-sized computer with no screen, built to do one job. There's one in your rice cooker, your remote, and your electric toothbrush.",
+      "definition": "A computer with the processor core, Flash, RAM, and assorted peripherals all on one chip. Unlike a PC's CPU it comes with its own storage and I/O, so it runs without external memory or a hard drive.",
+      "misconception": "Thinking an MCU is a \"weak PC\" that can run Windows or Python. An MCU usually has no operating system, runs the one program you burned into it, and has resources measured in KB. It is a completely different design goal from a computer.",
+      "example": "The black chip on the Blue Pill, the STM32F103C8T6, is the MCU. It has 64KB Flash, 20KB RAM, and a 72MHz clock: far weaker than the first iPhone, but more than enough to run a dog feeder.",
+      "related": [
+        "microcontroller_cn",
+        "cortex_m",
+        "flash",
+        "ram"
+      ]
+    },
+    {
+      "id": "microcontroller_cn",
+      "term": "\"Dan pian ji\" (单片机, the Chinese word for MCU)",
+      "category": "Chips & boards",
+      "metaphor": "\"Danpianji\" is simply the Chinese name for an MCU; it literally means \"one chip is a whole machine.\" Every Chinese textbook and forum uses it, and you will run into it on AliExpress listings and in translated tutorials.",
+      "definition": "The everyday Chinese term for a microcontroller, short for \"single-chip microcomputer.\" \"Learning danpianji\" and \"learning embedded\" are essentially the same thing at the beginner stage.",
+      "misconception": "Treating \"microcontrollers\" and \"embedded systems\" as two separate fields. The MCU is the most common, lowest-level building block of embedded; embedded is the broader umbrella (it also covers embedded Linux, FPGAs, and more).",
+      "example": "If you search Chinese sources, \"STM32 单片机,\" \"51 单片机,\" and \"单片机点灯\" (blink an LED) are the keywords. On this platform, \"the board,\" \"the chip,\" \"the MCU,\" and \"danpianji\" all refer to the same thing.",
+      "related": [
+        "mcu",
+        "embedded_engineer",
+        "development_board"
+      ]
+    },
+    {
+      "id": "development_board",
+      "term": "Development board / Blue Pill",
+      "category": "Chips & boards",
+      "metaphor": "The chip is the engine; the dev board is a test car with the engine already bolted to wheels, a gas tank, and a steering wheel, so you can drive without building a car.",
+      "definition": "A PCB that carries an MCU plus the bare minimum it needs to run (regulator, crystal, reset, pin headers, programming port), built for learning and prototyping. The Blue Pill is one of the cheapest and most popular STM32 dev boards.",
+      "misconception": "Thinking the dev board is the final product. Dev boards include lots of extras so they can be general purpose; a real product gets a new PCB with only what it needs.",
+      "example": "The Blue Pill (STM32F103C8T6): STM32F103C8T6 + 8MHz crystal + 32.768kHz crystal + 3.3V regulator + reset button + two BOOT jumpers + micro-USB + 40 header pins. A few dollars on Amazon or AliExpress.",
+      "related": [
+        "mcu",
+        "pcb",
+        "pin",
+        "boot"
+      ]
+    },
+    {
+      "id": "cortex_m",
+      "term": "ARM Cortex-M core",
+      "category": "Chips & boards",
+      "metaphor": "The engine blueprint. ARM draws the plans; ST, NXP, and others use them to build their own chips. The peripherals differ from maker to maker, but the engine is the same model.",
+      "definition": "A family of 32-bit processor cores designed and licensed by ARM specifically for MCUs. M0/M0+ are the simplest and most power-efficient, M3 is the classic, M4 adds floating point and DSP, M7 is the most powerful.",
+      "misconception": "Thinking \"ARM\" is a chip manufacturer. ARM doesn't make chips; it sells designs. That is why STM32, nRF52, and RP2040 all call themselves ARM Cortex-M.",
+      "example": "The STM32F103 uses a Cortex-M3 core. Another maker's Cortex-M3 chip runs the same assembly instructions, but its registers and peripherals are completely different, so code can't just be copied across.",
+      "related": [
+        "mcu",
+        "register",
+        "clock_frequency",
+        "peripheral"
+      ]
+    },
+    {
+      "id": "clock_frequency",
+      "term": "Clock frequency (clock speed)",
+      "category": "Chips & boards",
+      "metaphor": "How fast a conductor waves the baton. Every wave, everyone takes one step; a faster baton means a faster tempo overall.",
+      "definition": "The frequency of the processor core's working clock, in Hz. Each clock cycle executes roughly one simple instruction. The STM32F103 tops out at 72MHz, or 72 million ticks per second.",
+      "misconception": "Assuming higher is always better. A higher clock burns more power and runs hotter, and plenty of tasks (reading a button, sending serial) don't need it. Low-power products often run slow on purpose.",
+      "example": "With PlatformIO's bluepill_f103c8 target, the Arduino framework sets the clock to 72MHz by default: the external 8MHz crystal multiplied by 9 through the PLL. Under the hood, delay(1000) just counts off 72 million ticks.",
+      "related": [
+        "clock",
+        "crystal",
+        "cortex_m",
+        "delay_millis"
+      ]
+    },
+    {
+      "id": "flash",
+      "term": "Flash memory",
+      "category": "Chips & boards",
+      "metaphor": "Words carved into a stone tablet. Cut the power and the words are still there, but changing them takes effort (erase the whole slab and carve again).",
+      "definition": "Non-volatile memory that keeps its contents without power. The MCU's program (firmware) lives here. It can only be written a limited number of times (around ten thousand) and writes are slow, but reads are fast.",
+      "misconception": "Thinking more Flash means a faster program. Flash only decides how big a program you can fit; speed comes from the clock. A blink program uses less than a tenth of 64KB.",
+      "example": "The C8 in STM32F103C8 means 64KB of Flash (many boards actually have 128KB, but it isn't officially guaranteed). The Flash: [==  ] 12.3% line printed when you upload is how much of the Flash your program occupies.",
+      "related": [
+        "ram",
+        "firmware",
+        "flashing",
+        "mcu"
+      ]
+    },
+    {
+      "id": "ram",
+      "term": "RAM (working memory)",
+      "category": "Chips & boards",
+      "metaphor": "Your desk. It's handy to spread things out on it while you work, but when you turn off the lights (cut power) the desk is wiped clean.",
+      "definition": "Random-access memory. Volatile: everything is lost when power goes. Your program's variables, arrays, and function call stack live here while it runs.",
+      "misconception": "Thinking 20KB of RAM \"can't even hold a string.\" 20KB is 20,480 bytes; an int is 4 bytes, so that's room for five thousand of them. What really eats RAM is big arrays, image buffers, and string concatenation. Small everyday projects rarely run out.",
+      "example": "The STM32F103C8T6 has 20KB of RAM. After compiling, PlatformIO prints RAM: [=  ] 9.6% (used 1968 bytes). Past 100% it won't build, or it will reboot mysteriously at runtime.",
+      "related": [
+        "flash",
+        "variable",
+        "mcu",
+        "stack_overflow"
+      ]
+    },
+    {
+      "id": "register",
+      "term": "Register",
+      "category": "Chips & boards",
+      "metaphor": "A panel of labeled switches. Each switch controls one feature inside the chip: this one is \"PA0 output HIGH,\" that one is \"turn on the timer.\" Programming is, at bottom, flipping these switches.",
+      "definition": "Special storage locations at fixed addresses inside the MCU, where each bit corresponds to a hardware setting or status. Every peripheral is ultimately controlled by reading and writing registers.",
+      "misconception": "Believing you must understand registers to \"really\" do embedded. The Arduino and HAL libraries wrap register operations in functions; as a beginner you never have to touch them. Registers are for when you want to know what digitalWrite does underneath.",
+      "example": "digitalWrite(PC13, LOW) ends up writing a 1 to bit 29 of GPIOC's BSRR register (address 0x40011010). The RM0008 reference manual runs over 1,000 pages, and most of it is explaining what each bit of each register means.",
+      "related": [
+        "peripheral",
+        "reference_manual",
+        "hal",
+        "gpio"
+      ]
+    },
+    {
+      "id": "peripheral",
+      "term": "Peripheral (on-chip)",
+      "category": "Chips & boards",
+      "metaphor": "A person's senses and limbs. The brain (core) thinks, the eyes (ADC) see, the mouth (UART) talks, the hands (GPIO) act.",
+      "definition": "Functional blocks outside the MCU core but on the same chip: GPIO, UART, SPI, I2C, ADC, timers, DMA. Each works on its own, directed by the core through registers.",
+      "misconception": "Thinking \"peripherals\" means the sensors and screens plugged into the board. In MCU-speak, peripherals are the blocks inside the chip; things you attach outside are \"external devices\" or \"modules.\"",
+      "example": "The STM32F103C8T6's peripheral list: 37 GPIO, 3 UART, 2 I2C, 2 SPI, 1 CAN, 1 USB, 2 12-bit ADCs, 4 timers, 7-channel DMA. When you buy a chip, you are buying this list.",
+      "related": [
+        "register",
+        "gpio",
+        "uart",
+        "timer"
+      ]
+    },
+    {
+      "id": "pin",
+      "term": "Pin",
+      "category": "Chips & boards",
+      "metaphor": "The little legs sticking out of the chip, its only points of contact with the outside world. Anything you want to say to it or have it do goes through these.",
+      "definition": "A metal terminal on a chip or module used for electrical connection. Each pin has a name (like PA0) and one or more functions (GPIO, ADC, UART, ...) selected in software.",
+      "misconception": "Thinking a pin does only one thing. Most STM32 pins are \"multiplexed\": PA9 can be an ordinary GPIO or UART1's TX, depending on how you configure it. But it can only be one thing at a time.",
+      "example": "On the Blue Pill (STM32F103C8T6), pins starting with PA belong to the GPIOA group and PB to GPIOB. PA13/PA14 are the SWD programming port by default (silkscreened SWIO/SWCLK); avoid using them as GPIO or uploading gets complicated.",
+      "related": [
+        "gpio",
+        "silkscreen",
+        "peripheral",
+        "pinout"
+      ]
+    },
+    {
+      "id": "pinout",
+      "term": "Pinout (pin diagram)",
+      "category": "Chips & boards",
+      "metaphor": "A neighborhood map with house numbers and who lives where. Without it you don't know which leg is power and which is the LED.",
+      "definition": "A diagram or table listing the name, number, and available functions of every pin on a board or chip. Always check it before wiring.",
+      "misconception": "Assuming every function listed on the pinout is available at the same time. Multiple functions on one pin are alternatives: PA2 might list ADC2 / PWM / UART2_TX, but you pick one at a time.",
+      "example": "On this platform, content/hardware/bluepill-pins.json is the Blue Pill (STM32F103C8T6)'s pinout data, and the pinout canvas on the lesson pages draws from it. Look up PA0 and you'll see four functions: GPIO / ADC0 / PWM / WKUP.",
+      "related": [
+        "pin",
+        "gpio",
+        "silkscreen",
+        "datasheet"
+      ]
+    },
+    {
+      "id": "gpio",
+      "term": "GPIO (general-purpose input/output)",
+      "category": "Chips & boards",
+      "metaphor": "A port you can set to be either a megaphone or an ear. As an output it shouts HIGH or LOW; as an input it listens for whether the outside is HIGH or LOW.",
+      "definition": "General Purpose Input/Output, the most basic pin function on an MCU. Software configures it as an output (drives HIGH/LOW) or an input (reads HIGH/LOW), with options like pull-up, pull-down, and open-drain.",
+      "misconception": "Thinking a GPIO can output an \"in-between\" voltage. GPIO has exactly two states, 0 and 1; if you want 1.5V you need a DAC or PWM plus a filter. And don't treat it as a power source: it can only source a few tens of mA.",
+      "example": "pinMode(PC13, OUTPUT); digitalWrite(PC13, LOW); Those two lines make PC13 an output and pull it low, lighting the onboard LED. pinMode(PB12, INPUT_PULLUP) configures an input with pull-up for reading a button.",
+      "related": [
+        "pin",
+        "pull_up_pull_down",
+        "led",
+        "button"
+      ]
+    },
+    {
+      "id": "reset",
+      "term": "Reset",
+      "category": "Chips & boards",
+      "metaphor": "Rebooting your computer. Whatever was in progress is thrown away and everything starts over from the beginning.",
+      "definition": "Returning the MCU to its initial state and restarting the program from the top. Triggered by the reset button, power-on, the watchdog, a software instruction, or the debugger. Reset does not erase Flash; the program stays.",
+      "misconception": "Thinking reset \"wipes the program\" or \"restores factory settings.\" Reset just reruns the program you uploaded; nothing in Flash changes. Variables start over because they live in RAM.",
+      "example": "The small button on the Blue Pill (STM32F103C8T6) is reset, labeled RESET or R. After an upload, PlatformIO resets the board automatically so the new program runs. Have setup() print \"boot\" and you'll see it on the serial monitor every time you press reset.",
+      "related": [
+        "boot",
+        "watchdog",
+        "flash",
+        "setup_loop"
+      ]
+    },
+    {
+      "id": "boot",
+      "term": "BOOT pins (BOOT0 / BOOT1)",
+      "category": "Chips & boards",
+      "metaphor": "A multiple-choice question at startup: boot from the \"main drive\" or the \"rescue disk\"? The chip glances at the switch position the instant power comes on and decides.",
+      "definition": "At reset, an STM32 uses the levels on BOOT0 (and BOOT1) to decide where to start executing: main Flash (normal operation), system memory (the built-in serial bootloader), or RAM.",
+      "misconception": "Thinking the BOOT jumpers need constant fiddling. When uploading over SWD with an ST-Link, BOOT0 stays at 0 and you never touch it. Only serial uploading (no ST-Link) requires temporarily moving BOOT0 to 1.",
+      "example": "The two yellow jumper caps on the Blue Pill (STM32F103C8T6) are BOOT0 and BOOT1, and both normally sit on the 0 side. If the board powers up but the program doesn't run and the LED stays dark, check whether a jumper got knocked out of place.",
+      "related": [
+        "reset",
+        "bootloader",
+        "flashing",
+        "st_link"
+      ]
+    },
+    {
+      "id": "clock",
+      "term": "Clock (signal)",
+      "category": "Chips & boards",
+      "metaphor": "The metronome the whole orchestra follows. Everyone keeps time to it; nobody freelances. Different instruments (peripherals) can play at whole multiples or fractions of the beat.",
+      "definition": "The periodic square-wave signal that keeps all the digital circuitry inside the MCU in sync. There are several clock sources (internal RC, external crystal), which are multiplied by the PLL, divided down, and distributed to the core and peripherals.",
+      "misconception": "Thinking \"clock\" means the kind that tells time (that's the RTC). In an MCU, \"clock\" means the tick signal by default; the one that tracks the date and time is called the RTC (real-time clock) and is a specific peripheral.",
+      "example": "The Blue Pill (STM32F103C8T6)'s 8MHz crystal is the HSE (external high-speed clock); the PLL multiplies it by 9 to get the 72MHz system clock. The ADC clock can't exceed 14MHz, so the framework divides it down automatically. Arduino configures all of this for you.",
+      "related": [
+        "crystal",
+        "clock_frequency",
+        "timer",
+        "rtc"
+      ]
+    },
+    {
+      "id": "crystal",
+      "term": "Crystal oscillator",
+      "category": "Chips & boards",
+      "metaphor": "An extremely precise tuning fork. Strike it and it always rings at exactly the same pitch, which the chip uses as the reference for its metronome.",
+      "definition": "A component that uses the piezoelectric effect of a quartz crystal to produce a precise, fixed frequency. The MCU uses it as a clock source; it is hundreds of times more accurate than the chip's internal RC oscillator.",
+      "misconception": "Thinking a \"bigger\" crystal is better or that you can swap it freely. The crystal frequency is fixed at design time, and the chip's PLL multiplier is matched to it. Swap the Blue Pill's crystal for 12MHz without changing code, and your serial baud rate and delay timing all go off.",
+      "example": "The Blue Pill (STM32F103C8T6) has two crystals: the flat silver can next to the chip is 8MHz (HSE, the main system clock), and the slim cylinder is 32.768kHz (LSE, for the RTC; one second is exactly 2 to the 15th cycles).",
+      "related": [
+        "clock",
+        "clock_frequency",
+        "rtc",
+        "baud_rate"
+      ]
+    },
+    {
+      "id": "watchdog",
+      "term": "Watchdog timer (WDT)",
+      "category": "Chips & boards",
+      "metaphor": "A dog that needs a pat on the head every few seconds. If you get too busy and forget (the program hung), it barks and wakes up the whole house (resets the chip).",
+      "definition": "An independent countdown timer that the program must periodically \"kick\" (reset the counter) before it expires. If the program gets stuck in a loop or runs off the rails and stops kicking, the watchdog forces an MCU reset.",
+      "misconception": "Thinking the watchdog \"fixes bugs.\" It only makes a hung device restart itself; it doesn't cure whatever caused the hang. But for a device left unattended in the field, automatically restarting is already worth a lot.",
+      "example": "The STM32F103 has an independent watchdog, IWDG. A dog feeder sits at home for months without a reboot, so call IWatchdog.reload() regularly in loop(). If the RTC read ever hangs, the board restarts within seconds and the dog doesn't go hungry.",
+      "related": [
+        "reset",
+        "timer",
+        "blocking_nonblocking",
+        "rtos"
+      ]
+    },
+    {
+      "id": "interrupt",
+      "term": "Interrupt",
+      "category": "Chips & boards",
+      "metaphor": "You're doing homework and the doorbell rings. You put down the pen, answer the door, then come back and pick up where you left off, without having to glance at the door every second.",
+      "definition": "When a hardware event happens (a pin changes level, a timer expires, the serial port receives data), the CPU pauses the current program, jumps to the matching interrupt service routine (ISR), and returns to where it was when done.",
+      "misconception": "Thinking you can write anything inside an interrupt. An ISR should be as short as possible: no delay, no Serial.print (it can deadlock); usually just set a flag or store a value and let the main loop handle it. The other misconception is that everything should use interrupts; in most cases polling is fine.",
+      "example": "attachInterrupt(digitalPinToInterrupt(PB12), onButton, FALLING) calls onButton() automatically when PB12 goes from HIGH to LOW. Inside onButton just write pressed = true; the main loop sees pressed and does the work.",
+      "related": [
+        "volatile",
+        "timer",
+        "blocking_nonblocking",
+        "button"
+      ]
+    },
+    {
+      "id": "timer",
+      "term": "Timer",
+      "category": "Chips & boards",
+      "metaphor": "A standalone stopwatch and metronome in one. Tell it to beep every 10 milliseconds, or to call you when it reaches 1000, and it counts on its own without taking up your attention.",
+      "definition": "A hardware counter peripheral inside the MCU that counts clock ticks. It can raise an interrupt when it fills up, output PWM waveforms, or measure the pulse width or frequency of an input signal.",
+      "misconception": "Thinking delay() is a timer. delay makes the CPU spin in place counting, unable to do anything else; a hardware timer counts on its own while the CPU goes about its business.",
+      "example": "The STM32F103C8 has four timers, TIM1–TIM4. analogWrite's PWM output comes from them; millis() keeps time using the core's built-in SysTick timer, which interrupts once every 1ms.",
+      "related": [
+        "pwm",
+        "interrupt",
+        "delay_millis",
+        "clock"
+      ]
+    },
+    {
+      "id": "dma",
+      "term": "DMA (direct memory access)",
+      "category": "Chips & boards",
+      "metaphor": "A moving company. Instead of carrying boxes yourself, you say \"move these 100 boxes from here to there,\" and they call you when it's done.",
+      "definition": "Direct Memory Access, a dedicated hardware block that moves data between peripherals and memory without the CPU handling each byte. Often paired with ADC, UART, and SPI.",
+      "misconception": "Thinking DMA is required knowledge for beginners. DMA is a performance optimization; in a project moving a few dozen bytes a second over serial it's completely unnecessary. Learn it when you hit \"the CPU can't keep up.\"",
+      "example": "If you needed to sample the signal on PA0 continuously at 100kHz, calling analogRead one at a time would bury the CPU. That's when you set up ADC + DMA to fill an array automatically. The dog feeder doesn't need it.",
+      "related": [
+        "adc",
+        "uart",
+        "peripheral",
+        "ram"
+      ]
+    },
+    {
+      "id": "adc",
+      "term": "ADC (analog-to-digital converter)",
+      "category": "Chips & boards",
+      "metaphor": "Measuring a piece of string with a ruler and reporting a whole number. The string's length is continuous (any value); the number you report is discrete (only the marks on the ruler).",
+      "definition": "Analog-to-Digital Converter, which turns a continuous analog voltage into a number. The STM32F103's ADC is 12-bit: 0–3.3V maps to 0–4095.",
+      "misconception": "Thinking analogRead returns a voltage. It returns an integer from 0 to 4095, and you convert: voltage = reading × 3.3 / 4095. Another trap is assuming any pin can analogRead; only pins marked ADC can.",
+      "example": "Potentiometer wiper to PA0, then int raw = analogRead(PA0); float v = raw * 3.3 / 4095.0; Turn the knob end to end and raw goes from 0 to about 4095. The Arduino framework defaults to 10-bit (0–1023); call analogReadResolution(12) for full precision.",
+      "related": [
+        "analog_digital",
+        "sampling",
+        "voltage_divider",
+        "dac"
+      ]
+    },
+    {
+      "id": "dac",
+      "term": "DAC (digital-to-analog converter)",
+      "category": "Chips & boards",
+      "metaphor": "The ADC in reverse: give it a number and it outputs a water level of matching height.",
+      "definition": "Digital-to-Analog Converter, which turns a number into a genuinely continuous analog output voltage. Used for audio, adjustable reference voltages, and so on.",
+      "misconception": "Thinking analogWrite outputs a DAC-style analog voltage. On Arduino, analogWrite produces a PWM square wave, not a true analog value. The STM32F103C8 has no DAC peripheral at all; for real analog output you need an external DAC chip or PWM plus an RC filter.",
+      "example": "Want the Blue Pill (STM32F103C8T6) to play an audio waveform? The F103C8 can't (no DAC). Either fake it with PWM, or move to an F4-series chip, or add an MCP4725 (an I2C DAC module).",
+      "related": [
+        "adc",
+        "pwm",
+        "analog_digital",
+        "duty_cycle"
+      ]
+    },
+    {
+      "id": "pwm",
+      "term": "PWM (pulse-width modulation)",
+      "category": "Chips & boards",
+      "metaphor": "Flicking a faucet on and off fast. One second on, one second off averages to half the water; 1.8 seconds on, 0.2 off averages to 90%. Switch fast enough and the water level in the cup looks steady.",
+      "definition": "Pulse Width Modulation: a square wave at a fixed frequency whose HIGH fraction (duty cycle) is varied to control average power or carry information. Generated by timer hardware.",
+      "misconception": "Thinking PWM is an analog voltage. On an oscilloscope, PWM is only ever 3.3V or 0V. It dims LEDs and slows motors because those loads respond to the average; a circuit that needs a real voltage needs a filter added.",
+      "example": "analogWrite(PA8, 128) makes PA8 output roughly 50% duty cycle at about 1kHz. A servo needs a special PWM at 50Hz with a 0.5–2.5ms pulse width; the Servo library does the math for you: servo.write(90).",
+      "related": [
+        "duty_cycle",
+        "timer",
+        "servo",
+        "dc_motor"
+      ]
+    },
+    {
+      "id": "rtc",
+      "term": "RTC (real-time clock)",
+      "category": "Chips & boards",
+      "metaphor": "A wristwatch. Even when the main machine is off, it keeps ticking on a coin cell, so the next time you power up you still know today's date.",
+      "definition": "Real-Time Clock, a low-power module dedicated to tracking year, month, day, hours, minutes, and seconds. It usually has its own 32.768kHz crystal and backup battery. It can be built into the MCU or an external chip such as the DS3231.",
+      "misconception": "Thinking millis() can serve as a clock. millis counts \"milliseconds since power-on\": it resets to zero on power loss and drifts. To know what time it is now you need an RTC, ideally with a battery.",
+      "example": "The dog feeder uses a DS3231 module (I2C, SCL to PB6, SDA to PB7); the adafruit/RTClib entry in lib_deps gives you rtc.now() returning the full date and time. You can also wire a 3V battery to the Blue Pill (STM32F103C8T6)'s VBAT pin so the internal RTC keeps running without power.",
+      "related": [
+        "crystal",
+        "i2c",
+        "delay_millis",
+        "library"
+      ]
+    },
+    {
+      "id": "package",
+      "term": "Package (chip package)",
+      "category": "Chips & boards",
+      "metaphor": "The same chocolate sold as a bar, a ball, or a bag. What's inside is identical; the shape and size of the wrapper differ, which decides which shelf it fits on.",
+      "definition": "The physical form of a chip's casing, which sets its dimensions, pin count, and pin arrangement. Examples: LQFP48 (48-pin square surface-mount), DIP (dual in-line through-hole), QFN (no leads).",
+      "misconception": "Thinking a different package means a different chip. The T in STM32F103C8T6 means an LQFP package; the same chip may come in several packages with identical internals, though pin counts differ and the usable peripherals change with them.",
+      "example": "The Blue Pill (STM32F103C8T6)'s chip is LQFP48, 12 pins per side, 0.5mm pitch. Pins that fine are hard to hand-solder, which is why beginners buy a ready-made board instead of soldering the chip themselves.",
+      "related": [
+        "pin",
+        "pcb",
+        "soldering_iron",
+        "datasheet"
+      ]
+    },
+    {
+      "id": "uart",
+      "term": "UART / serial port",
+      "category": "Communication",
+      "metaphor": "Two people each holding a speaking tube: one where I talk and you listen, one where you talk and I listen. You agree on a talking speed in advance or nobody understands anything.",
+      "definition": "Universal Asynchronous Receiver/Transmitter, the simplest point-to-point serial communication: one TX wire to send, one RX wire to receive, shared ground, and both sides set to the same baud rate. There is no clock wire; start and stop bits keep things aligned.",
+      "misconception": "Wiring TX to TX and RX to RX between two boards. UART must be crossed: my TX goes to your RX. Another misconception is that \"serial port\" only means a PC's COM port; MCU-to-MCU and MCU-to-module links are serial ports too.",
+      "example": "The Blue Pill (STM32F103C8T6)'s Serial uses USART1 by default: PA9 is TX, PA10 is RX. Serial.begin(115200); Serial.println(\"hello\"); Hook up a USB-to-serial adapter and pio device monitor shows it.",
+      "related": [
+        "baud_rate",
+        "tx_rx",
+        "common_ground",
+        "serial_print"
+      ]
+    },
+    {
+      "id": "baud_rate",
+      "term": "Baud rate",
+      "category": "Communication",
+      "metaphor": "The talking speed two people agree on: how many words per second. If one talks fast and the other listens slow, all you hear is gibberish.",
+      "definition": "The number of symbols per second on a serial line; for UART it is roughly bits per second. Common values are 9600 and 115200. Sender and receiver must match.",
+      "misconception": "Setting it arbitrarily, or assuming higher is better. At high rates, long wires or cheap jumper wires cause errors. The other trap is a mismatch between the serial monitor and the code, which shows up as a screen of question marks or boxes.",
+      "example": "Serial.begin(115200) in the code and monitor_speed = 115200 in platformio.ini; the two must agree. When you see garbage, check those two numbers first.",
+      "related": [
+        "uart",
+        "serial_print",
+        "crystal",
+        "platformio"
+      ]
+    },
+    {
+      "id": "tx_rx",
+      "term": "TX and RX (transmit / receive)",
+      "category": "Communication",
+      "metaphor": "Mouth and ear. My mouth needs to face your ear and my ear your mouth. Mouth to mouth, nobody hears a thing.",
+      "definition": "TX (Transmit) is the sending pin, RX (Receive) the receiving pin. Serial connections must cross: A's TX to B's RX, A's RX to B's TX.",
+      "misconception": "Seeing TX printed on a module and wiring it to the board's TX. Labels on a module are written from the module's own point of view, so you cross them. Getting it backwards does no harm; you just receive nothing. Swap and retry.",
+      "example": "USB-to-serial adapter: adapter TXD → Blue Pill (STM32F103C8T6) PA10 (RX1), adapter RXD → PA9 (TX1), GND to GND. If it doesn't work the first time, swap the two data wires.",
+      "related": [
+        "uart",
+        "common_ground",
+        "wiring",
+        "baud_rate"
+      ]
+    },
+    {
+      "id": "i2c",
+      "term": "I2C (two-wire bus)",
+      "category": "Communication",
+      "metaphor": "A teacher with a classroom of students, using just two lines: one for the teacher to call \"number 3, your turn,\" one to carry the content. Every student has a number and answers only when called.",
+      "definition": "Inter-Integrated Circuit, a two-wire bus (SCL clock, SDA data) for multiple devices. One master, many slaves, each slave with a 7-bit address. Runs at 100k or 400kHz and requires pull-up resistors.",
+      "misconception": "Thinking I2C works without pull-ups. SDA/SCL are open-drain outputs; with no pull-up they sit LOW forever and you read nothing. Many modules include pull-ups, but not all, so if a scan finds no devices, check the pull-ups first.",
+      "example": "Blue Pill (STM32F103C8T6) I2C1: PB6 is SCL, PB7 is SDA. After Wire.begin(); an I2C scanner sketch lists every address on the bus. The DS3231 is at 0x68; many OLED displays are at 0x3C.",
+      "related": [
+        "address",
+        "pull_up_pull_down",
+        "spi",
+        "rtc"
+      ]
+    },
+    {
+      "id": "spi",
+      "term": "SPI (serial peripheral interface)",
+      "category": "Communication",
+      "metaphor": "The teacher has a separate \"your turn\" button (CS) for each student. Press one and it's a one-on-one conversation. The talking lines are shared, so it can go very fast.",
+      "definition": "Serial Peripheral Interface, a four-wire full-duplex synchronous bus: SCK clock, MOSI master-out/slave-in, MISO master-in/slave-out, and CS/SS chip select (one per slave). Speeds reach tens of MHz.",
+      "misconception": "Treating SPI and I2C as rivals where learning one is enough. Each has its niche: I2C uses fewer wires and is slower, good for sensors; SPI uses more wires and is fast, good for displays, SD cards, and Flash. Many projects use both.",
+      "example": "Blue Pill (STM32F103C8T6) SPI1: PA5 SCK, PA6 MISO, PA7 MOSI, with CS on any GPIO such as PA4. Those are the wires for an SD card module or a TFT display. After SPI.begin(), use SPI.transfer(byte) to send and receive.",
+      "related": [
+        "i2c",
+        "master_slave",
+        "duplex",
+        "sd_card"
+      ]
+    },
+    {
+      "id": "one_wire",
+      "term": "1-Wire / single-wire protocols",
+      "category": "Communication",
+      "metaphor": "Talking and listening over a single line, using strict timing to tell apart \"I'm speaking\" from \"you're speaking.\"",
+      "definition": "Protocols that do two-way communication over one data wire (plus shared ground), encoding data as precisely timed HIGH and LOW pulses. The DS18B20 temperature sensor uses 1-Wire; the DHT11/DHT22 humidity sensors use a similar single-wire timing protocol.",
+      "misconception": "Thinking single-wire is \"simple,\" so you should write your own driver. The timing is measured in microseconds and easy to get wrong. Using an existing library (OneWire, DHT) is practically the only right answer.",
+      "example": "DHT22 data pin to PB1 with a 4.7kΩ pull-up to 3.3V, add adafruit/DHT sensor library to lib_deps, and dht.readTemperature() gives you a number. Leave at least 2 seconds between reads.",
+      "related": [
+        "sensor",
+        "pull_up_pull_down",
+        "library",
+        "protocol"
+      ]
+    },
+    {
+      "id": "can",
+      "term": "CAN bus (Controller Area Network)",
+      "category": "Communication",
+      "metaphor": "The shared radio channel used by dozens of parts in a car. Every message has a priority; when two collide, the higher priority goes first. It has built-in error correction and is extremely rugged.",
+      "definition": "A multi-master bus with differential signaling, priority arbitration, and error detection, designed for noisy environments (cars, factories). Two wires, CAN_H and CAN_L, plus a transceiver chip.",
+      "misconception": "Thinking the MCU's CAN pins can connect directly to another board's CAN pins. CAN needs an external transceiver (like the TJA1050) to turn logic levels into differential signals, plus 120Ω termination resistors at both ends.",
+      "example": "The STM32F103 has one CAN controller (PA11/PA12 or PB8/PB9). It shares resources with USB, so on the Blue Pill (STM32F103C8T6) you can't use USB and CAN at the same time. Home projects rarely need it.",
+      "related": [
+        "protocol",
+        "checksum",
+        "usb",
+        "uart"
+      ]
+    },
+    {
+      "id": "usb",
+      "term": "USB",
+      "category": "Communication",
+      "metaphor": "The modern universal plug. Plug into a computer, it asks \"who are you?\", you answer \"a keyboard\" or \"a serial port,\" and the computer treats you accordingly.",
+      "definition": "Universal Serial Bus, the standard interface for computer peripherals. An MCU's USB peripheral can make it appear as a serial port (CDC), a keyboard or mouse (HID), a flash drive (MSC), and more.",
+      "misconception": "Thinking you can plug the Blue Pill (STM32F103C8T6) into USB and see serial output. In the default Arduino configuration the USB port only supplies power; it doesn't communicate. To talk over USB you add USB CDC build_flags in platformio.ini, and many clone boards have the wrong USB resistor value anyway. For beginners, a USB-to-serial adapter on PA9/PA10 is the more reliable route.",
+      "example": "The Blue Pill (STM32F103C8T6)'s USB data lines are PA11 (D-) and PA12 (D+). With -D USBCON -D USBD_USE_CDC enabled, Serial goes over USB instead of PA9/PA10, and a new serial device appears on your computer.",
+      "related": [
+        "uart",
+        "power_supply",
+        "bootloader",
+        "st_link"
+      ]
+    },
+    {
+      "id": "bluetooth",
+      "term": "Bluetooth",
+      "category": "Communication",
+      "metaphor": "A walkie-talkie with a 30-foot range. Once paired, two devices behave as if joined by an invisible wire.",
+      "definition": "A short-range wireless protocol. Classic Bluetooth suits audio and serial pass-through; Bluetooth Low Energy (BLE) suits sensors that send a few bytes now and then. MCUs usually get it through an add-on module.",
+      "misconception": "Thinking the Blue Pill (STM32F103C8T6) has Bluetooth built in. The STM32F103 has no wireless of any kind. The easiest fix is an HC-05 / HC-06 module, which looks like a plain serial port to the MCU: write to Serial2 and your phone receives it.",
+      "example": "HC-06 module TXD to Blue Pill (STM32F103C8T6) PA3 (RX2), RXD to PA2 (TX2), Serial2.begin(9600). Install a Bluetooth serial terminal app on your phone, pair, then send 1 to turn the LED on and 0 to turn it off.",
+      "related": [
+        "uart",
+        "wifi",
+        "iot",
+        "protocol"
+      ]
+    },
+    {
+      "id": "wifi",
+      "term": "Wi-Fi",
+      "category": "Communication",
+      "metaphor": "Join the home router and you're on the internet, controllable from a phone on the other side of the planet.",
+      "definition": "The wireless LAN protocol. It puts a device on the internet for HTTP requests, MQTT publishing, web control, and so on. The STM32F103 has no Wi-Fi; you add an ESP8266/ESP32 module or switch to an ESP32 as the main controller.",
+      "misconception": "Thinking adding Wi-Fi is just plugging in a wire. Going online means dealing with failed connections, reconnects, outages, security, servers, and time sync: ten times the complexity of blinking an LED. Get the local features solid before you connect.",
+      "example": "To check remotely whether the dog was fed today, you could add an ESP-01 (ESP8266) module driven by AT commands over serial. Simpler still is to make an ESP32 the main controller, but then it's no longer an STM32 course.",
+      "related": [
+        "iot",
+        "bluetooth",
+        "ota",
+        "protocol"
+      ]
+    },
+    {
+      "id": "protocol",
+      "term": "Protocol",
+      "category": "Communication",
+      "metaphor": "The rules for a conversation: who speaks first, which language, how long a sentence is, how you signal you're done. Without rules, everyone just talks past each other.",
+      "definition": "The data format, timing, and rules agreed on by both sides of a communication. It comes in layers: low-level physical protocols (UART, I2C, SPI define voltage levels and timing) and higher-level application protocols (HTTP, MQTT, or your own \"first byte is the command, second is the parameter\").",
+      "misconception": "Thinking protocols are all lofty official standards. The moment you agree with a second board that \"send A for light on, B for light off,\" you've defined a protocol. Most projects' application protocols are homemade.",
+      "example": "For the dog feeder taking commands from a phone over serial, define a minimal protocol: one line of text, where F means feed now and T08:30 sets the feeding time. Serial.readStringUntil('\\n') reads a line, then you parse it.",
+      "related": [
+        "uart",
+        "i2c",
+        "checksum",
+        "address"
+      ]
+    },
+    {
+      "id": "address",
+      "term": "Address (bus address / memory address)",
+      "category": "Communication",
+      "metaphor": "A house number. Several houses share one street (the bus); calling the house number tells everyone who you mean.",
+      "definition": "In communication, the unique number of each slave device on a bus (I2C uses 7-bit addresses like 0x68). In memory, the position of each byte or register in the address space.",
+      "misconception": "Thinking two identical modules can share one I2C bus. Addresses are fixed at the factory, so two DS3231s both at 0x68 will conflict. Some chips have address-select pins, some don't; check the datasheet before buying.",
+      "example": "Run an I2C scanner on the Blue Pill (STM32F103C8T6) and the serial monitor prints Found device at 0x68 (DS3231) and 0x3C (OLED). Inside a library, Wire.beginTransmission(0x68) is the moment it calls out the house number.",
+      "related": [
+        "i2c",
+        "register",
+        "protocol",
+        "spi"
+      ]
+    },
+    {
+      "id": "checksum",
+      "term": "Checksum / CRC",
+      "category": "Communication",
+      "metaphor": "Writing \"5 items, total weight 3.2kg\" on a shipping slip. The recipient weighs the package, and if the numbers don't match, something went missing on the way.",
+      "definition": "A short value computed from the data and appended to it (checksum, CRC, parity bit). The receiver recomputes it and compares, to catch transmission errors.",
+      "misconception": "Thinking a checksum can \"repair\" corrupted data. Ordinary checksums only detect errors; they can't fix them, and the usual response is to discard and resend. A checksum is also not encryption; anyone can compute it.",
+      "example": "The DHT22 sends back 5 bytes; the fifth is the low 8 bits of the sum of the first four, and the library returns NaN if the check fails. UART can also enable a parity bit: the E in Serial.begin(115200, SERIAL_8E1) means even parity.",
+      "related": [
+        "protocol",
+        "uart",
+        "noise",
+        "one_wire"
+      ]
+    },
+    {
+      "id": "master_slave",
+      "term": "Master / slave (controller / peripheral)",
+      "category": "Communication",
+      "metaphor": "A teacher taking roll and the students being called on. The teacher decides when to speak and who speaks; students only answer when called.",
+      "definition": "The roles in bus communication: the master initiates and controls the exchange (generates the clock, selects the target) and slaves respond passively. I2C and SPI are both master/slave. Newer documentation often says Controller / Peripheral or Host / Device instead.",
+      "misconception": "Assuming the MCU is always the master. An MCU can be configured as an I2C slave so another MCU reads from it, but as a beginner the MCU is almost always the master, with sensors and displays as slaves.",
+      "example": "When the Blue Pill (STM32F103C8T6) reads the DS3231, the Blue Pill is master: it generates the clock on PB6 and calls address 0x68. The DS3231 is the slave and only puts the time onto PB7 when called.",
+      "related": [
+        "i2c",
+        "spi",
+        "address",
+        "protocol"
+      ]
+    },
+    {
+      "id": "duplex",
+      "term": "Full duplex / half duplex",
+      "category": "Communication",
+      "metaphor": "A phone call is full duplex: both people can talk and listen at once. A walkie-talkie is half duplex: while one talks the other can only listen, and you say \"over\" when you're done.",
+      "definition": "Full duplex: both sides can send and receive simultaneously (UART has separate TX/RX, SPI has MOSI/MISO). Half duplex: only one side can send at a time (I2C, 1-Wire, RS-485).",
+      "misconception": "Thinking full duplex is always better. Half duplex saves wires and is plenty for sensors that work \"ask a question, get an answer.\" Half duplex is exactly what lets I2C run a crowd of devices on two wires.",
+      "example": "Every time SPI moves a byte, the master sends one out over MOSI while the slave simultaneously sends one back over MISO. That's why the function is called SPI.transfer() rather than send().",
+      "related": [
+        "uart",
+        "spi",
+        "i2c",
+        "tx_rx"
+      ]
+    },
+    {
+      "id": "firmware",
+      "term": "Firmware",
+      "category": "Software",
+      "metaphor": "The program carved into the device's bones. Phone apps come and go, but firmware is what the device is born with, the part that decides \"what I am.\"",
+      "definition": "Software stored in a device's non-volatile memory (Flash) that directly controls the hardware. For an MCU, the whole program you write, compiled and uploaded, is its firmware.",
+      "misconception": "Thinking firmware and software are two different things. Firmware is software; it's just \"tightly bound to the hardware, stored in Flash, and not normally swapped by the user.\" Writing a microcontroller program is writing firmware.",
+      "example": "After compiling, PlatformIO produces firmware.bin and firmware.elf under .pio/build/bluepill/. The first is the raw bytes that go into Flash; the second carries debug info. pio run -t upload writes firmware.bin into the Blue Pill (STM32F103C8T6).",
+      "related": [
+        "flash",
+        "compile",
+        "flashing",
+        "ota"
+      ]
+    },
+    {
+      "id": "compile",
+      "term": "Compile",
+      "category": "Software",
+      "metaphor": "Translating a novel into a codebook only robots can read. Along the way the translator flags your grammar mistakes and misspelled words, and the book only ships when everything checks out.",
+      "definition": "Converting human-written high-level source code (C/C++) into machine code the processor executes directly. The compiler (such as arm-none-eabi-gcc) turns each source file into an object file (.o).",
+      "misconception": "Thinking a clean compile means a correct program. Compiling checks syntax and types, not logic. If the LED should light and doesn't, or the wiring is wrong, the compiler won't say a word.",
+      "example": "pio run calls arm-none-eabi-g++ to compile src/main.cpp. Seeing error: 'digitalWrit' was not declared is a compile error: the function name is misspelled.",
+      "related": [
+        "link",
+        "firmware",
+        "toolchain",
+        "compile_error"
+      ]
+    },
+    {
+      "id": "link",
+      "term": "Link (linking)",
+      "category": "Software",
+      "metaphor": "After each chapter is translated, binding them all into one book: page numbers run continuously, and every \"see page X\" in the table of contents gets a real page number.",
+      "definition": "Merging multiple compiled object files and libraries into one complete executable, resolving the final addresses of functions and variables, and placing them in Flash and RAM according to the linker script.",
+      "misconception": "Reading undefined reference to as a syntax problem. That's a linker error: you called a function, the compiler trusted your declaration, but at link time no implementation could be found. Usually you forgot to add a library or never wrote the function body.",
+      "example": "Use the Servo class in main.cpp without adding the Servo library to lib_deps: compiling passes (the header declares it), but linking fails with undefined reference to Servo::attach. Add the library and it's fixed.",
+      "related": [
+        "compile",
+        "library",
+        "lib_deps",
+        "flash"
+      ]
+    },
+    {
+      "id": "flashing",
+      "term": "Flashing / uploading",
+      "category": "Software",
+      "metaphor": "Burning a CD. The compiled program is just a file on your computer; it has to be \"burned\" into the chip's Flash before it can run on its own.",
+      "definition": "Writing compiled firmware into the MCU's Flash memory, through a programmer (ST-Link) or a bootloader. Also called \"uploading,\" \"programming,\" or \"burning\" the chip.",
+      "misconception": "Thinking \"burning\" or \"flashing\" could damage the chip. It's just a figure of speech for writing electrically; nothing is harmed. Another mix-up: in embedded, \"download\" often means sending the program into the chip, not fetching something from the internet.",
+      "example": "pio run -t upload writes firmware.bin into the Blue Pill (STM32F103C8T6) over SWD via ST-Link. On success the terminal shows ** Programming Finished ** ** Verified OK **, and the board resets itself to run the new program.",
+      "related": [
+        "firmware",
+        "st_link",
+        "swd",
+        "boot"
+      ]
+    },
+    {
+      "id": "bootloader",
+      "term": "Bootloader",
+      "category": "Software",
+      "metaphor": "The little caretaker that runs first at power-on. It checks \"is there a new program to install?\", installs it if so, and otherwise wakes the main program up to get to work.",
+      "definition": "A small program that runs first when the MCU powers on, checks whether the firmware needs updating, and jumps to the main program. STM32 chips ship with a serial bootloader in system memory; you can also place your own at the start of Flash.",
+      "misconception": "Thinking you need a bootloader to upload a program. Uploading over SWD with an ST-Link needs no bootloader at all; it writes Flash directly. A bootloader is the answer for \"no programmer available\" or \"over-the-air updates.\"",
+      "example": "Move the Blue Pill (STM32F103C8T6)'s BOOT0 jumper to 1 and reset, and the chip runs ST's built-in serial bootloader. Now the stm32flash tool can upload over PA9/PA10 without an ST-Link. Remember to move BOOT0 back to 0 afterwards.",
+      "related": [
+        "boot",
+        "flashing",
+        "ota",
+        "firmware"
+      ]
+    },
+    {
+      "id": "hal",
+      "term": "HAL (hardware abstraction layer)",
+      "category": "Software",
+      "metaphor": "Driving a car, you don't manage every engine part; you press the gas and go. HAL is the gas pedal: you say \"PA0 output HIGH\" and it flips the pile of registers for you.",
+      "definition": "Hardware Abstraction Layer, a C library from the chip vendor (ST) that wraps register operations in functions like HAL_GPIO_WritePin(), so code can move between different models in the same family.",
+      "misconception": "Thinking HAL and the Arduino framework are opposites. On STM32, the Arduino framework is implemented on top of HAL. Arduino is simpler; HAL is closer to the hardware with finer control; and you can mix them.",
+      "example": "In STM32duino, digitalWrite(PC13, LOW) eventually reaches HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET). Developing in STM32CubeIDE means writing that second form directly.",
+      "related": [
+        "register",
+        "arduino_framework",
+        "library",
+        "reference_manual"
+      ]
+    },
+    {
+      "id": "arduino_framework",
+      "term": "Arduino framework",
+      "category": "Software",
+      "metaphor": "A universal remote that works on every brand of appliance: whatever chip is underneath, the \"light on\" button is always called digitalWrite.",
+      "definition": "A simplified C++ API and programming model (setup/loop, pinMode, digitalWrite, Serial, ...) that began on Arduino boards. It has since been ported to STM32, ESP32, and nearly every mainstream MCU.",
+      "misconception": "Thinking Arduino is a board, so using STM32 means no Arduino. Arduino is first of all an API and ecosystem, and the STM32duino project brings it to the Blue Pill (STM32F103C8T6). \"Arduino isn't professional\" is a bias too; plenty of product prototypes start exactly this way.",
+      "example": "framework = arduino in platformio.ini selects it. The setup() and loop() you write in main.cpp, and the Serial, Wire, and SPI objects you use, all come from this framework.",
+      "related": [
+        "setup_loop",
+        "hal",
+        "platformio",
+        "library"
+      ]
+    },
+    {
+      "id": "library",
+      "term": "Library",
+      "category": "Software",
+      "metaphor": "A collection of recipes someone else already wrote. You don't have to figure out from scratch \"how to talk to a DS3231\"; just follow the recipe.",
+      "definition": "A packaged set of functions and classes that solves one kind of problem (driving a particular sensor, implementing an algorithm). Usually made of header files (.h) and source files (.cpp).",
+      "misconception": "Thinking using libraries is \"cheating\" or \"not really knowing.\" In real engineering, almost nobody writes raw I2C timing to drive an RTC. Knowing how to find a library, read its examples, and read its source when something breaks is the real skill.",
+      "example": "The adafruit/RTClib library lets you write rtc.now().hour() to get the hour. Behind it are hundreds of lines of I2C register reads and BCD conversion that you never have to think about.",
+      "related": [
+        "lib_deps",
+        "arduino_framework",
+        "link",
+        "header_file"
+      ]
+    },
+    {
+      "id": "lib_deps",
+      "term": "lib_deps (library dependencies)",
+      "category": "Software",
+      "metaphor": "A shopping list. Write the names of the recipes you need on the list and PlatformIO goes to the store and brings them back.",
+      "definition": "The field in platformio.ini that declares which libraries the project depends on. PlatformIO downloads them automatically before compiling into .pio/libdeps/. The format is usually \"author/library\" or \"library@version\".",
+      "misconception": "Thinking #include of the header is enough. #include only tells the compiler \"this thing exists\"; the library files themselves must be downloaded into the project first, and that's what lib_deps does. Forget it and you get fatal error: RTClib.h: No such file.",
+      "example": "This project's platformio.ini has lib_deps = adafruit/RTClib. To add a servo, add the line arduino-libraries/Servo; save, and the next pio run downloads it automatically.",
+      "related": [
+        "library",
+        "platformio",
+        "link",
+        "compile_error"
+      ]
+    },
+    {
+      "id": "platformio",
+      "term": "PlatformIO",
+      "category": "Software",
+      "metaphor": "A butler who runs the kitchen: buys groceries (downloads libraries), sets out the tools (installs the compiler), cooks (compiles), serves (uploads), and listens to diners' feedback (serial monitor). You only write recipes.",
+      "definition": "A cross-platform embedded toolchain manager and build system. platformio.ini declares the board, framework, libraries, and upload method; from the command line, pio run compiles, pio run -t upload flashes, and pio device monitor opens the serial monitor.",
+      "misconception": "Thinking PlatformIO is a compiler or an IDE. It doesn't compile anything itself; it installs and calls gcc for you. It also works from a plain command line without VS Code, which is why this platform chose it: an AI can run the commands directly.",
+      "example": "This project's firmware/dog-feeder/platformio.ini: board = bluepill_f103c8, framework = arduino, upload_protocol = stlink. Run pio run -t upload in that directory and it compiles and flashes in one go.",
+      "related": [
+        "lib_deps",
+        "arduino_framework",
+        "toolchain",
+        "flashing"
+      ]
+    },
+    {
+      "id": "toolchain",
+      "term": "Toolchain",
+      "category": "Software",
+      "metaphor": "Every machine between flour and bread: the mixer, the proofing box, the oven, the slicer. Take away any one and there's no bread.",
+      "definition": "The complete set of tools for turning source code into flashable firmware: compiler (gcc), assembler, linker, binary utilities (objcopy), flashing tools (OpenOCD / st-flash), and debugger (gdb).",
+      "misconception": "Thinking \"my environment won't set up\" means you're dumb. Installing the toolchain is the single most discouraging step in embedded, and it has nothing to do with intelligence. This platform's tools/check-env.sh exists to check each piece for you.",
+      "example": "This project uses arm-none-eabi-gcc (compiles ARM code) and OpenOCD (flashes via ST-Link). PlatformIO downloads them automatically into ~/.platformio/packages/.",
+      "related": [
+        "compile",
+        "platformio",
+        "flashing",
+        "st_link"
+      ]
+    },
+    {
+      "id": "setup_loop",
+      "term": "setup() and loop()",
+      "category": "Software",
+      "metaphor": "Wake up, wash your face, brush your teeth (setup, once), then spend the whole day repeating \"check phone, do some work, check phone again\" (loop, forever) until the power goes out.",
+      "definition": "The two entry-point functions of an Arduino program. setup() runs once after power-on or reset, to initialize pins, serial, and peripherals; loop() is then called over and over forever and holds the main logic.",
+      "misconception": "Thinking the program \"ends\" when loop() finishes. An MCU has no concept of ending: the moment loop returns it runs again, potentially hundreds of thousands of times a second. So \"turn on the LED in loop\" keeps it on; it doesn't blink once and go dark.",
+      "example": "void setup() { pinMode(PC13, OUTPUT); Serial.begin(115200); } void loop() { digitalWrite(PC13, !digitalRead(PC13)); delay(500); } That's the smallest possible blink program.",
+      "related": [
+        "arduino_framework",
+        "delay_millis",
+        "blocking_nonblocking",
+        "state_machine"
+      ]
+    },
+    {
+      "id": "blocking_nonblocking",
+      "term": "Blocking / non-blocking",
+      "category": "Software",
+      "metaphor": "Blocking is standing at the stove staring at the pot until it boils, unable to do anything else. Non-blocking is putting the pot on, going off to do other things, and coming back to check now and then.",
+      "definition": "Blocking: a function doesn't return until it finishes, and the CPU can't do anything else meanwhile (delay, waiting on serial). Non-blocking: the function returns immediately, and the task advances by repeatedly checking a status or a timestamp.",
+      "misconception": "Blaming a \"sluggish\" program on a weak chip. Usually there's a blocking call like delay(1000) in loop, and any button press during that second is missed. A 72MHz chip has more than enough speed to catch a button; it's the code that's waiting.",
+      "example": "Blinking with delay(500) makes the button unresponsive. Change it to if (millis() - last >= 500) { last = millis(); toggle LED; } and each pass through loop takes microseconds, so the button is always caught.",
+      "related": [
+        "delay_millis",
+        "state_machine",
+        "interrupt",
+        "setup_loop"
+      ]
+    },
+    {
+      "id": "delay_millis",
+      "term": "delay() and millis()",
+      "category": "Software",
+      "metaphor": "delay is \"close your eyes and count to 1000, doing nothing.\" millis is \"glance at your watch and note the time,\" then glance again later and work out how long it's been.",
+      "definition": "delay(ms) makes the program wait in place for ms milliseconds (blocking). millis() returns the milliseconds since power-on (an unsigned 32-bit number that rolls over to zero after about 49.7 days), used to keep time without blocking.",
+      "misconception": "Thinking the millis() rollover causes bugs. Written as a subtraction, millis() - last >= interval, the difference stays correct even after unsigned overflow. Only the form millis() >= last + interval breaks.",
+      "example": "The dog feeder feeds at 8 a.m. daily; you can't delay for 24 hours (buttons and serial would all go dead). Read the time from the RTC and use millis for non-blocking checks, keeping loop running tens of thousands of times a second.",
+      "related": [
+        "blocking_nonblocking",
+        "timer",
+        "rtc",
+        "setup_loop"
+      ]
+    },
+    {
+      "id": "state_machine",
+      "term": "State machine",
+      "category": "Software",
+      "metaphor": "A traffic light. It's always in exactly one of three states, red, green, or yellow; each state does only its own thing, and when the condition is met (the timer runs out) it switches to the next.",
+      "definition": "A way of organizing a program: one variable records the current \"state,\" loop runs the logic for that state, and specific events or conditions switch states. It's the core technique for non-blocking multitasking.",
+      "misconception": "Thinking state machines are deep computer science theory. It's just a switch(state) with a few cases. Any flow of \"do A, wait for a condition, do B, wait again, do C\" is cleaner as a state machine than as a chain of delays.",
+      "example": "Dog feeder: enum { IDLE, FEEDING, DONE } state; In IDLE, check whether it's time; if so, turn the servo and go to FEEDING. In FEEDING, check whether the servo has run 2 seconds; if so, return it and go to DONE. In DONE, log the event and go back to IDLE.",
+      "related": [
+        "blocking_nonblocking",
+        "delay_millis",
+        "setup_loop",
+        "debounce"
+      ]
+    },
+    {
+      "id": "debounce",
+      "term": "Debounce",
+      "category": "Software",
+      "metaphor": "Press a doorbell once and the mechanical contacts actually bounce several times within a few milliseconds, so the bell stutters. Debouncing means \"after the first ring, ignore any more rings for the next 20 milliseconds.\"",
+      "definition": "Removing the burst of spurious signals a mechanical button produces at the instant it closes or opens. In software: after detecting a change, wait 20–50ms and confirm. In hardware: a parallel capacitor or a Schmitt trigger.",
+      "misconception": "Thinking multiple reads from one press is a program bug or a broken board. It's the physics of mechanical switches, every button does it, and it must be handled. Another trap is debouncing with delay(50): it works but blocks the whole program.",
+      "example": "Non-blocking debounce: read PB12, and if it differs from last time, note millis(); only count it as a real change once the new state has held for 30ms. The Bounce2 library packages this up: button.update(); if (button.fell()) ...",
+      "related": [
+        "button",
+        "blocking_nonblocking",
+        "state_machine",
+        "interrupt"
+      ]
+    },
+    {
+      "id": "volatile",
+      "term": "volatile keyword",
+      "category": "Software",
+      "metaphor": "A sticky note saying \"someone else may change this number behind your back at any time; look it up fresh every time, don't go from memory.\"",
+      "definition": "A C/C++ type qualifier telling the compiler that a variable may be changed by something outside the program flow (an interrupt handler, a hardware register), so it must not cache it in a CPU register or optimize away repeated reads.",
+      "misconception": "Thinking volatile solves every multitasking problem. It only guarantees \"really read from memory each time,\" not atomicity. If an interrupt and the main loop both modify a variable wider than 32 bits, you can still read a half-old, half-new value.",
+      "example": "volatile bool pressed = false; Set pressed = true in the interrupt handler, and if (pressed) in loop will see it. Without volatile, with optimization on, the compiler may optimize the read in loop into a permanent false.",
+      "related": [
+        "interrupt",
+        "variable",
+        "compile",
+        "register"
+      ]
+    },
+    {
+      "id": "datasheet",
+      "term": "Datasheet",
+      "category": "Software",
+      "metaphor": "The spec sheet on a product page: dimensions, weight, temperature range, what each leg does, how much current it can take. Read it before you buy, look things up in it while you wire.",
+      "definition": "The document from the chip vendor describing a specific chip's electrical characteristics, pin definitions, package dimensions, and absolute maximum ratings. Usually tens to a couple hundred pages.",
+      "misconception": "Seeing a hundred-plus pages and being afraid to open it. You don't read a datasheet front to back; you look things up. Check the pin table when wiring, check Absolute Maximum Ratings when worried about frying something, and never read the other 95%.",
+      "example": "Chapter 4 of the STM32F103x8/xB datasheet (DS5319) has the pin table that says PA0's alternate functions are ADC12_IN0, TIM2_CH1, and WKUP; chapter 5 says each I/O pin handles 25mA max and the total is 150mA.",
+      "related": [
+        "reference_manual",
+        "pin",
+        "pinout",
+        "schematic"
+      ]
+    },
+    {
+      "id": "reference_manual",
+      "term": "Reference manual",
+      "category": "Software",
+      "metaphor": "The \"advanced repair manual\" in the box: it doesn't tell you the dimensions, it tells you what happens when you flip each bit of each switch (register) inside.",
+      "definition": "The thick document describing how the peripherals inside a chip family work and what every bit of every register means. For the STM32F1 series it's RM0008, over a thousand pages. Only needed when writing code below the HAL.",
+      "misconception": "Confusing the datasheet with the reference manual. The datasheet says \"what this chip has and what it can withstand\" (for a specific model); the reference manual says \"how these peripherals are used\" (for a whole series). Pins: datasheet. Registers: reference manual.",
+      "example": "Want to know why PC13 has weak drive strength? You won't find it in RM0008; that's a datasheet question. Want to know how to write GPIOC's BSRR register? That's RM0008, chapter 9, GPIO.",
+      "related": [
+        "datasheet",
+        "register",
+        "hal",
+        "peripheral"
+      ]
+    },
+    {
+      "id": "schematic",
+      "term": "Schematic",
+      "category": "Software",
+      "metaphor": "A subway map. Regardless of what the stations actually look like, the map only shows \"which line connects which stations.\" To see how a circuit is connected, look at this.",
+      "definition": "A drawing that uses standard symbols to show the components in a circuit and their electrical connections. It doesn't show physical positions or sizes, only \"what connects to what.\" The PCB is laid out from the schematic.",
+      "misconception": "Thinking the schematic is the PCB drawing or a photo of the board. On a schematic a resistor is a rectangle with two lines, possibly drawn far from the chip; on the PCB it may sit right next to the chip's pin. Read the schematic to understand the circuit; read the PCB drawing to find a part.",
+      "example": "Search \"blue pill schematic\" and you'll find it. From it you can see PC13 → resistor R → LED → 3.3V, which is why the LED is active-low. The R10 on USB D+ should be 1.5kΩ, but many clones use 10kΩ, and that's why USB is flaky on them.",
+      "related": [
+        "pcb",
+        "silkscreen",
+        "datasheet",
+        "wiring"
+      ]
+    },
+    {
+      "id": "silkscreen",
+      "term": "Silkscreen",
+      "category": "Software",
+      "metaphor": "The white printing on the board, like the letters on a keyboard: it tells you this pin is PA0, that one is GND, and BOOT0 plugs in here.",
+      "definition": "The layer of text and symbols printed on the surface of a PCB, marking pin names, component designators, the board model, and so on. Usually white.",
+      "misconception": "Trusting the silkscreen completely. On cheap boards it is occasionally wrong or abbreviated (the Blue Pill (STM32F103C8T6) prints PA13/PA14 as SWIO/SWCLK and PA15 as A15). When it's unreadable or in doubt, the schematic is the authority.",
+      "example": "The back of the Blue Pill (STM32F103C8T6) has each pin name printed beside its header: A0–A15 are PA0–PA15, B0–B15 are PB0–PB15, C13–C15 are PC13–PC15. Write PA0 in code, look for A0 on the board.",
+      "related": [
+        "pcb",
+        "pin",
+        "pinout",
+        "schematic"
+      ]
+    },
+    {
+      "id": "header_file",
+      "term": "Header file (.h)",
+      "category": "Software",
+      "metaphor": "The menu at a restaurant door. It lists only dish names and prices (function names and parameters), not how they're cooked (the implementation in the .cpp kitchen).",
+      "definition": "A file containing function declarations, class definitions, constants, and macros, brought in with #include. It lets several source files share one set of declarations, which the compiler uses to check that your calls are valid.",
+      "misconception": "Thinking #include \"installs\" the library into your project. #include just pastes in the declarations as text; the library's implementation files still have to be in the project (downloaded via lib_deps) and linked in.",
+      "example": "#include <Arduino.h> brings in the declarations for pinMode, digitalWrite, and friends; #include <RTClib.h> brings in the RTC_DS3231 class. In a multi-file project, your own feeder.h holds declarations and feeder.cpp holds the implementation.",
+      "related": [
+        "library",
+        "compile",
+        "link",
+        "lib_deps"
+      ]
+    },
+    {
+      "id": "macro",
+      "term": "Macro (#define)",
+      "category": "Software",
+      "metaphor": "Find and replace. You write at the top of the essay \"every X below stands for PC13,\" and before compiling someone mechanically swaps every X for PC13.",
+      "definition": "A C preprocessor directive that does pure text substitution before compilation. Commonly used to define constants (pin numbers, parameters) and conditional-compilation switches.",
+      "misconception": "Thinking a macro is a variable. A macro has no type, uses no memory, and can't change at runtime; it's substituted away before compilation even starts. To change a pin you edit the macro and recompile and re-upload; it's not something that changes while running.",
+      "example": "In this project's platformio.ini, build_flags = -D LED_PIN=PC13 is the same as writing #define LED_PIN PC13 at the top of every file. With digitalWrite(LED_PIN, LOW) in the code, switching boards means changing one line in the ini.",
+      "related": [
+        "compile",
+        "header_file",
+        "platformio",
+        "variable"
+      ]
+    },
+    {
+      "id": "variable",
+      "term": "Variable / data type",
+      "category": "Software",
+      "metaphor": "A labeled box. The label gives the box's name and says \"whole numbers only\" or \"decimals only.\" The box is a fixed size, and if you stuff in too much it overflows.",
+      "definition": "A named storage location in a program. Common embedded types and sizes: uint8_t (1 byte, 0–255), int (4 bytes), uint32_t (4 bytes, 0 to about 4.29 billion), float (4 bytes), bool. They live in RAM.",
+      "misconception": "On an 8-bit Arduino UNO, int is 2 bytes, and many tutorials say int maxes out at 32767 based on that. On STM32, int is 4 bytes. Using explicitly sized types like uint8_t and uint32_t avoids cross-platform surprises.",
+      "example": "unsigned long last = 0; holds the return value of millis() (32-bit unsigned); store it in an int and it goes negative after 24.8 days and breaks things. The F103 has no hardware floating-point unit, so float math is slow; use integers when you can.",
+      "related": [
+        "ram",
+        "volatile",
+        "macro",
+        "stack_overflow"
+      ]
+    },
+    {
+      "id": "serial_print",
+      "term": "Serial print debugging (Serial.print)",
+      "category": "Software",
+      "metaphor": "The program's diary. It can't talk, so you have it jot a line at each step; when something goes wrong, you flip through the diary to see how far it got.",
+      "definition": "Sending variable values and status messages over UART to a serial monitor on your computer. It's the most basic and most used debugging technique in embedded.",
+      "misconception": "Thinking the first thing to do when a program misbehaves is to step through it in a debugger. 90% of problems are found with a few Serial.println lines. The other trap: Serial.print is blocking, so too much of it in time-critical code or interrupts slows the program down.",
+      "example": "Serial.begin(115200); then Serial.print(\"raw=\"); Serial.println(analogRead(PA0)); and pio device monitor shows the readings scrolling by. The dog feeder printing one line with the time and count at every feeding is the simplest possible log.",
+      "related": [
+        "uart",
+        "baud_rate",
+        "platformio",
+        "debugger"
+      ]
+    },
+    {
+      "id": "compile_error",
+      "term": "Compile error",
+      "category": "Software",
+      "metaphor": "The circles a teacher draws in red pen on your essay: which line, which word, what's wrong. Looks scary, but it's actually the friendliest kind of error, because it tells you exactly where.",
+      "definition": "The message the compiler or linker outputs when it finds a problem during the build and stops, including file name, line number, error type, and description. As long as there's an error, no firmware is produced.",
+      "misconception": "Panicking at a screen of red, or reading only the last line. Look at the first error (the later ones are usually a chain reaction from it), and jump to the \"file:line\" it names. Warnings don't block the firmware from building, but they're worth reading.",
+      "example": "src/main.cpp:12:3: error: 'Servo' was not declared in this scope means that at line 12, character 3 of main.cpp you used Servo without declaring it. Usually you forgot #include <Servo.h> or the library isn't in lib_deps. Pasting the exact error text to an AI is the fastest way to get help.",
+      "related": [
+        "compile",
+        "link",
+        "lib_deps",
+        "header_file"
+      ]
+    },
+    {
+      "id": "stack_overflow",
+      "term": "Stack overflow / out-of-bounds access",
+      "category": "Software",
+      "metaphor": "The desk (RAM) is only so big. You keep spreading more stuff on it until you're crushing someone else's things or they fall on the floor, and nobody knows what happens next.",
+      "definition": "A program using memory beyond what was allocated. Stack overflow: function calls nested too deep or local arrays too big. Out-of-bounds: reading element 11 of an array that has 10. With no operating system to protect it, an MCU either silently corrupts data or mysteriously reboots or freezes.",
+      "misconception": "Blaming mysterious reboots on the power supply or a dead chip. Power really can be the cause, but so can declaring char buf[4000] inside loop or runaway string concatenation. With only 20KB of RAM, it's ten thousand times touchier than a PC.",
+      "example": "A build output of RAM: 95% is a warning sign. Frequent String concatenation fragments memory and crashes after a few hours. For a device like the dog feeder that runs for months, prefer fixed-size char arrays.",
+      "related": [
+        "ram",
+        "variable",
+        "watchdog",
+        "reset"
+      ]
+    },
+    {
+      "id": "version_control",
+      "term": "Version control (Git)",
+      "category": "Software",
+      "metaphor": "Saving a dated copy of your essay every time you revise it, so you can go back to any version and see exactly which words changed between two of them.",
+      "definition": "A tool that records the history of every change to your files; Git is the de facto standard. Each \"commit\" is a snapshot you can roll back to, compare, branch from, or share with collaborators.",
+      "misconception": "Thinking Git is for programmers and embedded doesn't need it. In a hardware project, one changed line can send a servo spinning wildly; being able to jump back to \"yesterday's working version\" with one command matters more than anything. This platform commits after every task.",
+      "example": "This project in ~/Documents/embeded is a Git repository. git log --oneline shows history like \"Tasks 0-0 and 0-1 done\"; if you break main.cpp, git checkout -- firmware/dog-feeder/src/main.cpp restores it.",
+      "related": [
+        "firmware",
+        "platformio",
+        "toolchain",
+        "compile_error"
+      ]
+    },
+    {
+      "id": "st_link",
+      "term": "ST-Link (programmer / debugger)",
+      "category": "Tools",
+      "metaphor": "The interpreter and courier between your computer and the chip. The computer says \"write this program in there,\" and it translates that into signals the chip understands and delivers them. It can also ask the chip \"where are you in the program right now?\"",
+      "definition": "ST's debug probe and programmer. It connects to an STM32 over SWD or JTAG to flash firmware, single-step through code, and read or write memory. There's an official version and a thumb-drive-shaped clone (ST-Link V2) for around $10.",
+      "misconception": "Thinking you can't upload without one. The Blue Pill (STM32F103C8T6) can also be flashed over serial with the BOOT0 jumper, but then you can't debug and have to move the jumper every time. At about $10, an ST-Link is the best investment for speeding up the \"edit → upload → see result\" loop.",
+      "example": "Four wires from the ST-Link V2's 10-pin header to the short edge of the Blue Pill (STM32F103C8T6): SWDIO → SWIO, SWCLK → SWCLK, GND → GND, 3.3V → 3.3 (skip this one if the board is already on USB). In platformio.ini, upload_protocol = stlink.",
+      "related": [
+        "swd",
+        "flashing",
+        "debugger",
+        "jtag"
+      ]
+    },
+    {
+      "id": "swd",
+      "term": "SWD (Serial Wire Debug)",
+      "category": "Tools",
+      "metaphor": "A \"back door\" the chip leaves open: with just two wires you can get in to rewrite Flash, inspect memory, and pause the program. Built for the repair crew.",
+      "definition": "Serial Wire Debug, the two-wire debug interface on ARM Cortex-M: SWDIO (data) and SWCLK (clock), plus shared ground. It's a slimmed-down JTAG with the same capabilities and fewer wires.",
+      "misconception": "Thinking SWD is only for uploading. It can also pause the program on a given line, show variable values, and step through code (debugging); beginners just tend to use Serial.print more. The other trap is repurposing SWDIO and SWCLK as ordinary GPIO, after which you can't upload anymore.",
+      "example": "On the Blue Pill (STM32F103C8T6), PA13 is SWDIO and PA14 is SWCLK, brought out to the four-pin header on the short edge and silkscreened SWIO / SWCLK. If OpenOCD reports Error: init mode failed (unable to connect to the target) during upload, those two wires are usually the problem.",
+      "related": [
+        "st_link",
+        "jtag",
+        "flashing",
+        "debugger"
+      ]
+    },
+    {
+      "id": "jtag",
+      "term": "JTAG",
+      "category": "Tools",
+      "metaphor": "SWD's big brother. Same job, but it needs five or six wires. Every chip used it back in the day; on Cortex-M it has mostly been replaced by two-wire SWD.",
+      "definition": "Joint Test Action Group, a general-purpose standard for chip debugging and testing that uses four or five wires: TCK, TMS, TDI, TDO (and optionally TRST). STM32 supports both JTAG and SWD.",
+      "misconception": "Seeing the 20-pin JTAG header on an ST-Link and assuming all of it must be connected. For STM32, the two SWD wires are enough; the rest are for JTAG and older chips.",
+      "example": "The Blue Pill (STM32F103C8T6)'s JTAG pins (PA13/14/15, PB3/PB4) are reserved by default, so under the Arduino framework PA15, PB3, and PB4 must be released before they can be used as GPIO. That's another reason SWD saves pins.",
+      "related": [
+        "swd",
+        "st_link",
+        "debugger",
+        "pin"
+      ]
+    },
+    {
+      "id": "debugger",
+      "term": "Debugger / breakpoints",
+      "category": "Tools",
+      "metaphor": "Pausing a movie at any moment and asking \"what's in the hero's pocket right now?\", then playing it frame by frame.",
+      "definition": "A tool that uses SWD/JTAG to pause the program at a chosen line (breakpoint), step through it line by line, and view or change variables and registers. PlatformIO does this with pio debug using GDB and OpenOCD.",
+      "misconception": "Thinking the debugger is \"advanced\" and Serial.print is \"crude.\" They complement each other: Serial.print is good for watching the flow, the debugger for the exact state at one instant or for examining a crash. Knowing both, and when to use which, is what matters.",
+      "example": "Set a breakpoint on the first line of feed() in main.cpp in VS Code, start pio debug, and the program stops just before the servo moves, letting you see the exact time rtc.now() returned.",
+      "related": [
+        "st_link",
+        "swd",
+        "serial_print",
+        "register"
+      ]
+    },
+    {
+      "id": "multimeter",
+      "term": "Multimeter",
+      "category": "Tools",
+      "metaphor": "A thermometer and stethoscope for circuits. Is there power here, how many volts, is this connected to that, what's the resistance: one meter answers all of it.",
+      "definition": "A handheld instrument that measures voltage, current, resistance, and continuity (beep). The first tool every embedded beginner should buy; a digital one for $15–20 is plenty.",
+      "misconception": "Thinking a multimeter is \"for electricians\" and unnecessary for playing with boards. When the board is dead, checking whether the 3.3V pin actually has 3.3V beats re-uploading ten times. 80% of \"the program isn't responding\" is a wiring problem a multimeter rules out in a minute.",
+      "example": "Before power-up, use continuity mode to check for a short between 3.3V and GND. After power-up, check that the 3.3V pin reads 3.2–3.4V. When the program pulls PC13 low, PC13 should read close to 0V; high, close to 3.3V.",
+      "related": [
+        "voltage",
+        "short_circuit",
+        "oscilloscope",
+        "wiring"
+      ]
+    },
+    {
+      "id": "oscilloscope",
+      "term": "Oscilloscope",
+      "category": "Tools",
+      "metaphor": "A multimeter only tells you \"how many volts right now.\" An oscilloscope draws a curve of how the voltage changes over time and can show waveforms that change millions of times a second.",
+      "definition": "An instrument that displays voltage waveforms over time. It's how you look at PWM duty cycle, serial waveforms, clock signals, and power-supply noise. A portable or USB scope for $50–100 is fine to start.",
+      "misconception": "Thinking you must buy an oscilloscope before learning embedded. You won't need one for the first few months; a multimeter and a logic analyzer are enough. A scope is for when you suspect the signal itself is the problem.",
+      "example": "After analogWrite(PA8, 64), clip a scope probe onto PA8 and you'll see a 25% duty-cycle square wave. If the edges look slow or ring, the wires are too long or the load is wrong.",
+      "related": [
+        "multimeter",
+        "logic_analyzer",
+        "pwm",
+        "noise"
+      ]
+    },
+    {
+      "id": "logic_analyzer",
+      "term": "Logic analyzer",
+      "category": "Tools",
+      "metaphor": "A tape recorder that specializes in \"digital conversations.\" It doesn't care about exact voltages, just 0s and 1s, and it can automatically translate I2C or UART waveforms into \"address 0x68, read, data 0x12.\"",
+      "definition": "An instrument that captures several digital signals at once and displays their HIGH/LOW levels against time, usually with protocol decoding. An 8-channel USB model for about $10, paired with the PulseView software, is plenty to start.",
+      "misconception": "Thinking it's the same thing as an oscilloscope. A scope shows analog waveform detail (how many volts, how sharp an edge); a logic analyzer shows digital timing and protocol contents. Use the logic analyzer for \"why won't I2C read?\", the scope for \"why is there noise on the power rail?\"",
+      "example": "Clip two channels of the logic analyzer onto PB6 (SCL) and PB7 (SDA), select the I2C decoder in PulseView, and you can see the address the Blue Pill (STM32F103C8T6) sends every time it reads the DS3231 and the bytes it gets back. You can also tell whether the problem is missing pull-ups, a wrong address, or bad timing.",
+      "related": [
+        "oscilloscope",
+        "i2c",
+        "uart",
+        "protocol"
+      ]
+    },
+    {
+      "id": "soldering_iron",
+      "term": "Soldering iron / soldering",
+      "category": "Tools",
+      "metaphor": "The hot glue gun of electronics. Melted tin joins a component's leg to the copper on the board, holding it in place and conducting electricity at the same time.",
+      "definition": "Melting solder with a heated iron tip to form a reliable electrical connection between a component's pin and a pad on the PCB. A temperature-controlled iron (such as a T12-style) set to 300–350°C (570–660°F) is the most common setup.",
+      "misconception": "Thinking soldering is a gatekeeping skill you must learn first. Buy the Blue Pill (STM32F103C8T6) with headers pre-soldered, sensor modules come with headers, and jumper wires plus a breadboard will carry you through your third or fourth project. Learn it when you actually need it; two hours gets you to usable joints.",
+      "example": "Some Blue Pills ship with loose headers that you have to solder yourself: 40 joints. Push the headers into a breadboard first to hold them, then set the board on top and solder, and they won't end up crooked.",
+      "related": [
+        "pcb",
+        "dupont_wire",
+        "breadboard",
+        "package"
+      ]
+    },
+    {
+      "id": "dupont_wire",
+      "term": "Jumper wires (Dupont wires)",
+      "category": "Tools",
+      "metaphor": "Short wires with a plug on each end. Plug in and it's connected; pull out and it's not. The Lego connectors of electronics experiments.",
+      "definition": "Wires with 2.54mm-pitch connectors on both ends, in male-to-male, male-to-female, and female-to-female varieties. Used for solderless connections between breadboards, dev boards, and modules.",
+      "misconception": "Thinking any jumper wire will do, and that a bad one is obvious. Poor contact and internal breaks in cheap jumper wires are the number one cause of \"it worked yesterday and not today.\" When in doubt, check end to end with the multimeter's continuity mode.",
+      "example": "The Blue Pill (STM32F103C8T6) and the DS3231 module both have male headers, so use four female-to-female jumpers: 3.3V, GND, PB6 to SCL, PB7 to SDA. Between the board and a breadboard, use male-to-male.",
+      "related": [
+        "breadboard",
+        "wiring",
+        "multimeter",
+        "common_ground"
+      ]
+    },
+    {
+      "id": "usb_ttl",
+      "term": "USB-to-serial adapter (USB-to-TTL)",
+      "category": "Tools",
+      "metaphor": "An interpreter: the computer only speaks USB, the Blue Pill only speaks 3.3V serial, and this little module sits in the middle translating both ways.",
+      "definition": "A small board that converts a computer's USB into 3.3V/5V-level UART signals; common chips are CH340, CP2102, and FT232. It lets the computer see the MCU's Serial output and send commands back.",
+      "misconception": "Thinking the Blue Pill (STM32F103C8T6)'s own USB port is a serial port. By default it isn't; it only supplies power. If you don't want to mess with USB CDC configuration, a $5 CH340 adapter is the easiest way to see serial output.",
+      "example": "Set the CH340 adapter's switch to 3.3V, connect TXD to Blue Pill (STM32F103C8T6) PA10, RXD to PA9, and GND to GND. A /dev/cu.usbserial-xxx device appears on your computer, and pio device monitor shows the Serial.println output.",
+      "related": [
+        "uart",
+        "tx_rx",
+        "logic_level",
+        "serial_print"
+      ]
+    },
+    {
+      "id": "wiring",
+      "term": "Wiring",
+      "category": "Tools",
+      "metaphor": "Plumbing: connect the source right, connect the destination right, don't forget the return pipe, and shut off the main valve before you start.",
+      "definition": "Connecting the board, modules, and components correctly with jumper wires and a breadboard according to a schematic or wiring diagram. The rules: power off while wiring, power first then signals, share ground, and double-check against the diagram before powering up.",
+      "misconception": "Treating wiring as \"grunt work\" that needs no thought. More than half of \"the program doesn't work\" in embedded is wiring: wrong pin, missing GND, power reversed, broken jumper. Care in wiring matters even more than care in coding, because a wiring mistake can destroy hardware.",
+      "example": "On this platform, every task's wiring diagram is drawn on the wiring canvas, such as the four wires from the ST-Link to the Blue Pill (STM32F103C8T6). When you're done, don't plug in USB yet: check with a multimeter that 3.3V and GND aren't shorted, then power up.",
+      "related": [
+        "dupont_wire",
+        "breadboard",
+        "common_ground",
+        "schematic"
+      ]
+    },
+    {
+      "id": "sensor",
+      "term": "Sensor",
+      "category": "Sensors & actuators",
+      "metaphor": "The device's senses. A temperature sensor is skin, a photoresistor is an eye, a microphone is an ear; each turns changes in the world into an electrical signal the chip can read.",
+      "definition": "A component that converts a physical quantity (temperature, light, distance, acceleration, gas concentration) into an electrical signal (voltage, resistance, digital data). Outputs come as analog voltage, on/off signals, or I2C/SPI/UART digital interfaces.",
+      "misconception": "Thinking a sensor hands you \"77.5°F\" directly. An analog sensor gives you a voltage that you convert using its datasheet; a digital sensor gives you raw bytes from its registers that a library decodes. There's always conversion, and error, in between.",
+      "example": "A DHT22 (temperature/humidity, single-wire), a DS3231 (time, I2C; strictly a clock rather than a sensor), a photoresistor (analog, read via ADC on PA0), and an HC-SR04 ultrasonic ranger (GPIO, distance from pulse width) are all things the dog feeder could use.",
+      "related": [
+        "analog_digital",
+        "adc",
+        "i2c",
+        "sampling"
+      ]
+    },
+    {
+      "id": "analog_digital",
+      "term": "Analog / digital",
+      "category": "Sensors & actuators",
+      "metaphor": "Analog is like a volume slider that can rest anywhere. Digital is like a switch with only on and off, or a row of switches that together represent a whole number from 0 to 255.",
+      "definition": "Analog: a continuously varying physical signal (the voltage can be 1.234V). Digital: discrete values represented with a finite number of bits (0/1, or 0–4095). An MCU only handles digital internally; the ADC and DAC are the bridges between the two.",
+      "misconception": "Thinking \"digital\" is automatically more advanced and accurate than \"analog.\" Digitizing always introduces quantization error (a 12-bit ADC resolves 0.8mV at best), and sampling too slowly misses fast changes. Analog is how the world actually is; digital is for convenience of processing.",
+      "example": "digitalRead(PB12) is digital: HIGH or LOW. analogRead(PA0) digitizes an analog value: 0–4095. The button on the board is a digital sensor; the potentiometer is an analog one.",
+      "related": [
+        "adc",
+        "dac",
+        "sampling",
+        "gpio"
+      ]
+    },
+    {
+      "id": "sampling",
+      "term": "Sampling",
+      "category": "Sensors & actuators",
+      "metaphor": "Taking photos to record a car's position. One photo a second reconstructs the path fine if the car is slow; if it's fast, you have no idea what happened between two frames.",
+      "definition": "Reading a continuous signal at fixed time intervals to turn it into a series of discrete values. The sampling rate (readings per second) must be at least twice the signal's highest frequency to reconstruct it (the Nyquist theorem).",
+      "misconception": "Thinking faster sampling is always better. Fast sampling costs power, RAM, and CPU. Once a minute is plenty for room temperature. Another trap: single readings are noisy, so the usual practice is to read 8–16 times and average.",
+      "example": "Reading a potentiometer with analogRead on every pass through loop, the last digit jitters. Sum 16 readings and divide by 16 and it settles down. Reading a DHT22 every 2 seconds is already its maximum rate.",
+      "related": [
+        "adc",
+        "analog_digital",
+        "noise",
+        "dma"
+      ]
+    },
+    {
+      "id": "noise",
+      "term": "Noise / interference",
+      "category": "Sensors & actuators",
+      "metaphor": "Taking a phone call in a busy market: the other person's voice is mixed with all kinds of racket. What you said (the signal) didn't change; the environment dirtied it.",
+      "definition": "Random disturbances on top of the useful signal. Sources: power-supply ripple, motors starting and stopping, radio signals, long wires acting as antennas, poor grounding. Symptoms: jittery ADC readings, occasional serial garbage, false button presses.",
+      "misconception": "Blaming jittery readings on a program bug or a low-precision chip. It's usually the circuit: wires too long, no decoupling capacitor, motor and MCU on the same supply. Reduce noise in hardware first, then filter in software.",
+      "example": "When the dog feeder's motor spins, the ADC readings go haywire: the motor's current surge drags down the 3.3V rail. Fixes: give the motor its own supply, add a big capacitor across the power, and route signal wires away from motor wires.",
+      "related": [
+        "capacitor",
+        "sampling",
+        "floating",
+        "common_ground"
+      ]
+    },
+    {
+      "id": "button",
+      "term": "Push button",
+      "category": "Sensors & actuators",
+      "metaphor": "The simplest sensor: it only answers \"pressed or not.\" But the little problem of bouncing mechanical contacts makes it the first real trap for beginners.",
+      "definition": "A mechanical switch that conducts while pressed and opens when released (commonly a four-leg tactile switch, with the legs paired diagonally). On a GPIO it needs a pull-up or pull-down for a default level, and the software needs debouncing.",
+      "misconception": "Wiring any two legs of a four-leg button. Two of the four legs are internally connected as a pair, so using both legs of one pair is a permanent short. Use the multimeter's continuity mode to find the two legs that are open when released and connected when pressed.",
+      "example": "One leg to PB12, the diagonal leg to GND, pinMode(PB12, INPUT_PULLUP). digitalRead(PB12) is normally HIGH and goes LOW when pressed. The dog feeder uses it for \"feed once now.\"",
+      "related": [
+        "pull_up_pull_down",
+        "debounce",
+        "gpio",
+        "interrupt"
+      ]
+    },
+    {
+      "id": "potentiometer",
+      "term": "Potentiometer",
+      "category": "Sensors & actuators",
+      "metaphor": "The volume knob on an old radio. Wherever you turn it, the voltage on the middle leg slides to match.",
+      "definition": "A variable resistor with a sliding contact and three legs: the two outer legs connect to the ends of a fixed resistor, and the middle wiper slides between them with the knob, forming an adjustable voltage divider.",
+      "misconception": "Thinking a potentiometer outputs an \"angle.\" It outputs a voltage, the ADC reads 0–4095, and you map() that to an angle or a percentage yourself. Also, don't use just two legs as a variable resistor for an LED; when the resistance hits 0 you'll burn the LED.",
+      "example": "Outer legs to 3.3V and GND, wiper to PA0. int raw = analogRead(PA0); int angle = map(raw, 0, 4095, 0, 180); Turn the knob and you control a servo's angle.",
+      "related": [
+        "voltage_divider",
+        "adc",
+        "servo",
+        "analog_digital"
+      ]
+    },
+    {
+      "id": "servo",
+      "term": "Servo motor",
+      "category": "Sensors & actuators",
+      "metaphor": "An obedient turntable: say \"go to 90 degrees\" and it turns to 90 and holds there, correcting itself if something pushes it off.",
+      "definition": "A motor with built-in position feedback and control circuitry. A 50Hz PWM signal's pulse width (0.5–2.5ms) sets the angle, usually 0–180 degrees. Three wires: power (red), ground (brown/black), signal (yellow/orange).",
+      "misconception": "Wiring the servo's signal to a GPIO and its power to the board's 3.3V. A servo draws hundreds of mA, even 1A, at startup, and pulling that from the board resets it. Power the servo from the 5V pin (USB pass-through) or a separate supply; only signal and GND go to the board.",
+      "example": "SG90 servo: red to Blue Pill (STM32F103C8T6) 5V, brown to GND, yellow to PA8. Add the Servo library to lib_deps, then servo.attach(PA8); servo.write(0); delay(1000); servo.write(90); is the dog feeder's dispensing motion.",
+      "related": [
+        "pwm",
+        "power_supply",
+        "stepper_motor",
+        "duty_cycle"
+      ]
+    },
+    {
+      "id": "dc_motor",
+      "term": "DC motor",
+      "category": "Sensors & actuators",
+      "metaphor": "The simplest motor: apply power and it spins, reverse the wires and it spins the other way, raise the voltage and it spins faster. The kind in toy cars.",
+      "definition": "A two-wire motor that spins when given DC voltage; speed is proportional to voltage and direction follows polarity. It has no position feedback and needs a driver circuit (transistor, MOSFET, or H-bridge chip) before an MCU can control it.",
+      "misconception": "Connecting the motor straight to a GPIO. A motor needs hundreds of mA and a GPIO gives 20mA at best: at minimum it won't turn, at worst you fry the pin. When power is cut, a motor also generates a reverse voltage spike, so it needs a flyback diode.",
+      "example": "Use an L298N or TB6612 motor driver module: Blue Pill (STM32F103C8T6) PA8 outputs PWM for speed, PB0/PB1 set direction, the module gets its own 6–12V supply, and its GND is shared with the Blue Pill.",
+      "related": [
+        "driver",
+        "mosfet",
+        "pwm",
+        "diode"
+      ]
+    },
+    {
+      "id": "stepper_motor",
+      "term": "Stepper motor",
+      "category": "Sensors & actuators",
+      "metaphor": "A motor that walks one step at a time. Send one pulse and it turns one notch (say 1.8 degrees); send 200 and it's turned exactly once. Count the pulses and you know where it is, no feedback needed.",
+      "definition": "A motor that converts electrical pulses into fixed-angle steps by energizing several coils in sequence. High precision, strong torque at low speed, accurate positioning, but it needs a dedicated driver (A4988, ULN2003).",
+      "misconception": "Thinking a stepper works like a servo where you \"just tell it the angle.\" A stepper only knows how many steps it has taken, not where it is; it loses its position when powered off and needs to home at startup. And unlike a DC motor, it won't spin if you just apply voltage.",
+      "example": "A 28BYJ-48 stepper with its ULN2003 driver board: driver IN1–IN4 to Blue Pill (STM32F103C8T6) PB12–PB15, and stepper.step(512) from the Stepper library turns a quarter turn. For the dog feeder's auger, a stepper is more controllable than a servo.",
+      "related": [
+        "servo",
+        "dc_motor",
+        "driver",
+        "pwm"
+      ]
+    },
+    {
+      "id": "relay",
+      "term": "Relay",
+      "category": "Sensors & actuators",
+      "metaphor": "A mechanical switch controlled by a small current. A little 3.3V signal gives a push, there's a \"click,\" and a 120V circuit on the other side closes, with the two sides never touching.",
+      "definition": "A switch in which an electromagnetic coil moves mechanical contacts, letting a low-voltage, low-current signal control a high-voltage, high-current load with electrical isolation between the two sides. The \"click\" you hear is the contacts moving.",
+      "misconception": "Thinking a relay module means you can control 120V household appliances right away. Technically yes, but mains voltage can kill you; beginners should only switch things under 12V with a relay. The other trap is that the relay coil itself needs a driver, though modules usually include a transistor.",
+      "example": "Relay module IN to Blue Pill (STM32F103C8T6) PB5, VCC to 5V, GND to GND; digitalWrite(PB5, HIGH) closes it (some modules are active-low). Good for switching a small 12V fan or water pump.",
+      "related": [
+        "transistor",
+        "diode",
+        "driver",
+        "gpio"
+      ]
+    },
+    {
+      "id": "driver",
+      "term": "Driver (driver circuit / driver software)",
+      "category": "Sensors & actuators",
+      "metaphor": "Two kinds of \"driver.\" A hardware driver is the muscle: the MCU whispers and it pushes the motor hard. A software driver is the interpreter: it translates \"read the temperature\" into the string of register operations a particular chip understands.",
+      "definition": "Hardware driver: a circuit or chip that amplifies MCU signals to drive high-power loads (transistor, MOSFET, H-bridge, ULN2003). Software driver: low-level code that operates a specific piece of hardware (a sensor library, a display library).",
+      "misconception": "Getting dizzy when the two meanings get mixed. \"Buy a motor driver\" means a board; \"write an OLED driver\" means code. In context, \"driver board\" or \"driver module\" is hardware; \"driver library\" or \"driver program\" is software.",
+      "example": "Hardware: a ULN2003 driver board lets the Blue Pill (STM32F103C8T6) turn a 28BYJ-48 stepper. Software: RTClib is the DS3231's driver, wrapping the I2C register reads into rtc.now().",
+      "related": [
+        "mosfet",
+        "transistor",
+        "library",
+        "stepper_motor"
+      ]
+    },
+    {
+      "id": "sd_card",
+      "term": "SD card (data logging)",
+      "category": "Sensors & actuators",
+      "metaphor": "Giving the device a notebook. It writes down when and how much it fed each day, and months later you pull the card and read it on your computer.",
+      "definition": "External bulk storage connected over SPI. The SD library reads and writes it as files. Commonly used for logging, storing configuration, and storing images.",
+      "misconception": "Thinking an MCU reads and writes SD cards as freely as a PC. The SD library uses several KB of RAM, you must close() promptly or lose data on power loss, the card must be formatted FAT32, and large cards (over 32GB) often aren't compatible.",
+      "example": "SD card module on SPI1: CS → PA4, SCK → PA5, MISO → PA6, MOSI → PA7, powered from 3.3V. File f = SD.open(\"feed.log\", FILE_WRITE); f.println(timeString); f.close(); logs one feeding.",
+      "related": [
+        "spi",
+        "ram",
+        "library",
+        "rtc"
+      ]
+    },
+    {
+      "id": "rtos",
+      "term": "RTOS (real-time operating system)",
+      "category": "Systems",
+      "metaphor": "An extremely punctual homeroom teacher who chops the period into tiny slices and calls each student (task) up to work for a few milliseconds in turn, letting whoever is urgent go first, and making sure nobody is completely starved.",
+      "definition": "Real-Time Operating System, a small OS kernel designed for MCUs (FreeRTOS, RT-Thread, Zephyr) that provides multitasking, inter-task communication (queues, semaphores), and timers. \"Real-time\" means predictable response time, not \"fast.\"",
+      "misconception": "Thinking an RTOS is a beginner must-have, or that \"no RTOS isn't professional.\" Bare metal (no OS) plus a state machine handles 80% of projects. An RTOS solves \"too many tasks, the state machine is getting unwieldy,\" which the dog feeder never hits.",
+      "example": "Add lib_deps = stm32duino/STM32duino FreeRTOS in PlatformIO and FreeRTOS runs on the Blue Pill (STM32F103C8T6): one task reads sensors, one refreshes the display, one handles serial, each with its own loop, yielding the CPU with vTaskDelay.",
+      "related": [
+        "task",
+        "state_machine",
+        "blocking_nonblocking",
+        "embedded_linux"
+      ]
+    },
+    {
+      "id": "task",
+      "term": "Task / scheduling",
+      "category": "Systems",
+      "metaphor": "Several people taking turns on one computer. The admin says each person gets 10 milliseconds before giving up the seat, and urgent business can cut in line. Everyone feels like they have the computer to themselves; really they're rotating.",
+      "definition": "An independently running unit of code in an RTOS, each with its own stack and priority, like a standalone infinite loop. The scheduler uses priorities and time slices to decide which task runs right now.",
+      "misconception": "Thinking multitasking means \"at the same time.\" A single-core MCU runs exactly one task at any instant; rapid switching creates the illusion of parallelism. Variables shared between tasks need protection (a mutex), or, just like with interrupts, you read half-old, half-new data.",
+      "example": "xTaskCreate(readSensorTask, \"sensor\", 128, NULL, 1, NULL); creates a task; 128 is the stack size (in words) and 1 is the priority. Too small a stack overflows and crashes, which is easy to hit with the Blue Pill (STM32F103C8T6)'s 20KB of RAM.",
+      "related": [
+        "rtos",
+        "stack_overflow",
+        "interrupt",
+        "volatile"
+      ]
+    },
+    {
+      "id": "low_power",
+      "term": "Low power",
+      "category": "Systems",
+      "metaphor": "A phone on standby: the screen is dark and most things are off, with just one nerve left awake waiting for a call. When it rings, everything wakes at once.",
+      "definition": "Putting the MCU into sleep, stop, or standby when it has nothing to do, shutting off clocks and peripherals, so current drops from tens of mA to a few μA. External interrupts and RTC alarms wake it up. The core technique for battery-powered devices.",
+      "misconception": "Thinking delay() \"lets the chip rest.\" During delay the CPU spins at full speed and current doesn't drop at all. Real power saving means executing a sleep instruction to halt the core and turning off unused peripherals.",
+      "example": "The STM32F103 has three levels: Sleep, Stop, and Standby. A battery-powered dog feeder could call LowPower.deepSleep(60000) in loop to sleep a minute at a time, waking on the RTC alarm to check the time. On USB power, don't bother.",
+      "related": [
+        "rtc",
+        "interrupt",
+        "clock",
+        "iot"
+      ]
+    },
+    {
+      "id": "ota",
+      "term": "OTA (over-the-air update)",
+      "category": "Systems",
+      "metaphor": "A phone system update: no cable to a computer; you open your eyes and it's already the new version.",
+      "definition": "Over-The-Air, a mechanism for sending new firmware to a device wirelessly (Wi-Fi, Bluetooth, cellular) and writing it to Flash. It needs bootloader support, room in Flash for two copies, and rollback on failure.",
+      "misconception": "Thinking OTA is \"just another feature.\" It's a whole-firmware-architecture matter: Flash must be partitioned, you need a bootloader that can update itself, and you have to handle losing power halfway through. With 64KB of Flash and no wireless, the Blue Pill (STM32F103C8T6) basically can't do it.",
+      "example": "OTA isn't feasible on the Blue Pill (STM32F103C8T6). If the dog feeder's controller were swapped for an ESP32, a few lines with the ArduinoOTA library would let you upload over the same Wi-Fi with no cable. That's one reason the ESP32 suits small IoT projects better than the STM32F103.",
+      "related": [
+        "bootloader",
+        "firmware",
+        "wifi",
+        "iot"
+      ]
+    },
+    {
+      "id": "embedded_linux",
+      "term": "Embedded Linux",
+      "category": "Systems",
+      "metaphor": "Stepping up from \"an obedient little chip\" to \"a small computer that runs an OS\": that's what's inside a Raspberry Pi, a router, a smart TV, or a car's infotainment system.",
+      "definition": "Embedded devices running a trimmed-down Linux, with Cortex-A-class processors (hundreds of MHz to a few GHz) and tens of MB to several GB of memory, able to run multiple processes, a file system, a network stack, and Python.",
+      "misconception": "Thinking STM32 leads straight into embedded Linux, or that they're \"one path.\" They're two branches of embedded: MCUs are about real-time behavior and power efficiency, controlling hardware directly in C; embedded Linux is about systems and applications, closer to server development. Many products pair the two (a Linux main controller plus an MCU for real-time work).",
+      "example": "A Raspberry Pi Pico is an MCU (RP2040, in the same class as the Blue Pill); a Raspberry Pi 4 is embedded Linux (it can run a desktop and browse the web). If the dog feeder needed a camera to recognize the dog's face, you'd need the latter.",
+      "related": [
+        "mcu",
+        "rtos",
+        "cortex_m",
+        "embedded_engineer"
+      ]
+    },
+    {
+      "id": "iot",
+      "term": "IoT (Internet of Things)",
+      "category": "Systems",
+      "metaphor": "Giving every appliance its own phone so it can go online, report its status, and take orders. Lights, locks, and dog feeders you can watch and control from your phone.",
+      "definition": "The overall concept and technology stack for connecting physical devices over a network to exchange data: the device side (MCU plus wireless module), communication protocols (MQTT, HTTP, CoAP), and a cloud platform (data storage, rules, apps).",
+      "misconception": "Thinking IoT is \"adding Wi-Fi to the board.\" The device is the tip of the iceberg; servers, protocols, security, provisioning, firmware updates, and reconnection logic are the bulk of it. IoT engineers spend a lot of time writing backends and apps.",
+      "example": "The IoT version of the dog feeder: an ESP32 controller publishes an MQTT message to a server at every feeding, and a phone app subscribes and shows \"Fed today at 8:00.\" The part a Blue Pill can do is the feeding mechanism itself.",
+      "related": [
+        "wifi",
+        "bluetooth",
+        "ota",
+        "protocol"
+      ]
+    },
+    {
+      "id": "bare_metal",
+      "term": "Bare metal",
+      "category": "Systems",
+      "metaphor": "No butler, no operating system; your program is the only resident of the machine, in charge of everything from the first second of power to the last.",
+      "definition": "Developing without an operating system, with the program running directly on the hardware. Arduino's setup/loop is bare-metal programming. The alternative is running an RTOS or Linux.",
+      "misconception": "Thinking bare metal is \"low-level\" or a \"transitional stage.\" The vast majority of MCU products (remotes, rice cookers, mice) are bare metal: simple, reliable, quick to start, and frugal with resources. Bare metal plus a state machine is the fundamental skill of embedded; an RTOS is a tool built on top of it.",
+      "example": "Every lesson on this platform and the dog feeder project are bare metal: one main.cpp, setup initializes, loop polls a state machine. No tasks, no scheduler, and the program's behavior is completely predictable.",
+      "related": [
+        "rtos",
+        "setup_loop",
+        "state_machine",
+        "firmware"
+      ]
+    },
+    {
+      "id": "embedded_engineer",
+      "term": "What an embedded engineer does",
+      "category": "Careers & majors",
+      "metaphor": "The people who give brains to \"things that don't look like computers.\" How a robot vacuum knows it hit a wall, how an e-bike's display shows the battery, what happens when you press a button on the AC remote: they wrote all of it.",
+      "definition": "An engineer who designs and develops software (and sometimes hardware) that runs on purpose-built hardware. Day to day: reading chip manuals, writing drivers and application logic, tuning hardware timing, chasing problems with oscilloscopes and logic analyzers, coordinating wiring with hardware engineers, and building production tests.",
+      "misconception": "Thinking embedded is \"writing C to blink LEDs\" or \"soldering boards.\" Real work is heavy on reading documentation, looking at waveforms, and tracking down ghosts like \"why does it reboot once in a while\"; the language is just a tool. And don't assume embedded pays less than web development; demand is strong in automotive, robotics, and medical devices.",
+      "example": "The embedded engineer building a dog feeder has to: pick the chip, draw the schematic (or work with a hardware engineer), write the feeding logic, tune the servo timing, handle recovery from power loss, add a watchdog, and plan how to flash a batch of 100 units. This platform shrinks that whole process down to something one person can walk through.",
+      "related": [
+        "firmware_engineer",
+        "hardware_engineer",
+        "vs_software_dev",
+        "ee_major"
+      ]
+    },
+    {
+      "id": "firmware_engineer",
+      "term": "Firmware engineer",
+      "category": "Careers & majors",
+      "metaphor": "The embedded engineer whose specialty is \"the program that goes inside the chip.\" The hardware engineer builds the board and hands it over; the firmware engineer brings it to life.",
+      "definition": "An engineer focused on low-level software for MCUs and SoCs: drivers, bootloaders, communication protocol stacks, RTOS porting, power optimization. Compared with a generalist embedded engineer, less hardware design and more low-level software.",
+      "misconception": "Thinking the difference between firmware and software engineers is \"they use C.\" The real difference is that a firmware engineer must understand hardware: registers, timing, electrical characteristics, and when something breaks, whether it's the code or the circuit. That's why this platform keeps making you wire things up and measure voltages.",
+      "example": "At a company making smart door locks, the firmware engineer owns the fingerprint module's UART driver, the BLE protocol, power management (the battery has to last a year), OTA updates, and the tamper-detection safety logic.",
+      "related": [
+        "embedded_engineer",
+        "hardware_engineer",
+        "firmware",
+        "hal"
+      ]
+    },
+    {
+      "id": "hardware_engineer",
+      "term": "Hardware engineer",
+      "category": "Careers & majors",
+      "metaphor": "The one who builds the stage. The firmware engineer is the actor; the hardware engineer decides how big the stage is, where the lights go, where the power comes from, and where you're not allowed to step.",
+      "definition": "The engineer responsible for circuit design: choosing chips and components, drawing schematics, laying out the PCB, calculating power and thermal budgets, running EMC (electromagnetic compatibility) tests, and following prototypes through to mass production. Tools: Altium, KiCad, oscilloscopes, spectrum analyzers.",
+      "misconception": "Thinking a hardware engineer \"solders circuit boards.\" Soldering is done by technicians or as a side task; the core work is design: why a 100nF capacitor goes here, why these traces must be equal length, why the power is split three ways. And hardware engineers do write code; many write test firmware.",
+      "example": "The Blue Pill (STM32F103C8T6) is a hardware engineer's work: choosing the STM32F103C8T6, adding the 8MHz crystal and 3.3V LDO, breaking out all 40 pins, placing two BOOT jumpers. The clone boards' wrong USB pull-up (10kΩ instead of 1.5kΩ) is a textbook hardware design mistake.",
+      "related": [
+        "embedded_engineer",
+        "firmware_engineer",
+        "pcb",
+        "schematic"
+      ]
+    },
+    {
+      "id": "ee_major",
+      "term": "What an EE (electrical / electronics engineering) major studies",
+      "category": "Careers & majors",
+      "metaphor": "A major that takes you from \"why does electricity flow\" all the way to \"how does a phone pick up a signal.\" The first two years build foundations (math, physics, circuits); the last two split into tracks (chips, communications, embedded, signal processing).",
+      "definition": "An undergraduate major whose core courses include circuit analysis, analog electronics, digital electronics, signals and systems, communication principles, microcontrollers, embedded systems, electromagnetics, C programming, and FPGAs. It trains you to understand and design electronic systems, leaning toward hardware, software, or communications.",
+      "misconception": "Thinking EE graduates \"end up soldering boards in a factory,\" or that it's \"basically computer science.\" Compared with CS, EE adds a foundation in circuits and signals and has less algorithms and software engineering. Graduates go into chip design, embedded, telecom equipment, consumer electronics, and automotive electronics, and quite a few move into pure software.",
+      "example": "This platform's path roughly matches the lab portions of two EE courses, \"Microcontroller Principles and Applications\" and \"Embedded System Design,\" but skips the theoretical derivations: hands-on first, theory afterward. To find out whether it's for you, finishing the first five Blue Pill tasks will give you a pretty good feel.",
+      "related": [
+        "automation_major",
+        "embedded_engineer",
+        "vs_software_dev",
+        "hardware_engineer"
+      ]
+    },
+    {
+      "id": "automation_major",
+      "term": "Automation / control engineering major",
+      "category": "Careers & majors",
+      "metaphor": "The major that studies \"how to make a system hold itself steady\": how an AC keeps the room at exactly 78°F, how a drone hovers without falling, how a factory line moves in the right order.",
+      "definition": "An engineering major centered on control theory. Courses include classical and modern control theory, electric motors and drives, PLCs, sensors and measurement, microcontrollers, and robotics. It trains you to design control systems (feedback, regulation, actuation).",
+      "misconception": "Thinking automation means \"mechanical stuff\" or \"factories.\" Its core is control algorithms (PID, state space), applied everywhere from factory PLCs to drones, self-driving cars, and robots. It overlaps heavily with EE; the difference is that automation leans toward \"how to control the system\" and EE toward \"how to build the circuit.\"",
+      "example": "If the dog feeder has to dispense \"exactly 50 grams,\" you read a load cell, compare with the target, and control how far the motor turns. That's a feedback control loop, exactly the kind of problem control engineering students work on from freshman to senior year.",
+      "related": [
+        "ee_major",
+        "embedded_engineer",
+        "sensor",
+        "stepper_motor"
+      ]
+    },
+    {
+      "id": "vs_software_dev",
+      "term": "Embedded vs. software development",
+      "category": "Careers & majors",
+      "metaphor": "Software development is like renovating a house of unlimited size: use all the resources you want, and when something breaks, read the logs. Embedded is renovating a 200-square-foot room: every inch is accounted for, and when something breaks you take instruments to the walls.",
+      "definition": "Embedded: tight resources (KB of memory, MHz clocks), direct hardware control, no or minimal OS, debugging via serial and instruments, bugs that may come from the circuit, and products that are hard to update once shipped. Software development: abundant resources, an OS and rich frameworks, mature debugging tools, fast iteration and deployment.",
+      "misconception": "Thinking embedded is \"harder\" or \"lower-level.\" They're hard in different ways: embedded in hardware interaction and resource constraints, software in abstraction, scale, and collaboration. And don't assume knowing Python transfers seamlessly to embedded, or vice versa; each side takes retraining your way of thinking.",
+      "example": "On a web page, \"remind me at 8 every day\" is ten lines of JavaScript. On the Blue Pill (STM32F103C8T6), the same thing means wiring an RTC module, handling I2C, handling lost time after a power failure, handling resets caused by the servo's current draw, and making sure it runs three months without hanging. That's the difference.",
+      "related": [
+        "embedded_engineer",
+        "ram",
+        "serial_print",
+        "ee_major"
+      ]
+    },
+    {
+      "id": "learning_path",
+      "term": "How to get started in embedded (learning path)",
+      "category": "Careers & majors",
+      "metaphor": "You don't learn to drive by memorizing how the engine works. You get the car moving in a parking lot first, and understand why it moves later.",
+      "definition": "For complete beginners, a widely proven path: blink an LED (GPIO) → see serial output (UART) → read a sensor (ADC/I2C) → control an actuator (PWM/servo) → build a small working project → go back and fill in C details, digital electronics, and registers. Theory comes when you need it, not as a prerequisite.",
+      "misconception": "Thinking you must finish C, digital electronics, and analog electronics before touching a board. That's the college course order, not the best order for self-study. Get the LED blinking first; you'll have a hundred concrete questions, and learning theory with questions in hand is ten times faster.",
+      "example": "This platform's lesson order: 0 set up the environment and meet the board → 1 blink → 2 serial → 3 read a potentiometer → 4 servo → 5 time → the dog feeder. Every step has a real board in your hands, and a prompt library for when you get stuck. This glossary is for looking up words you don't recognize along the way, not for memorizing up front.",
+      "related": [
+        "embedded_engineer",
+        "ee_major",
+        "gpio",
+        "development_board"
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // 场景图。优先用 /art/<name>.jpg（tools/gen-art.mjs 生成）；没有的话画一张程序生成的"电路夜景"顶上。
 // 这样没跑过美术生成的人打开平台也不会是一片黑。
@@ -13,10 +13,12 @@ export function Scene({ name, className = '', children }: { name: string; classN
   )
 }
 
-export function NpcImage({ name, className = '' }: { name: string; className?: string }) {
+export function NpcImage({ name, className = '', fallback = 'npc_mentor' }: { name: string; className?: string; fallback?: string }) {
+  const [src, setSrc] = useState(name)
+  useEffect(() => { setSrc(name) }, [name])
   const [missing, setMissing] = useState(false)
   if (missing) return <div className={'npc-fallback ' + className}>◎</div>
-  return <img className={'npc ' + className} src={`/art/${name}.png`} alt="" onError={() => setMissing(true)} />
+  return <img className={'npc ' + className} src={`/art/${src}.png`} alt="" onError={() => { if (src !== fallback && fallback) setSrc(fallback); else setMissing(true) }} />
 }
 
 // 程序生成：按名字定一个色相，画电路走线 + 焊盘 + 光斑

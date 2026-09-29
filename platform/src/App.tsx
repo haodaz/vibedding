@@ -11,6 +11,8 @@ import { Scene } from './components/Scene'
 import { Workshop } from './workshop/Workshop'
 import { Knowledge } from './components/Knowledge'
 import { Projects } from './components/Projects'
+import { Admin } from './components/Admin'
+import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang } from './i18n'
 
 // 两种模式：开发（直接做 + 项目 + 硬件 + 知识库）/ 学习（路径 + 实验台 + 知识库 + 日志 + 提示词）
@@ -51,6 +53,8 @@ export default function App() {
 
 function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const route = useHashRoute()
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => { (async () => { try { const tk = await getToken(); const r = await fetch('/api/admin/me', { headers: tk ? { authorization: 'Bearer ' + tk } : {} }); const j = await r.json(); setIsAdmin(j.role === 'admin') } catch { /* */ } })() }, [email])
   const [mode, setModeState] = useState<Mode | null>(getMode)
   const setMode = (m: Mode) => { try { localStorage.setItem(MODE_KEY, m) } catch { /* */ } setModeState(m) }
   const [booted, setBooted] = useState(() => { try { return sessionStorage.getItem('booted') === '1' } catch { return true } })
@@ -58,7 +62,7 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const done = all.filter((m) => m.status === 'done').length
   if (!booted) return <Boot onDone={() => { try { sessionStorage.setItem('booted', '1') } catch { /* */ } setBooted(true) }} />
   // 路由推断模式：直接打开 /make 就是开发模式
-  const routeMode: Mode | null = route.startsWith('/make') || route.startsWith('/projects') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
+  const routeMode: Mode | null = route.startsWith('/make') || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
   const m: Mode | null = routeMode ?? mode
   if (route === '/' ) return <ModePicker onPick={(x) => { setMode(x); location.hash = x === 'build' ? '/make' : '/path' }} />
   if (!m) return <ModePicker onPick={(x) => { setMode(x); location.hash = x === 'build' ? '/make' : '/path' }} />
@@ -85,6 +89,7 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
                 <span className="key">{n.key}</span>{t(n.label)}<span className="hint">{n.hint}</span>
               </a>
             ))}
+            {isAdmin && <a href={href('/admin')} className={route.startsWith('/admin') ? 'active' : ''}><span className="key">⚙</span>{t('nav.admin')}<span className="hint">ADMIN</span></a>}
           </nav>
           {!isBuild && (
             <div className="memmap">
@@ -138,6 +143,7 @@ function Page({ route }: { route: string }) {
   if (route === '/path') return <Curriculum />
   if (route.startsWith('/make')) return <Workshop />
   if (route === '/projects') return <Projects />
+  if (route === '/admin') return <Admin />
   if (route === '/lab') return <Lab />
   if (route === '/kb') return <Knowledge />
   if (route === '/journal') return <Journal />

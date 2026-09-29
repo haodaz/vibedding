@@ -1,0 +1,3880 @@
+{
+  "note": "Project recipe knowledge base. The AI's suggest_project / get_recipe tools look things up here. Every project is sized so you can \"build something in an afternoon\": a visible result first, then the theory. difficulty 1 = only the board is needed; hardware_free = can be run first in the browser's virtual Blue Pill (which only simulates GPIO/PWM/ADC/serial/buttons). Pin conventions: I2C1 PB6/PB7, SPI1 PA5/PA6/PA7, UART1 PA9/PA10, UART2 PA2/PA3, ADC PA0-PA7, onboard LED PC13 lights on LOW, PA0-PA7 are not 5V tolerant. An empty parts.id means the part isn't in the parts library yet and needs to be added with add_part.",
+  "projects": [
+    {
+      "id": "blink_led",
+      "title": "Let There Be Light: Blinking LED",
+      "tagline": "Make the little LED on the board go on for a second and off for a second. This is the \"Hello World\" of all embedded programming. When you're done you'll have a light blinking with a steady rhythm.",
+      "difficulty": 1,
+      "time": "30 minutes",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PC13",
+          "to": "Onboard LED",
+          "note": "Built into the board, no wiring needed. Lights on LOW"
+        },
+        {
+          "from": "stlink.SWDIO/SWCLK/GND/3.3V",
+          "to": "4 pins at the top of the bluepill",
+          "note": "Four wires, one to one. Do not connect 5V"
+        }
+      ],
+      "steps": [
+        "Connect the ST-Link and click Upload in PlatformIO. Result: the terminal shows SUCCESS and the board's LED starts blinking once a second.",
+        "Change delay(1000) to delay(100) and flash again. Result: the LED blinks like crazy.",
+        "Make the two delays different (on 100, off 900). Result: a \"heartbeat\" like the one on a router.",
+        "Add an external LED on PA1 (with a 220Ω resistor in series). Result: both lights blink together.",
+        "Make PA1 and PC13 take turns. Result: the two lights alternate, like police lights."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\n// The onboard LED is on PC13 and lights on LOW (the opposite of an external LED)\nconst int LED = PC13;\n// In step 4, add an external LED on PA1 (long leg through 220Ω to PA1, short leg to GND)\nconst int LED2 = PA1;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n  pinMode(LED2, OUTPUT);\n  digitalWrite(LED, HIGH);   // Off first (PC13 is off when HIGH)\n  digitalWrite(LED2, LOW);   // External LED is off when LOW, exactly the opposite\n}\n\nvoid loop() {\n  digitalWrite(LED, LOW);    // Onboard on\n  digitalWrite(LED2, HIGH);  // External on\n  delay(1000);               // Wait 1000 milliseconds = 1 second\n  digitalWrite(LED, HIGH);   // Onboard off\n  digitalWrite(LED2, LOW);   // External off\n  delay(1000);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "Upload reports \"unknown chip id\" / \"target voltage may be too low\": the ST-Link's 3.3V isn't connected, or you got a clone chip (CH32/GD32). First check whether the board's 3V3 pin has power, then try upload_flags = -c set CPUTAPID 0.",
+        "You wrote HIGH but the LED went off: the PC13 LED is wired as a \"sink\", so LOW turns it on. That's how the board was designed, not your mistake.",
+        "Upload succeeded but the LED doesn't blink: check the BOOT0 jumper on the board; it should be on the 0 side."
+      ],
+      "concepts": [
+        "GPIO",
+        "Digital output",
+        "Blocking delay",
+        "HIGH and LOW levels",
+        "Flashing/uploading"
+      ],
+      "extensions": [
+        "Use millis() instead of delay so the board can do other things while blinking",
+        "Wire up 3 LEDs and make a chaser",
+        "Turn the blink pattern into Morse code and blink out SOS"
+      ]
+    },
+    {
+      "id": "breathing_led",
+      "title": "Breathing LED",
+      "tagline": "The LED is no longer just on or off; it slowly brightens and dims like it's breathing. Once you learn PWM, controlling motor speed and volume work on the same principle.",
+      "difficulty": 1,
+      "time": "45 minutes",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "The light that breathes"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 1,
+          "role": "Current limiting"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_5mm.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire up the LED and flash analogWrite(PA1, 128) first. Result: the LED is at half brightness.",
+        "Try 255 and 10, flashing once each. Result: full brightness / very dim. Now you see how the number relates to brightness.",
+        "Use a for loop 0→255→0. Result: the LED starts breathing.",
+        "Change the per-step delay from 10 to 2. Result: the breathing gets faster.",
+        "Replace the linear ramp with sin() or a squared curve. Result: the breathing looks more natural (our eyes are more sensitive at the dim end)."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int LED = PA1;   // PA1 supports PWM\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  // Slowly brighten\n  for (int b = 0; b <= 255; b++) {\n    analogWrite(LED, b);   // 0 = fully off, 255 = fully on\n    delay(8);\n  }\n  // Slowly dim\n  for (int b = 255; b >= 0; b--) {\n    analogWrite(LED, b);\n    delay(8);\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "analogWrite does nothing, only on/off: the pin you picked doesn't support PWM. On the Blue Pill the PWM-capable pins are PA0-PA3, PA6-PA10, PB0, PB1, PB6-PB9. PC13 can't.",
+        "Brightness changes unevenly and the dim part jumps straight to bright: human eyes perceive brightness logarithmically. A curve like b*b/255 looks much smoother.",
+        "LED doesn't light: long leg (+) and short leg (-) are swapped. An LED is a diode; it only works one way."
+      ],
+      "concepts": [
+        "PWM",
+        "Duty cycle",
+        "Current-limiting resistor",
+        "for loop",
+        "analogWrite"
+      ],
+      "extensions": [
+        "Make a rainbow fade with an RGB LED",
+        "Add a potentiometer so a knob controls the brightness",
+        "Rewrite it with millis() so it doesn't block; then you can drop it into any project"
+      ]
+    },
+    {
+      "id": "button_toggle_light",
+      "title": "Button Toggle Light",
+      "tagline": "Press once for on, press again for off. It looks like the simplest thing, but \"button bounce\" and \"pull-up resistors\" are two traps almost everyone falls into once.",
+      "difficulty": 1,
+      "time": "1 hour",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Input"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "Output"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 1,
+          "role": "LED current limiting"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_5mm.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire only the button first and print its state to serial. Result: prints 0 when pressed, 1 when released.",
+        "LED on while pressed, off when released (follow mode). Result: works like a doorbell button.",
+        "Change it to toggle on each press. Result: you'll most likely notice one press sometimes toggles twice. That's bounce.",
+        "Add 30ms of debounce. Result: every press toggles exactly once.",
+        "Add a 1-second long press that enters breathing mode. Result: short press toggles, long press breathes."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int BTN = PB12;\nconst int LED = PA1;\n\nbool ledOn = false;\nint lastReading = HIGH;          // Pull-up: HIGH when not pressed\nunsigned long lastChange = 0;\n\nvoid setup() {\n  pinMode(BTN, INPUT_PULLUP);    // Internal pull-up saves a resistor\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int reading = digitalRead(BTN);\n  // Only count it as a real press if the state changed AND it's been more than 30ms since the last change\n  if (reading != lastReading && millis() - lastChange > 30) {\n    lastChange = millis();\n    if (reading == LOW) {        // The moment it's pressed\n      ledOn = !ledOn;\n      digitalWrite(LED, ledOn ? HIGH : LOW);\n    }\n  }\n  lastReading = reading;\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "One press makes the light flicker several times, or it works only sometimes: a mechanical button bounces dozens of times the instant it closes. That's called \"bounce\". Either wait 30ms for it to settle before reading, or use a library.",
+        "It lights up randomly without pressing: the pin is \"floating\" with no pull-up/pull-down, so you're reading random noise. Use INPUT_PULLUP or an external 10k to 3.3V.",
+        "Pressing reads 0, not 1: that's how the pull-up wiring works; pressed connects to ground = LOW. Nothing's broken."
+      ],
+      "concepts": [
+        "Digital input",
+        "Pull-up resistor",
+        "Button debouncing",
+        "State variable",
+        "millis timing"
+      ],
+      "extensions": [
+        "Two buttons: one raises brightness, the other lowers it",
+        "Count button presses and print the count to serial",
+        "Use attachInterrupt instead of polling"
+      ]
+    },
+    {
+      "id": "traffic_light",
+      "title": "Traffic Light",
+      "tagline": "Red, yellow, and green LEDs cycle with real-intersection timing, plus a \"pedestrian button\". Your first project with the concept of \"state\".",
+      "difficulty": 1,
+      "time": "1 hour",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED red/yellow/green",
+          "qty": 3,
+          "role": "The three lights"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 3,
+          "role": "One per LED"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Pedestrian crossing button (optional)"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA0",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_red.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_red.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_yellow.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_yellow.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_green.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_green.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        }
+      ],
+      "steps": [
+        "Wire up the three LEDs and flash a program that lights them in turn. Result: red→yellow→green in sequence, confirming the wiring.",
+        "Switch to real timing: green 5 s → yellow 2 s → red 5 s. Result: it feels like a real intersection.",
+        "Flash yellow during the last 3 seconds of red (or flash at the end of green). Result: even more like a real intersection.",
+        "Add the pedestrian button: pressing it ends the green early. Result: press once and it turns red quickly.",
+        "Rewrite it as a state machine (switch/case). Result: the code gets clearer, and adding states doesn't mean starting over."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int RED = PA0, YELLOW = PA1, GREEN = PA2;\nconst int BTN = PB12;\n\nenum State { GO, SLOW, STOP };\nState state = GO;\nunsigned long stateStart = 0;\n\nvoid setLights(bool r, bool y, bool g) {\n  digitalWrite(RED, r); digitalWrite(YELLOW, y); digitalWrite(GREEN, g);\n}\n\nvoid setup() {\n  pinMode(RED, OUTPUT); pinMode(YELLOW, OUTPUT); pinMode(GREEN, OUTPUT);\n  pinMode(BTN, INPUT_PULLUP);\n  setLights(0, 0, 1);\n}\n\nvoid loop() {\n  unsigned long elapsed = millis() - stateStart;\n  switch (state) {\n    case GO:   // Green for 5 seconds, or until a pedestrian presses the button\n      if (elapsed > 5000 || digitalRead(BTN) == LOW) {\n        state = SLOW; stateStart = millis(); setLights(0, 1, 0);\n      }\n      break;\n    case SLOW: // Yellow for 2 seconds\n      if (elapsed > 2000) { state = STOP; stateStart = millis(); setLights(1, 0, 0); }\n      break;\n    case STOP: // Red for 5 seconds\n      if (elapsed > 5000) { state = GO; stateStart = millis(); setLights(0, 0, 1); }\n      break;\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The three LEDs aren't equally bright: different colors have different forward voltages (red 1.8V, green/blue about 3V), so the same resistor gives different brightness. Swapping the red one to 470Ω evens it out.",
+        "The button does nothing in the delay-based version: during delay the CPU does nothing else, so the button never gets read. That's exactly why you learn the millis state machine.",
+        "Several LEDs sharing one resistor: they fight over current and the brightness is unstable. One resistor per LED."
+      ],
+      "concepts": [
+        "State machine",
+        "enum",
+        "Non-blocking millis",
+        "Multiple outputs",
+        "Forward voltage"
+      ],
+      "extensions": [
+        "Add a TM1637 7-segment display to show the countdown seconds",
+        "Two-direction intersection (6 LEDs) with interlocking",
+        "Night mode: flashing yellow"
+      ]
+    },
+    {
+      "id": "serial_chat",
+      "title": "Serial Chat",
+      "tagline": "Type on your computer and the board answers; the board tells the computer how it's doing. Serial is the \"eyes and mouth\" you'll use for debugging everything from now on.",
+      "difficulty": 1,
+      "time": "45 minutes",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "usb_serial",
+          "name": "USB-to-TTL serial adapter (CH340)",
+          "qty": 1,
+          "role": "Carries what the board says to the computer"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires, female-female",
+          "qty": 3,
+          "role": "Serial connection"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA9",
+          "to": "usb_serial.RXD",
+          "note": "Board talks → computer listens"
+        },
+        {
+          "from": "bluepill.PA10",
+          "to": "usb_serial.TXD",
+          "note": "Computer talks → board listens"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "usb_serial.GND",
+          "note": "Must share ground"
+        }
+      ],
+      "steps": [
+        "Connect the USB-TTL adapter and flash Serial.println(\"hello\"). Result: the serial monitor shows a line of hello every second.",
+        "Print millis(). Result: a number that keeps climbing, proving the board is running.",
+        "Send characters from the computer and have the board echo them. Result: type a, get a back.",
+        "Send \"on\"/\"off\" to control the onboard LED. Result: typing switches the light.",
+        "Send \"temp?\" and have the board reply with a fake temperature. Result: you've just built a \"command-line protocol\"."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\n// On the Blue Pill, Serial defaults to USART1 = PA9(TX)/PA10(RX)\nconst int LED = PC13;\nString cmd = \"\";\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n  digitalWrite(LED, HIGH);\n  Serial.println(\"Hi, I'm the Blue Pill. Try sending on / off / ping\");\n}\n\nvoid loop() {\n  while (Serial.available()) {\n    char c = Serial.read();\n    if (c == '\\n' || c == '\\r') {      // End of a line\n      cmd.trim();\n      if (cmd == \"on\")  { digitalWrite(LED, LOW);  Serial.println(\"Light is on\"); }\n      else if (cmd == \"off\") { digitalWrite(LED, HIGH); Serial.println(\"Light is off\"); }\n      else if (cmd == \"ping\") { Serial.print(\"pong, up for \"); Serial.print(millis() / 1000); Serial.println(\" seconds\"); }\n      else if (cmd.length()) { Serial.print(\"Didn't understand: \"); Serial.println(cmd); }\n      cmd = \"\";\n    } else {\n      cmd += c;\n    }\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The serial monitor is blank: on the Blue Pill, Serial defaults to PA9/PA10, not the USB cable. Connect a USB-to-TTL adapter (TX→PA10, RX→PA9, shared GND), or add build_flags = -D USBCON -D USBD_VCP to platformio.ini so Serial goes over USB.",
+        "You get garbage like \"�����\": baud rate mismatch. The code says 115200, so the monitor (monitor_speed in platformio.ini) must be 115200 too.",
+        "TX to TX does nothing: serial is \"my mouth to your ear\". Board TX(PA9) → adapter RX, board RX(PA10) → adapter TX.",
+        "Commands do nothing: the monitor isn't set to \"append newline on send\". The code relies on \\n to detect the end of a line."
+      ],
+      "concepts": [
+        "UART serial",
+        "Baud rate",
+        "TX/RX crossover",
+        "String parsing",
+        "Protocol"
+      ],
+      "extensions": [
+        "Extend the commands to take arguments, like \"led 128\"",
+        "Swap the serial cable for an HC-05 and chat over Bluetooth from your phone",
+        "Use Serial2 (PA2/PA3) to make two boards chat with each other"
+      ]
+    },
+    {
+      "id": "electronic_dice",
+      "title": "Electronic Dice",
+      "tagline": "Press a button and 7 LEDs \"roll\" like a real die before landing on 1-6. Learn random numbers and LED patterns.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 7,
+          "role": "Arranged as the 7 pips of a die"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 7,
+          "role": "One per LED"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Roll the die"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA0~PA6",
+          "to": "Each of the 7 LEDs' 220Ω→long leg",
+          "note": "By pip position: PA0 top-left, PA1 top-right, PA2 middle-left, PA3 center, PA4 middle-right, PA5 bottom-left, PA6 bottom-right"
+        },
+        {
+          "from": "Short legs of the 7 LEDs",
+          "to": "bluepill.GND",
+          "note": "Can share ground"
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        }
+      ],
+      "steps": [
+        "Arrange 7 LEDs in a die pattern and flash a program that lights them one at a time. Result: you can confirm which LED is in which position.",
+        "Write a table: which LEDs light for 1-6. Flash showDice(6). Result: six pips.",
+        "Button press → show a random 1-6. Result: different every time (if it's always the same, see pitfall 1).",
+        "Add a \"rolling\" animation: cycle through 15 random faces quickly before settling. Result: it feels like a real roll.",
+        "Add a second die (print the second one to serial). Result: you can play Monopoly."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int PINS[7] = {PA0, PA1, PA2, PA3, PA4, PA5, PA6};\nconst int BTN = PB12;\n// Each row: on/off for the 7 LEDs. Positions: top-left top-right middle-left center middle-right bottom-left bottom-right\nconst uint8_t FACE[7][7] = {\n  {0,0,0,0,0,0,0},\n  {0,0,0,1,0,0,0},          // 1\n  {1,0,0,0,0,0,1},          // 2\n  {1,0,0,1,0,0,1},          // 3\n  {1,1,0,0,0,1,1},          // 4\n  {1,1,0,1,0,1,1},          // 5\n  {1,1,1,0,1,1,1},          // 6\n};\n\nvoid showDice(int n) {\n  for (int i = 0; i < 7; i++) digitalWrite(PINS[i], FACE[n][i]);\n}\n\nvoid setup() {\n  for (int i = 0; i < 7; i++) pinMode(PINS[i], OUTPUT);\n  pinMode(BTN, INPUT_PULLUP);\n  randomSeed(analogRead(PA7));   // Use noise from a floating pin as the seed\n  showDice(0);\n}\n\nvoid loop() {\n  if (digitalRead(BTN) == LOW) {\n    for (int i = 0; i < 15; i++) {      // Rolling animation\n      showDice(random(1, 7));\n      delay(60 + i * 15);               // Slower and slower\n    }\n    showDice(random(1, 7));             // Final result\n    delay(500);\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The first roll after power-up is always the same number: random() is pseudo-random, and the same seed gives the same sequence. Seed randomSeed with noise from a floating ADC pin.",
+        "The board resets when all 7 LEDs are on: each LED draws about 10mA, and 70mA through the 3V3 regulator is a strain. Use 330Ω resistors or power only from 5V.",
+        "The wiring is a rat's nest: sketch the 7 positions and their pins on paper before plugging in wires."
+      ],
+      "concepts": [
+        "Random numbers and seeds",
+        "2D arrays / lookup tables",
+        "Multiple GPIOs",
+        "Animation timing",
+        "Current budget"
+      ],
+      "extensions": [
+        "Draw the pips on an OLED instead",
+        "Add a buzzer for clicking sounds while rolling",
+        "Two-player mode: whoever rolls higher gets their light flashing"
+      ]
+    },
+    {
+      "id": "reaction_game",
+      "title": "Reaction Time Game",
+      "tagline": "A light comes on at a random moment; press as fast as you can. The board reports your reaction time to the millisecond, and you can compete with friends.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "usb_serial",
+          "name": "USB-to-TTL serial adapter (CH340)",
+          "qty": 1,
+          "role": "Carries what the board says to the computer"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "Starting light"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 1,
+          "role": "Current limiting"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Slap it"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_5mm.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        },
+        {
+          "from": "bluepill.PA9",
+          "to": "usb_serial.RXD",
+          "note": "Board talks → computer listens"
+        },
+        {
+          "from": "bluepill.PA10",
+          "to": "usb_serial.TXD",
+          "note": "Computer talks → board listens"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "usb_serial.GND",
+          "note": "Must share ground"
+        }
+      ],
+      "steps": [
+        "Wire it up and flash a program that prints millis() when the button is pressed. Result: timestamps show up in the serial monitor.",
+        "Wait a random 1-4 seconds, light the LED, then wait for the button. Result: serial prints your reaction time in milliseconds.",
+        "Pressing before the light comes on → \"false start\". Result: no more cheating.",
+        "Track and print the best score. Result: you see best after every round.",
+        "Add a second button and LED for head-to-head. Result: whoever's faster gets their light."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int LED = PA1;\nconst int BTN = PB12;\nunsigned long best = 999999;\n\nbool pressed() { return digitalRead(BTN) == LOW; }\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n  pinMode(BTN, INPUT_PULLUP);\n  randomSeed(analogRead(PA7));\n  Serial.println(\"Press the button to start\");\n}\n\nvoid loop() {\n  while (!pressed()) {}                 // Wait for start\n  delay(300);\n  Serial.println(\"Get ready... press when the light comes on!\");\n  unsigned long wait = random(1000, 4000);\n  unsigned long t0 = millis();\n  while (millis() - t0 < wait) {\n    if (pressed()) { Serial.println(\"False start! Try again\"); delay(1000); return; }\n  }\n  digitalWrite(LED, HIGH);\n  unsigned long lit = millis();\n  while (!pressed()) {}\n  unsigned long rt = millis() - lit;\n  digitalWrite(LED, LOW);\n  Serial.print(\"Reaction time: \"); Serial.print(rt); Serial.println(\" ms\");\n  if (rt < best) { best = rt; Serial.println(\"New record!\"); }\n  Serial.print(\"Best: \"); Serial.println(best);\n  delay(1500);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "Reaction time is always 0 or a few milliseconds: the previous press hadn't been released before the next round started. Wait for the button to be released before starting.",
+        "Bogus \"false start\": button bounce got read as a press. Add a 20ms second check.",
+        "The serial monitor is blank: on the Blue Pill, Serial defaults to PA9/PA10, not the USB cable. Connect a USB-to-TTL adapter (TX→PA10, RX→PA9, shared GND), or add build_flags = -D USBCON -D USBD_VCP to platformio.ini so Serial goes over USB."
+      ],
+      "concepts": [
+        "millis timing",
+        "Random delay",
+        "Blocking vs. non-blocking",
+        "Edge detection",
+        "Game state"
+      ],
+      "extensions": [
+        "Show the time on an OLED so you don't need the computer",
+        "Use a buzzer instead of a light (audio reaction)",
+        "Average 10 rounds and rank the players"
+      ]
+    },
+    {
+      "id": "night_light_ldr",
+      "title": "Night Light (Light Sensor)",
+      "tagline": "The light comes on automatically when it gets dark, brighter the darker it is, and turns off at dawn. Your first \"sensor → decision → action\" loop.",
+      "difficulty": 2,
+      "time": "1 hour",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "ldr",
+          "name": "Photoresistor (LDR)",
+          "qty": 1,
+          "role": "Senses brightness"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ resistor",
+          "qty": 1,
+          "role": "Forms a voltage divider with the photoresistor"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "Night light"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 1,
+          "role": "LED current limiting"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "ldr.one end",
+          "note": ""
+        },
+        {
+          "from": "ldr.other end",
+          "to": "bluepill.PA0",
+          "note": "The 10k resistor also connects at this point"
+        },
+        {
+          "from": "10kΩ resistor",
+          "to": "bluepill.GND",
+          "note": "Photoresistor + 10k form a voltage divider; PA0 reads the midpoint voltage"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_5mm.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire the divider and print analogRead(PA0) to serial. Result: covering the photoresistor with your hand clearly changes the number (0-1023).",
+        "Find the threshold: note the daytime value and the covered value, take the middle. Result: you know your numbers.",
+        "LED on when below the threshold. Result: cover it and the light comes on.",
+        "Use map() to turn brightness into PWM. Result: the darker it is, the brighter the LED, with a smooth fade.",
+        "Add \"hysteresis\": separate on and off thresholds. Result: the light no longer twitches at the borderline."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int LDR = PA0;    // ADC\nconst int LED = PA1;    // PWM\nconst int DARK_ON = 300;   // Below this counts as dark (adjust to your measurements)\nconst int BRIGHT_OFF = 450; // Above this counts as bright\nbool on = false;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int light = analogRead(LDR);   // 0-1023; brighter = higher number (depends on wiring)\n  Serial.println(light);\n\n  // Hysteresis: two thresholds so it doesn't flip back and forth at the borderline\n  if (!on && light < DARK_ON) on = true;\n  if (on && light > BRIGHT_OFF) on = false;\n\n  if (on) {\n    int bright = map(light, DARK_ON, 0, 40, 255);   // Darker = brighter\n    bright = constrain(bright, 0, 255);\n    analogWrite(LED, bright);\n  } else {\n    analogWrite(LED, 0);\n  }\n  delay(100);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The number barely changes: the photoresistor is wired straight to the ADC with no divider resistor. The ADC reads voltage, not resistance; the 10k is what turns resistance changes into voltage changes.",
+        "The light flickers wildly at the borderline brightness: it's twitching around a single threshold. Use two thresholds (hysteresis).",
+        "As soon as the night light turns on, the sensor thinks it's \"bright\" and turns it off: it's lighting itself. Point the photoresistor away from the LED, or add hysteresis."
+      ],
+      "concepts": [
+        "ADC (analog-to-digital conversion)",
+        "Voltage divider",
+        "map() scaling",
+        "Thresholds and hysteresis",
+        "Closed-loop control"
+      ],
+      "extensions": [
+        "Swap in a WS2812 strip for a warm ambient light",
+        "Add a PIR: only light up when someone is there AND it's dark",
+        "Add a potentiometer to tune the threshold on the spot"
+      ]
+    },
+    {
+      "id": "sound_activated_light",
+      "title": "Clap-Activated Light",
+      "tagline": "Clap once and the light comes on; clap again and it goes off, just like a sound-activated hallway light. When you're done you'll understand why those hallway lights sometimes need a stomp.",
+      "difficulty": 2,
+      "time": "1 hour",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "sound",
+          "name": "Sound sensor (microphone module)",
+          "qty": 1,
+          "role": "Listens for sound"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "The light"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 1,
+          "role": "Current limiting"
+        },
+        {
+          "id": "relay",
+          "name": "Relay module",
+          "qty": 1,
+          "role": "Optional: control a real desk lamp"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "sound.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sound.GND",
+          "note": ""
+        },
+        {
+          "from": "sound.DO",
+          "to": "bluepill.PB12",
+          "note": "Digital output: toggles when there's sound"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_5mm.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire it up and print the DO pin state to serial. Result: you see 0/1 flip when you clap (if it doesn't, turn the blue potentiometer on the module).",
+        "Clap → LED on for 3 seconds, then off. Result: a hallway light.",
+        "Change it to toggle on each clap. Result: you'll notice one clap toggles several times.",
+        "Add a 500ms lockout. Result: one clap, one toggle.",
+        "Add a relay to control a real desk lamp (a low-voltage LED lamp; stay away from wall power). Result: clap to turn on the lamp."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int MIC = PB12;   // Sound module DO\nconst int LED = PA1;\nbool on = false;\nunsigned long lastTrigger = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(MIC, INPUT);\n  pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  // Most modules: DO goes HIGH when there's sound (some are inverted; check on serial)\n  if (digitalRead(MIC) == HIGH && millis() - lastTrigger > 500) {\n    lastTrigger = millis();\n    on = !on;\n    digitalWrite(LED, on);\n    Serial.println(on ? \"On\" : \"Off\");\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "It triggers constantly or never: the potentiometer on the module sets sensitivity. Clap while turning it until the onboard indicator LED \"flashes once per clap\".",
+        "One clap makes the light flicker several times: a single clap is actually a burst of pulses lasting tens of milliseconds. Add a lockout so only one trigger counts per 500ms.",
+        "The board freezes/reboots after adding the relay: the relay coil draws a lot of current. Power it from 5V instead of 3V3, and share ground."
+      ],
+      "concepts": [
+        "Digital sensor",
+        "Comparator / threshold potentiometer",
+        "Trigger lockout",
+        "Events and state",
+        "Relay"
+      ],
+      "extensions": [
+        "Use the AO analog output to make an LED \"volume bar\"",
+        "Require two claps to trigger (fewer false triggers)",
+        "Sound + light control: claps only work when it's dark"
+      ]
+    },
+    {
+      "id": "ultrasonic_parking_radar",
+      "title": "Ultrasonic Parking Sensor",
+      "tagline": "The closer you get to an obstacle, the faster the buzzer beeps, just like a car's backup sensor. Learn to measure distance with sound.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "hcsr04",
+          "name": "HC-SR04 ultrasonic sensor",
+          "qty": 1,
+          "role": "Measures distance"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "Passive buzzer",
+          "qty": 1,
+          "role": "Beeping"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "Distance indicator (optional)"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.5V",
+          "to": "hcsr04.VCC",
+          "note": "The module needs 5V to be accurate"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "hcsr04.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB8",
+          "to": "hcsr04.Trig",
+          "note": "Sends the command"
+        },
+        {
+          "from": "hcsr04.Echo",
+          "to": "bluepill.PB9",
+          "note": "PB9 is 5V tolerant; Echo is a 5V signal, don't connect it to PA0-PA7"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire it up and print the distance (cm) to serial. Result: move your hand back and forth and the number follows; check it with a ruler.",
+        "Buzzer beeps when the distance is under 50cm. Result: it beeps when something gets close.",
+        "Tie the interval to the distance: closer = faster beeps. Result: it feels like a backup sensor.",
+        "Continuous tone under 10cm. Result: crash!",
+        "Take the median of 5 readings. Result: the number stops jumping around."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int TRIG = PB8;\nconst int ECHO = PB9;    // 5V-tolerant pin\nconst int BUZZ = PA1;\n\nlong readDistanceCm() {\n  digitalWrite(TRIG, LOW); delayMicroseconds(2);\n  digitalWrite(TRIG, HIGH); delayMicroseconds(10);   // 10us HIGH pulse triggers a measurement\n  digitalWrite(TRIG, LOW);\n  long us = pulseIn(ECHO, HIGH, 30000);              // Wait for the echo, at most 30ms\n  if (us == 0) return -1;                            // Timeout = nothing measured\n  return us / 58;                                    // Speed of sound: about 58us per cm\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(TRIG, OUTPUT); pinMode(ECHO, INPUT);\n  pinMode(BUZZ, OUTPUT);\n}\n\nvoid loop() {\n  long d = readDistanceCm();\n  Serial.print(\"Distance: \"); Serial.print(d); Serial.println(\" cm\");\n  if (d > 0 && d < 50) {\n    tone(BUZZ, 2000);\n    delay(50);\n    noTone(BUZZ);\n    delay(map(d, 0, 50, 0, 500));     // Closer = shorter gap\n  } else {\n    delay(100);\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "Always reads 0 or -1: the module doesn't work on 3.3V; it needs 5V. Or Trig/Echo are swapped.",
+        "The value occasionally jumps to 2000+: the ultrasound hit a soft or angled surface and never came back, so it timed out. Take the median of several readings, or ignore values over 400.",
+        "Echo connected to PA0-PA7 makes the board hot / kills the pin: those pins are only 3.3V tolerant and Echo is 5V. Use a 5V-tolerant pin like PB8/PB9, or add a 1k series resistor.",
+        "The buzzer just clicks instead of beeping: you're using tone() on an active buzzer. An active buzzer sounds when given a HIGH level; only a passive one needs tone()."
+      ],
+      "concepts": [
+        "Ultrasonic ranging",
+        "pulseIn pulse-width measurement",
+        "5V-tolerant pins",
+        "tone() sound output",
+        "Median filter"
+      ],
+      "extensions": [
+        "Add an OLED to show the distance and a progress bar",
+        "Mount it on the front of a robot car for obstacle avoidance",
+        "Change it to \"the closer, the redder the breathing LED\""
+      ]
+    },
+    {
+      "id": "pir_door_alarm",
+      "title": "Door/Motion Alarm",
+      "tagline": "When someone approaches or the door opens, it instantly sounds an alarm and flashes, with \"arm/disarm\". Put it by your dorm room door to protect your snacks.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "pir",
+          "name": "HC-SR501 PIR motion sensor",
+          "qty": 1,
+          "role": "Detects people"
+        },
+        {
+          "id": "",
+          "name": "Magnetic door sensor (reed switch)",
+          "qty": 1,
+          "role": "Detects the door opening (optional)"
+        },
+        {
+          "id": "buzzer_active",
+          "name": "Active buzzer",
+          "qty": 1,
+          "role": "Alarm"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Arm/disarm"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "Status light"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.5V",
+          "to": "pir.VCC",
+          "note": "The PIR needs 5V power"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "pir.GND",
+          "note": ""
+        },
+        {
+          "from": "pir.OUT",
+          "to": "bluepill.PB12",
+          "note": "Output is 3.3V logic; can be connected directly"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "door sensor.one end",
+          "note": "INPUT_PULLUP; door closed = magnet nearby = switch closed = LOW"
+        },
+        {
+          "from": "door sensor.other end",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_active.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_active.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB14",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_5mm.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_5mm.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire the PIR first and print OUT to serial. Result: goes to 1 when someone walks by, back to 0 after a few seconds of stillness.",
+        "Someone detected → buzzer for 3 seconds. Result: it sounds as soon as someone walks past.",
+        "Add the arm/disarm button, with the LED showing the state. Result: walking past while disarmed does nothing.",
+        "Add a 10-second delay after arming (time for you to leave). Result: you can press it and walk out without triggering it yourself.",
+        "Add the door sensor: the door opening also triggers the alarm. Result: two sensors, one set of logic."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int PIR = PB12, DOOR = PB13, BTN = PB14;\nconst int BUZZ = PA1, LED = PA2;\nbool armed = false;\nunsigned long armedAt = 0, alarmUntil = 0;\nint lastBtn = HIGH;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(PIR, INPUT);\n  pinMode(DOOR, INPUT_PULLUP);   // Door closed = LOW\n  pinMode(BTN, INPUT_PULLUP);\n  pinMode(BUZZ, OUTPUT); pinMode(LED, OUTPUT);\n}\n\nvoid loop() {\n  int b = digitalRead(BTN);\n  if (b == LOW && lastBtn == HIGH) {         // Press toggles armed state\n    armed = !armed; armedAt = millis();\n    Serial.println(armed ? \"Armed (active in 10 seconds)\" : \"Disarmed\");\n    delay(50);\n  }\n  lastBtn = b;\n\n  bool active = armed && millis() - armedAt > 10000;   // Arming delay\n  digitalWrite(LED, armed ? (active ? HIGH : (millis() / 250) % 2) : LOW);\n\n  if (active && (digitalRead(PIR) == HIGH || digitalRead(DOOR) == HIGH)) {\n    alarmUntil = millis() + 3000;\n    Serial.println(\"Intruder!\");\n  }\n  digitalWrite(BUZZ, millis() < alarmUntil ? HIGH : LOW);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The PIR triggers several times right after power-up: the module needs 30-60 seconds to warm up and settle, and its output jitters during that time. Wait a minute after power-up before arming.",
+        "The PIR says \"nobody\" when the person stands still: it only senses temperature change (movement), so a still person disappears after a few seconds. That's the principle, not a fault. A jumper on the back of the module selects \"repeat trigger\" mode.",
+        "Too sensitive; a moving curtain sets it off: the PIR has two potentiometers, one for sensitivity (range) and one for delay. Turn the sensitivity down.",
+        "Door sensor: the reed switch opens once the magnet is more than 1-2cm away, so mount them on matching spots on the door and frame."
+      ],
+      "concepts": [
+        "How PIR sensors work",
+        "Reed switch",
+        "Arming state machine",
+        "Delayed activation",
+        "Event triggering"
+      ],
+      "extensions": [
+        "Put it on the fridge: alarm only if the door sensor is open for more than 60 seconds → fridge-door-left-open reminder",
+        "Add an HC-05 to push alerts to your phone over Bluetooth",
+        "Add a DS3231 to arm only at night"
+      ]
+    },
+    {
+      "id": "desk_weather_station_oled",
+      "title": "Desk Weather Station (OLED)",
+      "tagline": "A little screen shows live temperature, humidity, and a small trend line. Nicer on your desk than checking the weather on your phone.",
+      "difficulty": 3,
+      "time": "2 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "dht11",
+          "name": "DHT11 temperature/humidity sensor",
+          "qty": 1,
+          "role": "Sensor (a DHT22 is more accurate and swaps right in)"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96\" OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "Display"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "dht11.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "dht11.GND",
+          "note": ""
+        },
+        {
+          "from": "dht11.DATA",
+          "to": "bluepill.PB12",
+          "note": "The module version has a built-in pull-up; a bare sensor needs 10k to 3V3"
+        },
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 clock"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 data"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire only the OLED first and run an I2C scan. Result: serial shows 0x3C.",
+        "Display \"Hello\". Result: text on the screen.",
+        "Connect the DHT11 and print temperature/humidity to serial. Result: a reading every two seconds; cup the sensor in your hand and the temperature rises.",
+        "Draw the data on the OLED in a large font. Result: the beginnings of a desk station.",
+        "Store one point per minute and draw a 60-point trend line. Result: you can see the day's temperature trend.",
+        "Show \"sensor?\" when the data is bad (nan). Result: unplugging the wire doesn't crash it."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n#include <DHT.h>\n\n#define DHT_PIN PB12\n#define DHT_TYPE DHT11         // Change this for a DHT22\nDHT dht(DHT_PIN, DHT_TYPE);\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\n\nfloat hist[64]; int histN = 0;\nunsigned long lastSample = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();                 // Blue Pill default PB6/PB7\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.clearDisplay(); oled.setTextColor(WHITE);\n  dht.begin();\n}\n\nvoid loop() {\n  if (millis() - lastSample < 2000) return;   // Read the DHT at most once every 2 seconds\n  lastSample = millis();\n  float t = dht.readTemperature();\n  float h = dht.readHumidity();\n\n  oled.clearDisplay();\n  if (isnan(t) || isnan(h)) {\n    oled.setTextSize(1); oled.setCursor(0, 0); oled.println(\"sensor?\");\n  } else {\n    oled.setTextSize(2); oled.setCursor(0, 0);\n    oled.print(t, 1); oled.println(\" C\");\n    oled.print(h, 0); oled.println(\" %\");\n    // Simple trend: shift left one slot, draw the new point at the right\n    if (histN < 64) hist[histN++] = t; else { memmove(hist, hist + 1, 63 * sizeof(float)); hist[63] = t; }\n    for (int i = 0; i < histN; i++) {\n      int y = 63 - constrain((int)((hist[i] - 15) * 2), 0, 20);   // Map 15~25 degrees onto 20 pixels\n      oled.drawPixel(i * 2, y, WHITE);\n    }\n  }\n  oled.display();\n}",
+      "lib_deps": [
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO",
+        "adafruit/DHT sensor library",
+        "adafruit/Adafruit Unified Sensor"
+      ],
+      "pitfalls": [
+        "The OLED stays black: 90% of the time it's the wrong I2C address (0x3C vs. 0x3D) or SDA/SCL swapped. Run the I2C scanner first and don't move on until you see 0x3C.",
+        "The DHT keeps reading nan: reading too often (DHT11 needs at least 2 seconds between reads), no pull-up on DATA, or reading right at power-up. delay(2000) before the first read.",
+        "Non-ASCII characters show as boxes on the OLED: the Adafruit font is ASCII only. For other character sets, switch to the olikraus/U8g2 library and its fonts (which eat tens of KB of Flash).",
+        "Temperature reads 2-3 degrees high: the sensor is right next to the board and getting warmed by the chip and screen. Use jumper wires to move it a bit away."
+      ],
+      "concepts": [
+        "I2C bus",
+        "Single-wire protocol (DHT)",
+        "Using libraries",
+        "Frame buffer and screen refresh",
+        "Ring buffer of history"
+      ],
+      "extensions": [
+        "Add a BMP280 for barometric pressure and predict rain",
+        "Add an ESP-01 to upload readings to your phone",
+        "Add a DS3231 to show the time and make it a desk clock"
+      ]
+    },
+    {
+      "id": "auto_plant_watering",
+      "title": "Automatic Plant Waterer",
+      "tagline": "When the soil dries out, the pump runs for a few seconds; when it's wet, it stops. Come back from a week away and your plant is still alive.",
+      "difficulty": 3,
+      "time": "2.5 hours",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "soil_moisture",
+          "name": "Soil moisture sensor (capacitive)",
+          "qty": 1,
+          "role": "Measures how wet the soil is"
+        },
+        {
+          "id": "relay",
+          "name": "1-channel relay module",
+          "qty": 1,
+          "role": "Switches the pump"
+        },
+        {
+          "id": "water_pump",
+          "name": "Mini water pump + silicone tubing",
+          "qty": 1,
+          "role": "Pumps water"
+        },
+        {
+          "id": "pump_diode",
+          "name": "1N5819 diode",
+          "qty": 1,
+          "role": "Across the pump to absorb kickback voltage"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 2A power supply",
+          "qty": 1,
+          "role": "Powers the pump and the board"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 1,
+          "role": "Watering indicator"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "soil_moisture.VCC",
+          "note": "Capacitive sensors work fine on 3.3V"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "soil_moisture.GND",
+          "note": ""
+        },
+        {
+          "from": "soil_moisture.AOUT",
+          "to": "bluepill.PA0",
+          "note": "ADC"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "relay.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "relay.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "relay.IN",
+          "note": "Active-low module: LOW energizes it"
+        },
+        {
+          "from": "Power supply 5V+",
+          "to": "relay.COM",
+          "note": ""
+        },
+        {
+          "from": "relay.NO",
+          "to": "water_pump.+",
+          "note": ""
+        },
+        {
+          "from": "water_pump.-",
+          "to": "Power supply GND",
+          "note": ""
+        },
+        {
+          "from": "pump_diode.white band",
+          "to": "water_pump.+ ",
+          "note": "Diode reverse-biased across the pump"
+        },
+        {
+          "from": "pump_diode.other end",
+          "to": "water_pump.-",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Connect the soil sensor and print the value to serial. Result: dry soil and wet soil give clearly different numbers; write them down.",
+        "Connect the relay and switch it every 3 seconds. Result: you hear clicking and the module's LED blinks.",
+        "Hook the pump up to the relay and test it manually first. Result: it pumps water in the right direction.",
+        "Write the logic: water for 3 seconds when dry, then wait at least 30 minutes before deciding again. Result: the soil slowly gets wet and the pump stops.",
+        "Add \"out of water\" protection: 5 waterings in a row with no change means alarm and stop. Result: an empty bucket won't burn out the pump.",
+        "Switch to the standalone 5V supply and leave it on the windowsill for a day. Result: it's alive."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int SOIL = PA0;\nconst int RELAY = PB12;    // Active-low\nconst int LED = PA1;\nconst int DRY = 600;        // Adjust to your measurements: higher = drier (capacitive)\nconst unsigned long WATER_MS = 3000;\nconst unsigned long COOLDOWN_MS = 30UL * 60 * 1000;   // 30 minutes\n\nunsigned long lastWater = 0;\nint failCount = 0;\n\nvoid pump(bool on) {\n  digitalWrite(RELAY, on ? LOW : HIGH);\n  digitalWrite(LED, on);\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(RELAY, OUTPUT); pinMode(LED, OUTPUT);\n  pump(false);\n  lastWater = millis() - COOLDOWN_MS;   // Allow a decision right after power-up\n}\n\nvoid loop() {\n  int soil = 0;\n  for (int i = 0; i < 10; i++) { soil += analogRead(SOIL); delay(10); }\n  soil /= 10;                           // Average 10 readings to smooth noise\n  Serial.print(\"Soil: \"); Serial.println(soil);\n\n  bool dry = soil > DRY;\n  bool cooled = millis() - lastWater > COOLDOWN_MS;\n  if (dry && cooled && failCount < 5) {\n    Serial.println(\"Watering\");\n    pump(true); delay(WATER_MS); pump(false);\n    lastWater = millis();\n    failCount++;                        // Reset once the soil gets wet\n  }\n  if (!dry) failCount = 0;\n  if (failCount >= 5) Serial.println(\"Still dry after 5 waterings. Is the bucket empty?\");\n  delay(5000);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The relay doesn't click and its LED is half-lit: a 3.3V signal driving a 5V relay module is marginal. Pick an \"active-low\" module (LOW engages more reliably), or an optocoupler-isolated version.",
+        "The board reboots whenever the pump runs: the motor's start/stop current surge drags 5V down. Give the pump its own supply with shared ground only, and put a 1N5819 diode across the pump.",
+        "A resistive soil sensor (the two-prong fork) rots in a few days: electrolytic corrosion. Use a capacitive one, or power it only during the second you're measuring.",
+        "It waters again right after watering: water takes minutes to reach the sensor. Don't decide right after watering; add a cooldown."
+      ],
+      "concepts": [
+        "ADC sampling and averaging",
+        "Relay",
+        "Motor kickback / flyback diode",
+        "Cooldown period",
+        "Failure protection"
+      ],
+      "extensions": [
+        "Add a DS3231 + relay to switch a grow light on a schedule",
+        "Add an OLED to show moisture and the time of the last watering",
+        "Multiple pots with a multi-channel relay"
+      ]
+    },
+    {
+      "id": "pet_feeder",
+      "title": "Automatic Pet Feeder",
+      "tagline": "At 7 AM and 7 PM every day a servo opens the hatch for 1 second to dispense food, and a button gives an extra serving anytime. It doesn't forget the time even after a power outage.",
+      "difficulty": 4,
+      "time": "4 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "rtc_ds3231",
+          "name": "DS3231 real-time clock",
+          "qty": 1,
+          "role": "Keeps time through power loss"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 servo",
+          "qty": 1,
+          "role": "Opens and closes the hatch"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Manual feed"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 2A power supply",
+          "qty": 1,
+          "role": "The servo is power-hungry"
+        },
+        {
+          "id": "electrolytic_1000uf",
+          "name": "1000uF electrolytic capacitor",
+          "qty": 1,
+          "role": "Steadies the voltage when the servo starts"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "rtc_ds3231.SCL",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "rtc_ds3231.SDA",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "rtc_ds3231.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rtc_ds3231.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA0",
+          "to": "sg90.orange wire (signal)",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.red wire",
+          "note": "Servo runs on 5V; capacitor goes across 5V/GND"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sg90.brown wire",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        }
+      ],
+      "steps": [
+        "Connect the DS3231 and print the time to serial. Result: you see the date and time ticking (use adjust once the first time).",
+        "Connect the servo and write 0°→90°→0°. Result: the servo arm swings back and forth.",
+        "Button → servo opens for 1.2 seconds then closes. Result: manual feeding.",
+        "Compare the time every minute and feed automatically when it's due. Result: set the time to the next minute to verify.",
+        "Remember \"already fed this minute\" to avoid repeats within the same minute. Result: exactly one feeding at the scheduled time.",
+        "Build the hatch mechanism (a bottle + the servo arm). Result: food actually comes out."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <RTClib.h>\n#include <Servo.h>          // Bundled with STM32duino\n\nRTC_DS3231 rtc;\nServo gate;\nconst int SERVO_PIN = PA0, BTN = PA1;\nconst int OPEN_ANGLE = 95, CLOSED_ANGLE = 10;\nconst int FEED_HOURS[] = {7, 19};\nint lastFedMinute = -1;\n\nvoid feed(const char* why) {\n  Serial.print(\"Feeding: \"); Serial.println(why);\n  gate.write(OPEN_ANGLE);\n  delay(1200);\n  gate.write(CLOSED_ANGLE);\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();\n  if (!rtc.begin()) { Serial.println(\"DS3231 not found\"); while (1); }\n  if (rtc.lostPower()) rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));  // Set once from the compile time\n  gate.attach(SERVO_PIN);\n  gate.write(CLOSED_ANGLE);\n  pinMode(BTN, INPUT_PULLUP);\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n  int minuteOfDay = now.hour() * 60 + now.minute();\n  for (int h : FEED_HOURS) {\n    if (minuteOfDay == h * 60 && lastFedMinute != minuteOfDay) {\n      lastFedMinute = minuteOfDay;\n      feed(\"scheduled\");\n    }\n  }\n  if (digitalRead(BTN) == LOW) { feed(\"manual\"); delay(500); }\n  delay(200);\n}",
+      "lib_deps": [
+        "adafruit/RTClib"
+      ],
+      "pitfalls": [
+        "The board reboots / serial turns to garbage when the servo moves: the servo draws 500mA+ when it starts and drags the board's 5V down. Power the servo from its own 5V (shared ground) and put a 1000uF capacitor across 5V and GND.",
+        "The DS3231 resets to the year 2000 every power-up: no coin cell installed, or a non-rechargeable CR2032 in a module with a charging circuit (it will swell!). DS3231 modules need an LIR2032, or remove the charging resistor.",
+        "The servo buzzes and jitters: the target angle hit the end stop (0 or 180). Stay within 10-170.",
+        "It fed N times at the scheduled minute: loop runs many times within a minute. Remember \"already fed this minute\"."
+      ],
+      "concepts": [
+        "RTC real-time clock",
+        "I2C",
+        "Servo PWM control",
+        "Scheduled tasks",
+        "Power decoupling"
+      ],
+      "extensions": [
+        "OLED showing the current time and the next feeding time",
+        "Add an HX711 load cell to know how much is left in the bowl",
+        "Add an HC-05 for remote feeding from your phone"
+      ]
+    },
+    {
+      "id": "keypad_servo_lock",
+      "title": "Combination Lock (Keypad + Servo)",
+      "tagline": "Enter a 4-digit code: if it's right, the servo turns the bolt and the green light comes on; three wrong tries locks it for 30 seconds with an alarm.",
+      "difficulty": 3,
+      "time": "3 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "keypad",
+          "name": "4x4 matrix keypad",
+          "qty": 1,
+          "role": "Enter the code"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 servo",
+          "qty": 1,
+          "role": "Door bolt"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "Passive buzzer",
+          "qty": 1,
+          "role": "Key clicks / alarm"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED red/green",
+          "qty": 2,
+          "role": "Status"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB10,PB11,PB12,PB13",
+          "to": "keypad.rows R1-R4",
+          "note": "8 header pins; the first 4 are rows"
+        },
+        {
+          "from": "bluepill.PB14,PB15,PA8,PB5",
+          "to": "keypad.columns C1-C4",
+          "note": "The last 4 are columns"
+        },
+        {
+          "from": "bluepill.PA0",
+          "to": "sg90.orange wire",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.red wire",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sg90.brown wire",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_green.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_green.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_red.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_red.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Connect the keypad and print each pressed key to serial. Result: press 5, see 5 (wrong characters mean rows/columns are swapped; fix accordingly).",
+        "Beep on every key press. Result: tactile feedback.",
+        "Collect 4 digits and compare to the code; green light if correct. Result: serial prints \"Unlocked\".",
+        "Connect the servo: on a correct code, turn 90° for 5 seconds then return. Result: the bolt moves.",
+        "3 wrong tries locks it for 30 seconds with flashing red and alarm. Result: brute-force protection.",
+        "Press * to clear, # to confirm. Result: feels like a real lock."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Keypad.h>\n#include <Servo.h>\n\nconst byte ROWS = 4, COLS = 4;\nchar keys[ROWS][COLS] = {\n  {'1','2','3','A'}, {'4','5','6','B'}, {'7','8','9','C'}, {'*','0','#','D'}\n};\nbyte rowPins[ROWS] = {PB10, PB11, PB12, PB13};\nbyte colPins[COLS] = {PB14, PB15, PA8, PB5};\nKeypad kp(makeKeymap(keys), rowPins, colPins, ROWS, COLS);\n\nServo lock;\nconst int SERVO = PA0, BUZZ = PA1, GREEN = PA2, RED = PA3;\nconst String PASSWORD = \"1234\";\nString input = \"\";\nint wrong = 0;\n\nvoid beep(int f, int ms) { tone(BUZZ, f); delay(ms); noTone(BUZZ); }\n\nvoid setup() {\n  Serial.begin(115200);\n  lock.attach(SERVO); lock.write(0);\n  pinMode(GREEN, OUTPUT); pinMode(RED, OUTPUT); pinMode(BUZZ, OUTPUT);\n}\n\nvoid loop() {\n  char k = kp.getKey();\n  if (!k) return;\n  beep(1500, 40);\n  if (k == '*') { input = \"\"; return; }\n  if (k == '#') {\n    if (input == PASSWORD) {\n      wrong = 0; digitalWrite(GREEN, HIGH); beep(2000, 200);\n      lock.write(90); delay(5000); lock.write(0);\n      digitalWrite(GREEN, LOW);\n    } else {\n      wrong++; digitalWrite(RED, HIGH); beep(300, 500); digitalWrite(RED, LOW);\n      if (wrong >= 3) {\n        for (int i = 0; i < 30; i++) { digitalWrite(RED, i % 2); beep(400, 200); delay(800); }\n        wrong = 0;\n      }\n    }\n    input = \"\";\n  } else if (input.length() < 8) {\n    input += k;\n  }\n}",
+      "lib_deps": [
+        "chris--a/Keypad"
+      ],
+      "pitfalls": [
+        "Pressing 1 gives 4 or A: rows and columns are swapped or in the wrong order. Test the 8 wires one by one over serial; don't guess.",
+        "Some keys don't respond: a matrix keypad relies on scanning, so one loose jumper kills a whole row or column.",
+        "The screen/serial goes haywire when the servo turns: power problem, same as the pet feeder.",
+        "The code is hard-coded and flashed in; how do you change it? First via a serial command, later by storing it in Flash (EEPROM library)."
+      ],
+      "concepts": [
+        "Matrix keypad scanning",
+        "String comparison",
+        "Servo",
+        "tone() sound output",
+        "Lockout and retry counting"
+      ],
+      "extensions": [
+        "Add an OLED to show ****",
+        "Add RFID card unlock",
+        "Store the code in EEPROM, changeable over serial"
+      ]
+    },
+    {
+      "id": "pomodoro_timer_oled",
+      "title": "Pomodoro Timer (OLED + Buttons)",
+      "tagline": "25 minutes of work, 5 minutes of rest. Big countdown digits and a progress bar on the screen, and a buzzer when time's up.",
+      "difficulty": 3,
+      "time": "2.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96\" OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "Display"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 2,
+          "role": "Start/pause, switch mode"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "Passive buzzer",
+          "qty": 1,
+          "role": "Time's-up alert"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 clock"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 data"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "button2.one leg",
+          "note": "Mode button"
+        },
+        {
+          "from": "button2.diagonal leg",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Show \"25:00\" on the OLED. Result: big digits on the screen.",
+        "Count down with millis, refreshing every second. Result: the digits tick.",
+        "Button to start/pause. Result: you can stop and resume.",
+        "At 0, sound the buzzer and switch to the 5-minute break automatically. Result: a full cycle.",
+        "Draw a progress ring/bar. Result: you can see how much is left at a glance.",
+        "Second button switches 25/5/custom. Result: it's usable."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nconst int BTN_START = PB12, BTN_MODE = PB13, BUZZ = PA1;\nconst unsigned long WORK = 25UL * 60, REST = 5UL * 60;\n\nbool running = false, isWork = true;\nlong remain = WORK;          // Seconds remaining\nunsigned long lastTick = 0;\nint lastStart = HIGH;\n\nvoid draw() {\n  oled.clearDisplay();\n  oled.setTextSize(1); oled.setCursor(0, 0);\n  oled.print(isWork ? \"WORK\" : \"REST\"); oled.print(running ? \"\" : \"  paused\");\n  oled.setTextSize(3); oled.setCursor(10, 20);\n  char buf[8]; sprintf(buf, \"%02ld:%02ld\", remain / 60, remain % 60);\n  oled.print(buf);\n  long total = isWork ? WORK : REST;\n  oled.drawRect(0, 56, 128, 8, WHITE);\n  oled.fillRect(0, 56, 128 - (128 * remain / total), 8, WHITE);   // Progress bar\n  oled.display();\n}\n\nvoid setup() {\n  Wire.begin();\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.setTextColor(WHITE);\n  pinMode(BTN_START, INPUT_PULLUP); pinMode(BTN_MODE, INPUT_PULLUP);\n  draw();\n}\n\nvoid loop() {\n  int s = digitalRead(BTN_START);\n  if (s == LOW && lastStart == HIGH) { running = !running; delay(50); draw(); }\n  lastStart = s;\n  if (digitalRead(BTN_MODE) == LOW) { isWork = !isWork; remain = isWork ? WORK : REST; running = false; delay(300); draw(); }\n\n  if (running && millis() - lastTick >= 1000) {\n    lastTick = millis();\n    if (--remain <= 0) {\n      tone(BUZZ, 1800); delay(800); noTone(BUZZ);\n      isWork = !isWork; remain = isWork ? WORK : REST;\n    }\n    draw();\n  }\n}",
+      "lib_deps": [
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "The OLED stays black: 90% of the time it's the wrong I2C address (0x3C vs. 0x3D) or SDA/SCL swapped. Run the I2C scanner first and don't move on until you see 0x3C.",
+        "The countdown runs slower than your watch: each display() refresh takes tens of milliseconds, and with delay(1000) the error piles up. Use millis differences instead of delay.",
+        "You have to press pause several times: the button isn't read during a refresh. Keep refreshes to once a second and read the button on every loop.",
+        "The progress bar computes to 0: integer division remain/total rounds to 0 first. Multiply before dividing."
+      ],
+      "concepts": [
+        "millis timer",
+        "OLED graphics drawing",
+        "sprintf formatting",
+        "Multiple button states",
+        "Integer math pitfalls"
+      ],
+      "extensions": [
+        "Add a rotary encoder knob to set the duration",
+        "Count today's completed pomodoros and store them in EEPROM",
+        "Add a WS2812 ring as the progress ring"
+      ]
+    },
+    {
+      "id": "ds18b20_thermometer",
+      "title": "Digital Thermometer (DS18B20)",
+      "tagline": "A waterproof probe you can dip in a cup, a fish tank, or your ramen, accurate to 0.1 degrees, shown on serial and an OLED.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "ds18b20",
+          "name": "DS18B20 waterproof temperature probe",
+          "qty": 1,
+          "role": "Measures temperature"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "4.7kΩ resistor",
+          "qty": 1,
+          "role": "1-Wire pull-up, required"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96\" OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "Display"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "ds18b20.red wire (VCC)",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "ds18b20.black wire (GND)",
+          "note": ""
+        },
+        {
+          "from": "ds18b20.yellow wire (DATA)",
+          "to": "bluepill.PB12",
+          "note": ""
+        },
+        {
+          "from": "4.7kΩ resistor",
+          "to": "Between PB12 and 3V3",
+          "note": "Pull-up resistor; without it you read -127 or 85"
+        },
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 clock"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 data"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Connect the probe + 4.7k and print the temperature to serial. Result: room temperature around 2x.x °C, rising when you hold the probe.",
+        "Dip it in ice water. Result: close to 0 degrees, confirming accuracy.",
+        "Connect the OLED and show the temperature in big digits. Result: no computer needed.",
+        "Track max/min. Result: the screen shows max/min.",
+        "Buzzer when it passes 60 °C (the ramen's ready). Result: actually useful."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <OneWire.h>\n#include <DallasTemperature.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nOneWire oneWire(PB12);\nDallasTemperature sensors(&oneWire);\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nfloat tMax = -100, tMin = 200;\n\nvoid setup() {\n  Serial.begin(115200);\n  sensors.begin();\n  Wire.begin();\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.setTextColor(WHITE);\n}\n\nvoid loop() {\n  sensors.requestTemperatures();            // Start a conversion (about 750ms at 12 bits)\n  float t = sensors.getTempCByIndex(0);\n  if (t == DEVICE_DISCONNECTED_C || t == 85.0) {\n    Serial.println(\"Can't read the probe; check the pull-up resistor and wiring\");\n  } else {\n    if (t > tMax) tMax = t;\n    if (t < tMin) tMin = t;\n    Serial.print(t, 1); Serial.println(\" C\");\n    oled.clearDisplay();\n    oled.setTextSize(3); oled.setCursor(0, 8); oled.print(t, 1); oled.print(\"C\");\n    oled.setTextSize(1); oled.setCursor(0, 50);\n    oled.print(\"max \"); oled.print(tMax, 1); oled.print(\"  min \"); oled.print(tMin, 1);\n    oled.display();\n  }\n  delay(1000);\n}",
+      "lib_deps": [
+        "paulstoffregen/OneWire",
+        "milesburton/DallasTemperature",
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "Reads -127: the probe wasn't found. Almost always the 4.7k pull-up is missing, or the data wire is on the wrong pin.",
+        "Reads 85.0: the probe just powered up and hasn't finished its first conversion, or it's underpowered. Wait 1 second before reading, and make sure the red wire is solid.",
+        "The three wire colors don't match: some probes are red=VCC, yellow=DATA, black=GND; others mix yellow/white/green. Use a multimeter: the wire that's continuous with the metal shell is GND.",
+        "Readings lag after dipping the probe in hot water: the metal shell has thermal inertia. Wait 10 seconds."
+      ],
+      "concepts": [
+        "1-Wire (OneWire) bus",
+        "Pull-up resistor",
+        "Digital temperature sensor",
+        "Max/min tracking",
+        "Sensor error codes"
+      ],
+      "extensions": [
+        "Put 3 probes on the same wire for multi-point measurement",
+        "Add a relay to build a temperature-controlled box",
+        "Log to an SD card and plot a day's curve"
+      ]
+    },
+    {
+      "id": "air_quality_mq2",
+      "title": "Air Quality Monitor (MQ Gas Sensor)",
+      "tagline": "Detect smoke, alcohol, and flammable gas, with LED colors and a buzzer showing the concentration. The beginnings of a kitchen gas alarm.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "mq2",
+          "name": "MQ-2 smoke/flammable gas sensor",
+          "qty": 1,
+          "role": "Sniffs the air"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ + 20kΩ resistors",
+          "qty": 1,
+          "role": "Voltage divider: brings the 5V output down under 3.3V"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED red/green",
+          "qty": 2,
+          "role": "Good/bad indicator"
+        },
+        {
+          "id": "buzzer_active",
+          "name": "Active buzzer",
+          "qty": 1,
+          "role": "Alarm"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V power supply",
+          "qty": 1,
+          "role": "The heater draws 150mA"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.5V",
+          "to": "mq2.VCC",
+          "note": "Must be 5V; there's a heater inside"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "mq2.GND",
+          "note": ""
+        },
+        {
+          "from": "mq2.AO",
+          "to": "10kΩ resistor, one end",
+          "note": "Upper leg of the divider"
+        },
+        {
+          "from": "10kΩ resistor, other end",
+          "to": "bluepill.PA0",
+          "note": "Also connect 20kΩ to GND here; AO max 5V→3.3V"
+        },
+        {
+          "from": "20kΩ resistor",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_green.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_green.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_red.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_red.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "buzzer_active.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_active.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire it up, power on, and wait 3 minutes to warm up. Result: the module getting warm is normal.",
+        "Print the AO value to serial. Result: it settles at a baseline; spray some alcohol or hold a lighter nearby (unlit) and the number jumps.",
+        "Set a threshold: baseline × 1.5. Result: green stays on, red when it's over.",
+        "Alarm only after 3 seconds continuously over the threshold. Result: a gust of air doesn't cause a false alarm.",
+        "Print formatted data to serial and watch the curve in Serial Plotter. Result: you can see the concentration rise and fade."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int MQ = PA0, GREEN = PA1, RED = PA2, BUZZ = PA3;\nint baseline = 0;\nunsigned long overSince = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  pinMode(GREEN, OUTPUT); pinMode(RED, OUTPUT); pinMode(BUZZ, OUTPUT);\n  Serial.println(\"Warming up for 60 seconds (3+ minutes recommended for real use)...\");\n  delay(60000);\n  long sum = 0;\n  for (int i = 0; i < 50; i++) { sum += analogRead(MQ); delay(20); }\n  baseline = sum / 50;                  // Clean-air baseline\n  Serial.print(\"Baseline: \"); Serial.println(baseline);\n}\n\nvoid loop() {\n  int v = analogRead(MQ);\n  Serial.println(v);                    // Serial Plotter draws this directly\n  bool bad = v > baseline * 1.5;\n  digitalWrite(GREEN, !bad); digitalWrite(RED, bad);\n\n  if (bad) {\n    if (overSince == 0) overSince = millis();\n    if (millis() - overSince > 3000) digitalWrite(BUZZ, HIGH);   // Only sound after 3 continuous seconds\n  } else {\n    overSince = 0; digitalWrite(BUZZ, LOW);\n  }\n  delay(200);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The value keeps drifting and the threshold is always wrong: MQ sensors have a heater, and a new module needs a 24-48 hour \"burn-in\" to stabilize, plus a few minutes of warm-up every power-up.",
+        "AO straight into PA0 makes the board hot: the MQ-2 runs on 5V and AO goes up to nearly 5V, but ADC pins can only take 3.3V. You must use a divider.",
+        "Very low, insensitive readings on 3.3V power: the heater needs 5V or it won't get hot enough to detect anything.",
+        "How many ppm is an ADC number? The MQ-2 isn't a precision instrument; calibrate against the curve in the datasheet. For learning, \"multiple of the baseline\" is good enough."
+      ],
+      "concepts": [
+        "ADC",
+        "Resistor voltage divider",
+        "Sensor warm-up and baseline",
+        "Relative threshold",
+        "Duration-based decision"
+      ],
+      "extensions": [
+        "Add an OLED with a relative-concentration bar",
+        "Add an ESP-01 to push a notification when it's over the limit",
+        "Swap in an MQ-135 (CO2/air quality) or MQ-7 (carbon monoxide)"
+      ]
+    },
+    {
+      "id": "serial_oscilloscope",
+      "title": "Simple Oscilloscope (ADC + Serial Plotter)",
+      "tagline": "Plot a pin's voltage as a live waveform. Turn a potentiometer and watch the line go up and down; probe a breathing LED and see the PWM sawtooth.",
+      "difficulty": 2,
+      "time": "1 hour",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "usb_serial",
+          "name": "USB-to-TTL serial adapter (CH340)",
+          "qty": 1,
+          "role": "Carries what the board says to the computer"
+        },
+        {
+          "id": "potentiometer",
+          "name": "10kΩ potentiometer",
+          "qty": 1,
+          "role": "Produces a variable voltage as the signal source"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ + 1kΩ resistors",
+          "qty": 1,
+          "role": "Probe protection / divider"
+        },
+        {
+          "id": "electrolytic_1000uf",
+          "name": "Capacitor (any value)",
+          "qty": 1,
+          "role": "For viewing the RC charge/discharge curve"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "potentiometer.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "potentiometer.GND",
+          "note": ""
+        },
+        {
+          "from": "potentiometer.OUT",
+          "to": "bluepill.PA0",
+          "note": "Signal under test"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "Probe output: analogWrite generates PWM for you to measure",
+          "note": "Optional; try connecting it to PA0 through a 1k resistor"
+        },
+        {
+          "from": "bluepill.PA9",
+          "to": "usb_serial.RXD",
+          "note": "Board talks → computer listens"
+        },
+        {
+          "from": "bluepill.PA10",
+          "to": "usb_serial.TXD",
+          "note": "Computer talks → board listens"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "usb_serial.GND",
+          "note": "Must share ground"
+        }
+      ],
+      "steps": [
+        "Connect the potentiometer and print analogRead(PA0) to serial every 10ms. Result: Serial Plotter (or a VS Code serial-plot extension) shows a line that moves as you turn the knob.",
+        "Print the voltage instead (v * 3.3 / 1023). Result: the axis becomes real volts.",
+        "Have PA1 output PWM and connect it to PA0 through a 1k resistor. Result: you see a square wave/sawtooth (it looks like a sawtooth if the sample rate is too low).",
+        "Add an RC (10k + capacitor) in front of PA0. Result: the square wave turns into a rounded charge/discharge curve. That's a low-pass filter.",
+        "Set analogReadResolution to 12 bits. Result: a finer curve (0-4095)."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int PROBE = PA0;\nconst int GEN = PA1;                 // Built-in signal source: PWM\nconst unsigned long INTERVAL_US = 2000;   // Sample interval 2ms = 500Hz\nunsigned long lastUs = 0;\n\nvoid setup() {\n  Serial.begin(115200);\n  analogReadResolution(12);          // 0-4095\n  pinMode(GEN, OUTPUT);\n  analogWrite(GEN, 64);              // 25% duty-cycle square wave\n}\n\nvoid loop() {\n  unsigned long now = micros();\n  if (now - lastUs < INTERVAL_US) return;\n  lastUs = now;\n  int raw = analogRead(PROBE);\n  float volt = raw * 3.3f / 4095.0f;\n  // Serial Plotter format: value space value newline. The second column is a fixed 3.3 reference line\n  Serial.print(volt, 3); Serial.print(' '); Serial.println(3.3);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The curve looks like a \"sawtooth\"/a blob: the sample rate is too low to show the real PWM (PWM is about 1kHz; sampling at 500Hz only shows aliasing). An oscilloscope is all about sample rate.",
+        "Printing too fast freezes the display: at 115200 baud, serial can move about 1000 lines per second at most. Don't print every microsecond.",
+        "Measuring a 5V signal killed the board: ADC pins max out at 3.3V. Divide higher voltages first (10k + 20k handles up to 5V).",
+        "Readings drift: the ADC reference is the 3.3V regulator output, so an unstable USB supply makes it drift."
+      ],
+      "concepts": [
+        "ADC resolution",
+        "Sample rate and aliasing",
+        "micros timing",
+        "RC low-pass filter",
+        "Serial plotting"
+      ],
+      "extensions": [
+        "Draw the waveform directly on an OLED for a portable scope",
+        "Add a trigger (start recording only above a certain voltage)",
+        "Record to an SD card and analyze on the computer"
+      ]
+    },
+    {
+      "id": "smart_fan_pwm",
+      "title": "Smart Fan (Temperature-Controlled PWM)",
+      "tagline": "The hotter it gets, the faster the fan spins; it stops when things cool down, and you can adjust it by hand. The same logic as laptop cooling.",
+      "difficulty": 3,
+      "time": "2 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "ds18b20",
+          "name": "DS18B20 temperature probe",
+          "qty": 1,
+          "role": "Measures temperature (a DHT11 works too)"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "4.7kΩ resistor",
+          "qty": 1,
+          "role": "DS18B20 pull-up"
+        },
+        {
+          "id": "mosfet",
+          "name": "MOSFET driver module (IRF520)",
+          "qty": 1,
+          "role": "Controls high current with PWM"
+        },
+        {
+          "id": "dc_motor_l298n",
+          "name": "DC motor (just the small motor + fan blade from the kit)",
+          "qty": 1,
+          "role": "The fan"
+        },
+        {
+          "id": "pump_diode",
+          "name": "1N5819 diode",
+          "qty": 1,
+          "role": "Across the motor"
+        },
+        {
+          "id": "potentiometer",
+          "name": "Potentiometer",
+          "qty": 1,
+          "role": "Manual speed control"
+        },
+        {
+          "id": "power_adapter",
+          "name": "5V 2A power supply",
+          "qty": 1,
+          "role": "Motor power"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB12",
+          "to": "ds18b20.DATA",
+          "note": "4.7k pull-up to 3V3"
+        },
+        {
+          "from": "bluepill.PA8",
+          "to": "mosfet.SIG",
+          "note": "PWM; PA8 is a TIM1 channel"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "mosfet.GND",
+          "note": "Shared ground"
+        },
+        {
+          "from": "Power supply 5V",
+          "to": "mosfet.VIN",
+          "note": ""
+        },
+        {
+          "from": "mosfet.V+ / V-",
+          "to": "Motor terminals",
+          "note": "Diode reverse-biased across the motor"
+        },
+        {
+          "from": "potentiometer.OUT",
+          "to": "bluepill.PA0",
+          "note": "Manual speed"
+        }
+      ],
+      "steps": [
+        "Connect the MOSFET module and motor, then analogWrite(PA8, 255). Result: the motor runs at full speed.",
+        "Add analogWriteFrequency(25000) and then write 128. Result: half speed, and no whining noise.",
+        "Connect the DS18B20 and print the temperature. Result: normal readings.",
+        "Map temperature → speed (stop at 25 °C, full speed at 35 °C). Result: hold the probe and the fan speeds up.",
+        "Let the potentiometer take over as manual mode (all the way down = auto). Result: two modes.",
+        "Minimum starting duty cycle: below 30% the motor won't turn. Result: no more \"powered but stalled\"."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <OneWire.h>\n#include <DallasTemperature.h>\n\nOneWire ow(PB12);\nDallasTemperature temp(&ow);\nconst int FAN = PA8, POT = PA0;\nconst float T_MIN = 25, T_MAX = 35;\nconst int DUTY_MIN = 80;                 // Below this the motor won't turn\n\nvoid setup() {\n  Serial.begin(115200);\n  temp.begin();\n  pinMode(FAN, OUTPUT);\n  analogWriteFrequency(25000);           // 25kHz, above human hearing\n  analogWrite(FAN, 0);\n}\n\nvoid loop() {\n  temp.requestTemperatures();\n  float t = temp.getTempCByIndex(0);\n  int pot = analogRead(POT);             // 0-1023\n  int duty;\n  if (pot < 30) {                        // Knob all the way down = auto mode\n    duty = map(constrain((int)(t * 10), T_MIN * 10, T_MAX * 10), T_MIN * 10, T_MAX * 10, 0, 255);\n  } else {\n    duty = map(pot, 0, 1023, 0, 255);   // Manual\n  }\n  if (duty > 0 && duty < DUTY_MIN) duty = DUTY_MIN;\n  analogWrite(FAN, duty);\n  Serial.print(t, 1); Serial.print(\" C  duty \"); Serial.println(duty);\n  delay(500);\n}",
+      "lib_deps": [
+        "paulstoffregen/OneWire",
+        "milesburton/DallasTemperature"
+      ],
+      "pitfalls": [
+        "The motor just hums or runs very slowly: the IRF520 isn't a \"logic-level\" MOSFET, so 3.3V only half-opens it. Use a logic-level MOSFET module like IRLZ44N/AO3400, or an L298N.",
+        "A sharp whine at half speed: the default PWM (about 1kHz) is within hearing range. Use analogWriteFrequency(25000).",
+        "The board reboots the instant the motor stops: a motor is an inductor and kicks back when power is cut. Put a diode across it and a capacitor on the supply.",
+        "The temperature reading keeps climbing: the probe is next to the motor/MOSFET and getting heated."
+      ],
+      "concepts": [
+        "MOSFET switching",
+        "PWM frequency",
+        "Temperature-to-speed mapping",
+        "Minimum starting duty cycle",
+        "Inductive kickback"
+      ],
+      "extensions": [
+        "Add an OLED to show temperature and speed",
+        "Switch to a 4-wire PC fan and read its RPM (FG wire)",
+        "Turn it into an add-on fan controller for a PC case"
+      ]
+    },
+    {
+      "id": "bluetooth_rc_car",
+      "title": "Bluetooth RC Car",
+      "tagline": "Install a Bluetooth serial app on your phone, tap forward/back/left/right, and the car moves. Your first project that actually drives.",
+      "difficulty": 4,
+      "time": "4 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "hc05",
+          "name": "HC-05 Bluetooth serial module",
+          "qty": 1,
+          "role": "Talks to the phone"
+        },
+        {
+          "id": "dc_motor_l298n",
+          "name": "2x DC motors + L298N driver + car chassis",
+          "qty": 1,
+          "role": "Drive"
+        },
+        {
+          "id": "power_18650",
+          "name": "2x 18650 batteries + holder",
+          "qty": 1,
+          "role": "7.4V power"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "Battery 7.4V+",
+          "to": "l298n.12V input",
+          "note": "Leave the onboard regulator jumper in place; its 5V output can power the Blue Pill"
+        },
+        {
+          "from": "Battery GND",
+          "to": "l298n.GND and bluepill.GND",
+          "note": "Shared ground"
+        },
+        {
+          "from": "l298n.5V output",
+          "to": "bluepill.5V",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12,PB13",
+          "to": "l298n.IN1,IN2",
+          "note": "Left wheel direction"
+        },
+        {
+          "from": "bluepill.PB14,PB15",
+          "to": "l298n.IN3,IN4",
+          "note": "Right wheel direction"
+        },
+        {
+          "from": "bluepill.PA8",
+          "to": "l298n.ENA",
+          "note": "PWM left wheel speed (remove the jumper cap)"
+        },
+        {
+          "from": "bluepill.PB8",
+          "to": "l298n.ENB",
+          "note": "PWM right wheel speed"
+        },
+        {
+          "from": "bluepill.PA2 (USART2 TX)",
+          "to": "hc05.RXD",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3 (USART2 RX)",
+          "to": "hc05.TXD",
+          "note": ""
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "hc05.VCC",
+          "note": "The module has its own regulator; 3.3V logic"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "hc05.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Before mounting the wheels, connect the motors to the L298N and write forward 2 seconds, backward 2 seconds. Result: both motors spin the same way (if one is reversed, swap its IN pins).",
+        "Connect the HC-05, pair from the phone app (PIN 1234), send characters, and echo them on serial. Result: phone sends F, board receives F.",
+        "Map F/B/L/R/S to forward/back/left/right/stop. Result: the phone controls the wheels.",
+        "Digits 0-9 set the speed. Result: slow and fast.",
+        "Stop if no command arrives for 500ms. Result: the car doesn't run away if Bluetooth drops.",
+        "Mount the wheels and drive. Result: zooming around the room."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nHardwareSerial BT(PA3, PA2);   // RX, TX -> USART2, connected to the HC-05\nconst int IN1 = PB12, IN2 = PB13, IN3 = PB14, IN4 = PB15;\nconst int ENA = PA8, ENB = PB8;\nint speedPwm = 180;\nunsigned long lastCmd = 0;\n\nvoid drive(int l, int r) {   // -1 backward, 0 stop, 1 forward\n  digitalWrite(IN1, l > 0); digitalWrite(IN2, l < 0);\n  digitalWrite(IN3, r > 0); digitalWrite(IN4, r < 0);\n  analogWrite(ENA, l ? speedPwm : 0);\n  analogWrite(ENB, r ? speedPwm : 0);\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  BT.begin(9600);              // HC-05 factory default is 9600\n  for (int p : {IN1, IN2, IN3, IN4, ENA, ENB}) pinMode(p, OUTPUT);\n  drive(0, 0);\n}\n\nvoid loop() {\n  if (BT.available()) {\n    char c = BT.read();\n    lastCmd = millis();\n    Serial.print(\"Received: \"); Serial.println(c);\n    switch (c) {\n      case 'F': drive(1, 1); break;\n      case 'B': drive(-1, -1); break;\n      case 'L': drive(-1, 1); break;\n      case 'R': drive(1, -1); break;\n      case 'S': drive(0, 0); break;\n      default:\n        if (c >= '0' && c <= '9') speedPwm = map(c - '0', 0, 9, 90, 255);\n    }\n  }\n  if (millis() - lastCmd > 500) drive(0, 0);   // Lost-connection safety\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The phone can't find the HC-05: the module LED must blink fast to be pairable; slow blinking means already connected. The HC-05 is Classic Bluetooth, which iPhones don't support; use Android.",
+        "Everything from the HC-05 is garbage: the baud rate isn't 9600 (someone entered AT mode and changed it to 38400), or TX/RX are swapped.",
+        "The Blue Pill reboots as soon as the motors run: too much motor noise. Charge the batteries, feed the board from the L298N's 5V output, add a big capacitor, and don't run two motors from a single 18650.",
+        "The L298N gets hot and the motors are weak: it drops over 2V internally, so 7.4V in leaves the motors only about 5V. That's normal; for more power switch to a TB6612."
+      ],
+      "concepts": [
+        "H-bridge motor driver",
+        "Second serial port (HardwareSerial)",
+        "Bluetooth serial passthrough",
+        "Heartbeat / lost-connection safety",
+        "Power and noise"
+      ],
+      "extensions": [
+        "Add an ultrasonic sensor in front for obstacle avoidance",
+        "Use a phone-app joystick for proportional control",
+        "Add WS2812 headlights"
+      ]
+    },
+    {
+      "id": "line_following_car",
+      "title": "Line-Following Car",
+      "tagline": "Lay out a track with black tape on white paper, and the car follows the line by itself, no remote needed.",
+      "difficulty": 4,
+      "time": "4 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "",
+          "name": "TCRT5000 infrared line sensor module",
+          "qty": 2,
+          "role": "Sees the black line on the floor (one left, one right)"
+        },
+        {
+          "id": "dc_motor_l298n",
+          "name": "2x DC motors + L298N + chassis",
+          "qty": 1,
+          "role": "Drive"
+        },
+        {
+          "id": "power_18650",
+          "name": "2x 18650 batteries",
+          "qty": 1,
+          "role": "Power"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "",
+          "name": "Black electrical tape",
+          "qty": 1,
+          "role": "Lays out the track"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB12,PB13,PB14,PB15",
+          "to": "l298n.IN1-IN4",
+          "note": "Same as the Bluetooth car"
+        },
+        {
+          "from": "bluepill.PA8, PB8",
+          "to": "l298n.ENA, ENB",
+          "note": "PWM speed"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "tcrt_left.VCC and tcrt_right.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "tcrt.GND",
+          "note": ""
+        },
+        {
+          "from": "tcrt_left.DO",
+          "to": "bluepill.PB10",
+          "note": "Black line = output HIGH (most modules)"
+        },
+        {
+          "from": "tcrt_right.DO",
+          "to": "bluepill.PB11",
+          "note": ""
+        },
+        {
+          "from": "l298n.5V output",
+          "to": "bluepill.5V",
+          "note": "Shared ground"
+        }
+      ],
+      "steps": [
+        "Connect the two line sensors and print both DO pins to serial. Result: 1 over black tape, 0 over white paper (if reversed, just treat it as reversed).",
+        "Adjust the module potentiometers so the sensors clearly distinguish black/white at 1cm off the floor. Result: stable readings.",
+        "Simple logic: both white = straight, left black = turn left, right black = turn right. Result: follows straight lines and gentle curves.",
+        "Both black = finish line, stop. Result: it stops at the end.",
+        "Slow the inner wheel instead of stopping it in turns. Result: smoother driving.",
+        "Line lost (both white for over 1 second) → search in the last direction. Result: it doesn't wander off."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int IN1 = PB12, IN2 = PB13, IN3 = PB14, IN4 = PB15, ENA = PA8, ENB = PB8;\nconst int SENS_L = PB10, SENS_R = PB11;\nconst int FAST = 170, SLOW = 90;\nint lastDir = 0;           // -1 left, 1 right\nunsigned long lostSince = 0;\n\nvoid motors(int lSpeed, int rSpeed) {      // Positive forward, negative backward\n  digitalWrite(IN1, lSpeed > 0); digitalWrite(IN2, lSpeed < 0);\n  digitalWrite(IN3, rSpeed > 0); digitalWrite(IN4, rSpeed < 0);\n  analogWrite(ENA, abs(lSpeed)); analogWrite(ENB, abs(rSpeed));\n}\n\nvoid setup() {\n  for (int p : {IN1, IN2, IN3, IN4, ENA, ENB}) pinMode(p, OUTPUT);\n  pinMode(SENS_L, INPUT); pinMode(SENS_R, INPUT);\n}\n\nvoid loop() {\n  bool L = digitalRead(SENS_L);   // 1 = sees the black line\n  bool R = digitalRead(SENS_R);\n  if (L && R) { motors(0, 0); return; }          // Finish: both black\n  if (!L && !R) {                                 // Line between the sensors: go straight\n    if (lostSince == 0) lostSince = millis();\n    if (millis() - lostSince > 1000) {            // Lost too long: search in the last direction\n      if (lastDir < 0) motors(SLOW, FAST); else motors(FAST, SLOW);\n    } else motors(FAST, FAST);\n  } else {\n    lostSince = 0;\n    if (L) { motors(SLOW, FAST); lastDir = -1; }  // Left sensor on the line: turn left\n    else   { motors(FAST, SLOW); lastDir = 1; }   // Right sensor on the line: turn right\n  }\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The sensor reads the same over black and white: it's too high off the floor (>2cm) or the potentiometer isn't adjusted. Ideal height is 0.5-1.5cm; turn the pot while watching the module's indicator LED.",
+        "The car keeps zigzagging: too fast, or the sensors are spaced much narrower than the line. Slow down and space the sensors slightly wider than the tape.",
+        "It fails in bright light: infrared in sunlight \"blinds\" the sensors. Use it indoors or add a shade.",
+        "It veers as soon as you add batteries: the two motors were never equally fast. Calibrate left and right PWM separately."
+      ],
+      "concepts": [
+        "Infrared reflectance sensing",
+        "Differential steering",
+        "Simple control law",
+        "Line-loss recovery",
+        "Sensor calibration"
+      ],
+      "extensions": [
+        "Use a 5-channel line sensor + PID control for fast, stable following",
+        "Add an ultrasonic sensor to stop for obstacles",
+        "Count intersections and turn at the Nth one"
+      ]
+    },
+    {
+      "id": "ir_remote_switch",
+      "title": "Infrared Remote Switch",
+      "tagline": "Use your TV remote (or the one from the kit) to switch a desk lamp or fan, with each button doing one thing.",
+      "difficulty": 3,
+      "time": "2 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "ir_receiver",
+          "name": "IR receiver + remote",
+          "qty": 1,
+          "role": "Receives remote signals"
+        },
+        {
+          "id": "relay",
+          "name": "1-channel relay module",
+          "qty": 1,
+          "role": "Switches the load"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED",
+          "qty": 2,
+          "role": "Stand-ins for two lights"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 2,
+          "role": "Current limiting"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "ir_receiver.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "ir_receiver.GND",
+          "note": ""
+        },
+        {
+          "from": "ir_receiver.OUT",
+          "to": "bluepill.PB12",
+          "note": "Any GPIO supports interrupts"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "relay.IN",
+          "note": ""
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "relay.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "relay.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_1.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_1.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_2.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_2.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Connect the receiver, flash the library's receive example, and press remote buttons. Result: serial prints each button's code (write them down).",
+        "Put the codes in your code; button 1 turns on LED1. Result: remote-controlled light.",
+        "Button 2 turns on LED2, button 0 turns everything off. Result: multiple button mappings.",
+        "Holding a button triggers repeatedly → handle the \"repeat code\". Result: one press toggles exactly once.",
+        "Add a relay to control a 5V desk lamp. Result: remote-controlled lamp."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <IRremote.hpp>       // IRremote 4.x\n\nconst int IR_PIN = PB12, RELAY = PB13, LED1 = PA1, LED2 = PA2;\n// Run it once to print your remote's button codes, then replace these\nconst uint16_t KEY_1 = 0x0C, KEY_2 = 0x18, KEY_0 = 0x16;\nbool s1 = false, s2 = false;\n\nvoid setup() {\n  Serial.begin(115200);\n  IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);\n  pinMode(RELAY, OUTPUT); pinMode(LED1, OUTPUT); pinMode(LED2, OUTPUT);\n  digitalWrite(RELAY, HIGH);   // Active-low module: HIGH = off\n}\n\nvoid loop() {\n  if (!IrReceiver.decode()) return;\n  auto &d = IrReceiver.decodedIRData;\n  if (!(d.flags & IRDATA_FLAGS_IS_REPEAT)) {      // Ignore repeat codes from holding the button\n    Serial.print(\"Protocol \"); Serial.print(getProtocolString(d.protocol));\n    Serial.print(\" command 0x\"); Serial.println(d.command, HEX);\n    if (d.command == KEY_1) { s1 = !s1; digitalWrite(LED1, s1); digitalWrite(RELAY, s1 ? LOW : HIGH); }\n    if (d.command == KEY_2) { s2 = !s2; digitalWrite(LED2, s2); }\n    if (d.command == KEY_0) { s1 = s2 = false; digitalWrite(LED1, 0); digitalWrite(LED2, 0); digitalWrite(RELAY, HIGH); }\n  }\n  IrReceiver.resume();          // Ready for the next one\n}",
+      "lib_deps": [
+        "z3t0/IRremote"
+      ],
+      "pitfalls": [
+        "Nothing is received: the receiver's three pins are in different orders from different makers (commonly OUT-GND-VCC), and wiring it backwards makes it heat up. Check the module's markings or datasheet.",
+        "The same button gives a different code every time / you see 0xFFFFFFFF: that's the \"repeat code\", meaning the button is being held. Check the flags and ignore it.",
+        "False triggers under fluorescent lights/sunlight: the 38kHz carrier gets interfered with. Keep away from strong light sources.",
+        "Compile error: IRremote.h not found: version 4.x renamed the header to IRremote.hpp; older tutorials use .h."
+      ],
+      "concepts": [
+        "IR NEC protocol",
+        "38kHz carrier",
+        "Libraries and examples",
+        "Repeat-code handling",
+        "Key-code lookup table"
+      ],
+      "extensions": [
+        "Add an IR emitter LED to build a universal remote for a real TV",
+        "Combine with a photoresistor: use the remote to set an auto mode",
+        "Show which channels are on with an OLED"
+      ]
+    },
+    {
+      "id": "pedometer_mpu6050",
+      "title": "Pedometer (MPU6050)",
+      "tagline": "Strap it to your leg or hold it while walking, and the OLED shows your step count. Learn to read acceleration and pick out a \"step\" from the \"shaking\".",
+      "difficulty": 3,
+      "time": "3 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "mpu6050",
+          "name": "MPU6050 6-axis IMU",
+          "qty": 1,
+          "role": "Measures acceleration"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96\" OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "Display"
+        },
+        {
+          "id": "power_18650",
+          "name": "18650 battery module",
+          "qty": 1,
+          "role": "Portable power"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Reset to zero"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "mpu6050.SCL and oled.SCL",
+          "note": "Both modules on the same I2C bus (addresses 0x68 / 0x3C don't clash)"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "mpu6050.SDA and oled.SDA",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "mpu6050.VCC, oled.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "mpu6050.GND, oled.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        }
+      ],
+      "steps": [
+        "I2C scan. Result: you see both addresses, 0x68 and 0x3C.",
+        "Print ax ay az to serial. Result: lying flat az≈9.8; flip it and it goes negative.",
+        "Compute the acceleration magnitude |a| and watch the walking waveform in Serial Plotter. Result: a clear peak for every step.",
+        "Peak detection: above the threshold and >300ms since the last one = one step. Result: walk 20 steps, count 18-22.",
+        "Big step count on the OLED, button resets to zero. Result: usable.",
+        "Power it from the battery, put it in your pocket, and take a walk. Result: real step counting."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <Adafruit_MPU6050.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nAdafruit_MPU6050 mpu;\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nconst int BTN = PB12;\nconst float THRESHOLD = 12.5;        // m/s^2; about 9.8 at rest, walking peaks at 12-15\nunsigned long lastStep = 0, lastDraw = 0;\nint steps = 0;\nbool above = false;\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();\n  if (!mpu.begin()) { Serial.println(\"MPU6050 not found\"); while (1); }\n  mpu.setAccelerometerRange(MPU6050_RANGE_4_G);\n  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);   // Filter out high-frequency jitter\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  oled.setTextColor(WHITE);\n  pinMode(BTN, INPUT_PULLUP);\n}\n\nvoid loop() {\n  sensors_event_t a, g, t;\n  mpu.getEvent(&a, &g, &t);\n  float mag = sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z);\n  Serial.println(mag);               // Watch the waveform in the Plotter to tune the threshold\n\n  // Crossing above the threshold counts as a step; at least 300ms between steps\n  if (mag > THRESHOLD && !above && millis() - lastStep > 300) { steps++; lastStep = millis(); }\n  above = mag > THRESHOLD;\n\n  if (digitalRead(BTN) == LOW) steps = 0;\n  if (millis() - lastDraw > 200) {\n    lastDraw = millis();\n    oled.clearDisplay(); oled.setTextSize(4); oled.setCursor(0, 16); oled.print(steps); oled.display();\n  }\n  delay(20);                         // About 50Hz sampling\n}",
+      "lib_deps": [
+        "adafruit/Adafruit MPU6050",
+        "adafruit/Adafruit Unified Sensor",
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "MPU6050 not found: the module's AD0 pin is tied high, changing the address to 0x69; or the 3.3V supply is weak. Confirm the address with an I2C scan.",
+        "It counts steps while sitting still: the threshold is too low, or you're looking at one axis instead of the magnitude. The threshold should be 2-3 above the resting 9.8.",
+        "One arm swing counts as several steps: add a minimum interval (300ms); people take at most 3 steps per second.",
+        "The OLED glitches with two devices on I2C: jumper wires too long, pull-ups too weak. Shorten the wires, or Wire.setClock(100000)."
+      ],
+      "concepts": [
+        "Multiple I2C devices",
+        "Accelerometer",
+        "Vector magnitude",
+        "Peak detection",
+        "Low-pass filtering"
+      ],
+      "extensions": [
+        "Add calorie/distance estimates",
+        "Store daily steps in EEPROM and reset at midnight with a DS3231",
+        "Use the gyroscope for \"flip your wrist to wake the screen\""
+      ]
+    },
+    {
+      "id": "water_leak_alarm",
+      "title": "Water Level / Leak Alarm",
+      "tagline": "Put it next to the washing machine or by the fish tank; as soon as water reaches the sensor it sounds off. It can also show the water level in a cup or tank.",
+      "difficulty": 2,
+      "time": "1 hour",
+      "hardware_free": true,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "rain",
+          "name": "Rain / water level sensor",
+          "qty": 1,
+          "role": "Senses water"
+        },
+        {
+          "id": "buzzer_active",
+          "name": "Active buzzer",
+          "qty": 1,
+          "role": "Alarm"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED red/yellow/green",
+          "qty": 3,
+          "role": "Three-level water indicator"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 3,
+          "role": "Current limiting"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB13",
+          "to": "rain.VCC",
+          "note": "Powered from a GPIO so it's only on while measuring, to prevent corrosion"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rain.GND",
+          "note": ""
+        },
+        {
+          "from": "rain.AO",
+          "to": "bluepill.PA0",
+          "note": "ADC; output stays under 3.3V when powered from 3.3V"
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_active.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_active.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_green.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_green.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_yellow.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_yellow.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA4",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_red.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_red.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Wire it up and print AO to serial. Result: near 0 when dry (or 1023, depending on the module), changing when wet.",
+        "Stand the sensor in a cup and slowly add water. Result: the value changes roughly linearly with the level; note three thresholds.",
+        "Three LEDs show low/mid/high. Result: the lights come on one by one as you add water.",
+        "High level (or any water) triggers the buzzer. Result: leak alarm.",
+        "Switch to intermittent GPIO power (on for 50ms every 2 seconds to measure). Result: the electrodes no longer turn black within days."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int SENSOR = PA0, SENSOR_PWR = PB13;\nconst int BUZZ = PA1, G = PA2, Y = PA3, R = PA4;\nconst int LVL_LOW = 200, LVL_MID = 450, LVL_HIGH = 700;   // Adjust to your measurements\n\nint readWater() {\n  digitalWrite(SENSOR_PWR, HIGH);   // Power the sensor only while measuring to reduce electrode corrosion\n  delay(30);\n  int v = analogRead(SENSOR);\n  digitalWrite(SENSOR_PWR, LOW);\n  return v;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  for (int p : {SENSOR_PWR, BUZZ, G, Y, R}) pinMode(p, OUTPUT);\n}\n\nvoid loop() {\n  int w = readWater();\n  Serial.println(w);\n  digitalWrite(G, w > LVL_LOW);\n  digitalWrite(Y, w > LVL_MID);\n  digitalWrite(R, w > LVL_HIGH);\n  digitalWrite(BUZZ, w > LVL_HIGH);   // Leak / full alarm\n  delay(2000);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "Readings drop over a few days and the electrodes turn black: constant power while submerged causes electrolytic corrosion. Power it from a GPIO and only for the 30ms you're measuring.",
+        "Dry readings aren't 0 but jump around: floating electrodes pick up noise. Treat anything below 50 as 0 in code.",
+        "AO exceeds 3.3V on 5V power: ADC pins max out at 3.3V. Powering the sensor from 3V3 or a GPIO keeps it safe.",
+        "Tap water and purified water read very differently: the sensor measures conductivity, not true \"level\". Calibrate with the same water you'll use."
+      ],
+      "concepts": [
+        "ADC",
+        "Conductivity sensing",
+        "GPIO as a power source",
+        "Electrolytic corrosion",
+        "Multi-level thresholds"
+      ],
+      "extensions": [
+        "Add an HC-05 to push leak alerts to your phone",
+        "Add a relay to shut off a pump / start a drain pump automatically",
+        "Switch to a non-contact XKC-Y25 level sensor stuck to the outside of the tank"
+      ]
+    },
+    {
+      "id": "servo_curtain",
+      "title": "Automatic Curtain (Servo Window)",
+      "tagline": "Opens automatically at dawn, closes at dusk, and a button toggles it by hand. Build a small model window first, then upgrade to real curtains.",
+      "difficulty": 3,
+      "time": "2.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 servo",
+          "qty": 1,
+          "role": "Pulls the curtain (model)"
+        },
+        {
+          "id": "ldr",
+          "name": "Photoresistor (LDR)",
+          "qty": 1,
+          "role": "Tells day from night"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "10kΩ resistor",
+          "qty": 1,
+          "role": "Photoresistor divider"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Manual open/close"
+        },
+        {
+          "id": "electrolytic_1000uf",
+          "name": "1000uF capacitor",
+          "qty": 1,
+          "role": "Steadies the servo supply"
+        },
+        {
+          "id": "mg996r",
+          "name": "MG996R metal-gear servo",
+          "qty": 1,
+          "role": "Upgrade: for pulling real curtains (much stronger)"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA0",
+          "to": "sg90.orange wire",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.red wire",
+          "note": "With the 1000uF capacitor across it"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "sg90.brown wire",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "ldr.one end",
+          "note": ""
+        },
+        {
+          "from": "ldr.other end",
+          "to": "bluepill.PA1",
+          "note": "Also connect 10k to GND here"
+        },
+        {
+          "from": "10kΩ resistor",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        }
+      ],
+      "steps": [
+        "Servo 0°↔180° back and forth. Result: the arm swings; figure out which angle is \"open\" and which is \"closed\".",
+        "Button toggles open/closed. Result: a manual curtain.",
+        "Print the photoresistor value and find the day/night threshold. Result: you know your numbers.",
+        "Bright→open, dark→close, with hysteresis and a 1-minute confirmation (a passing cloud isn't nightfall). Result: no twitching.",
+        "Move the servo slowly (1° every 15ms). Result: it draws the curtain like a person would, not with a \"snap\".",
+        "No automatic moves for 30 minutes after a manual one. Result: the human has the final say."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Servo.h>\n\nServo curtain;\nconst int SERVO = PA0, LDR = PA1, BTN = PB12;\nconst int OPEN_DEG = 170, CLOSE_DEG = 10;\nconst int BRIGHT = 600, DARK = 300;          // Two thresholds for hysteresis\nint current = CLOSE_DEG;\nbool isOpen = false;\nunsigned long darkSince = 0, brightSince = 0, manualUntil = 0;\nint lastBtn = HIGH;\n\nvoid moveTo(int target) {                      // Move slowly, like a person pulling it\n  while (current != target) {\n    current += (target > current) ? 1 : -1;\n    curtain.write(current);\n    delay(15);\n  }\n}\n\nvoid setup() {\n  curtain.attach(SERVO);\n  curtain.write(current);\n  pinMode(BTN, INPUT_PULLUP);\n}\n\nvoid loop() {\n  int b = digitalRead(BTN);\n  if (b == LOW && lastBtn == HIGH) {\n    isOpen = !isOpen; moveTo(isOpen ? OPEN_DEG : CLOSE_DEG);\n    manualUntil = millis() + 30UL * 60 * 1000;   // No auto moves for 30 minutes after a manual one\n    delay(50);\n  }\n  lastBtn = b;\n  if (millis() < manualUntil) return;\n\n  int light = analogRead(LDR);\n  // Bright/dark must persist for 60 seconds before it counts as a real change\n  if (light > BRIGHT) { if (!brightSince) brightSince = millis(); darkSince = 0; }\n  else if (light < DARK) { if (!darkSince) darkSince = millis(); brightSince = 0; }\n  else { brightSince = darkSince = 0; }\n\n  if (!isOpen && brightSince && millis() - brightSince > 60000) { isOpen = true; moveTo(OPEN_DEG); }\n  if (isOpen && darkSince && millis() - darkSince > 60000) { isOpen = false; moveTo(CLOSE_DEG); }\n  delay(200);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "The curtain opens when you turn on the room light at night: the photoresistor is seeing indoor light. Stick it facing the window, or add the \"60-second persistence\" check.",
+        "The servo can't reach its position and buzzes: it's stuck or past its travel. Don't write 0/180 to an SG90; use 10-170.",
+        "An SG90 can't pull a real curtain: it only has 1.8kg·cm of torque. For real curtains use an MG996R or a stepper motor with its own 5V 2A supply.",
+        "The servo keeps twitching after it arrives: supply noise. Put 1000uF across 5V/GND, or detach() once it's in position."
+      ],
+      "concepts": [
+        "Servo angle control",
+        "Photoresistor divider",
+        "Hysteresis",
+        "Persistence confirmation",
+        "Manual override"
+      ],
+      "extensions": [
+        "Switch to a 28BYJ-48 stepper to drive a real curtain track",
+        "Add a DS3231 schedule: open at 7 AM on weekdays",
+        "Add an HC-05 for phone control"
+      ]
+    },
+    {
+      "id": "buzzer_piano",
+      "title": "Mini Piano (Passive Buzzer)",
+      "tagline": "8 buttons become 8 piano keys that play do re mi when pressed; when nobody's playing, it plays \"Twinkle, Twinkle, Little Star\" on its own.",
+      "difficulty": 2,
+      "time": "1.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "Passive buzzer",
+          "qty": 1,
+          "role": "Makes the sound (must be passive)"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 8,
+          "role": "Piano keys"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": "tone() output"
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB10,PB11,PB12,PB13,PB14,PB15,PA8,PB5",
+          "to": "One leg of each of the 8 buttons",
+          "note": "INPUT_PULLUP; they map to C D E F G A B C5"
+        },
+        {
+          "from": "Other leg of the 8 buttons",
+          "to": "bluepill.GND",
+          "note": "Can share one ground row"
+        }
+      ],
+      "steps": [
+        "First flash tone(PA1, 440) for 1 second. Result: you hear a standard A note.",
+        "Wire one button; pressing it plays 262Hz (C). Result: one piano key.",
+        "8 keys, 8 frequencies. Result: you can play a scale.",
+        "Write a melody array (notes + durations) that plays on power-up. Result: \"Twinkle, Twinkle, Little Star\".",
+        "Add volume (really just duty cycle): try analogWrite instead of tone. Result: you'll find the passive buzzer's volume really does change a little."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n\nconst int BUZZ = PA1;\nconst int KEYS[8] = {PB10, PB11, PB12, PB13, PB14, PB15, PA8, PB5};\nconst int FREQ[8] = {262, 294, 330, 349, 392, 440, 494, 523};   // C4 ~ C5\n\n// Twinkle Twinkle: note index (0-7), -1 = rest; each note 400ms\nconst int SONG[] = {0,0,4,4,5,5,4,-1, 3,3,2,2,1,1,0,-1};\nconst int SONG_LEN = sizeof(SONG) / sizeof(SONG[0]);\n\nvoid setup() {\n  pinMode(BUZZ, OUTPUT);\n  for (int k : KEYS) pinMode(k, INPUT_PULLUP);\n  for (int i = 0; i < SONG_LEN; i++) {          // Play once at power-up\n    if (SONG[i] >= 0) tone(BUZZ, FREQ[SONG[i]]);\n    delay(350); noTone(BUZZ); delay(50);          // A little gap between notes so you can hear the rhythm\n  }\n}\n\nvoid loop() {\n  bool any = false;\n  for (int i = 0; i < 8; i++) {\n    if (digitalRead(KEYS[i]) == LOW) { tone(BUZZ, FREQ[i]); any = true; break; }\n  }\n  if (!any) noTone(BUZZ);\n}",
+      "lib_deps": [],
+      "pitfalls": [
+        "It only \"beeps\" at one pitch: you bought an active buzzer. An active one has its own oscillator and makes one tone; only a passive one can change pitch with tone(). To tell them apart: an active buzzer's back is sealed with black epoxy; on a passive one you can see the green circuit board.",
+        "It's very quiet: a passive buzzer driven straight from a GPIO gets only a few milliamps. Add an NPN transistor (S8050) driver and it gets much louder.",
+        "Pressing two keys plays only one: one buzzer can only make one frequency at a time. That's a physical limit, hence the break in the code.",
+        "The melody runs together: no gaps between notes. Call noTone for a few tens of milliseconds after each note."
+      ],
+      "concepts": [
+        "tone() square-wave sound",
+        "Pitch and frequency",
+        "Array lookup",
+        "Active vs. passive buzzers",
+        "Tempo"
+      ],
+      "extensions": [
+        "Add a potentiometer to shift octaves",
+        "Add an OLED to show the current note name",
+        "Convert MIDI or sheet music into an array and play any song"
+      ]
+    },
+    {
+      "id": "digital_clock_ds3231_tm1637",
+      "title": "Digital Clock (DS3231 + 7-Segment Display)",
+      "tagline": "A 4-digit red 7-segment display shows hours:minutes with a colon that blinks every second. It keeps time through power loss and has an alarm.",
+      "difficulty": 3,
+      "time": "2.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "rtc_ds3231",
+          "name": "DS3231 real-time clock",
+          "qty": 1,
+          "role": "Keeps time"
+        },
+        {
+          "id": "",
+          "name": "TM1637 4-digit 7-segment display module",
+          "qty": 1,
+          "role": "Shows 88:88"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 2,
+          "role": "Set time / alarm"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "Passive buzzer",
+          "qty": 1,
+          "role": "Alarm"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PB6",
+          "to": "rtc_ds3231.SCL",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "rtc_ds3231.SDA",
+          "note": ""
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "rtc_ds3231.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rtc_ds3231.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "tm1637.CLK",
+          "note": "Not I2C, just ordinary GPIO"
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "tm1637.DIO",
+          "note": ""
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "tm1637.VCC",
+          "note": "3.3V works too but is dimmer"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "tm1637.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB14",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        },
+        {
+          "from": "bluepill.PB15",
+          "to": "button2.one leg",
+          "note": ""
+        },
+        {
+          "from": "button2.diagonal leg",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "buzzer_passive.-",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Show 1234 on the display. Result: it lights up, confirming CLK/DIO aren't swapped.",
+        "Print the DS3231 time to serial and calibrate it once from the compile time. Result: the time is ticking.",
+        "Show HH:MM on the display with the colon blinking every second. Result: a clock.",
+        "Long-press button 1 to enter time-setting; button 2 adds a minute. Result: you can set it.",
+        "Set an alarm time; when it's due the buzzer sounds until any key is pressed. Result: it can wake you up.",
+        "Dim the display automatically at night. Result: easy on the eyes."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <Wire.h>\n#include <RTClib.h>\n#include <TM1637Display.h>\n\nRTC_DS3231 rtc;\nTM1637Display disp(PB12, PB13);   // CLK, DIO\nconst int BTN_SET = PB14, BTN_ADD = PB15, BUZZ = PA1;\nint alarmH = 7, alarmM = 0;\nbool alarmOn = true;\n\nvoid setup() {\n  Serial.begin(115200);\n  Wire.begin();\n  rtc.begin();\n  if (rtc.lostPower()) rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  disp.setBrightness(4);          // 0-7\n  pinMode(BTN_SET, INPUT_PULLUP); pinMode(BTN_ADD, INPUT_PULLUP);\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n  bool colon = now.second() % 2 == 0;\n  disp.showNumberDecEx(now.hour() * 100 + now.minute(), colon ? 0b01000000 : 0, true);\n\n  disp.setBrightness(now.hour() >= 22 || now.hour() < 7 ? 1 : 5);   // Dim at night\n\n  if (digitalRead(BTN_ADD) == LOW) {        // Add one minute (simple time setting)\n    rtc.adjust(now + TimeSpan(60));\n    delay(200);\n  }\n  if (alarmOn && now.hour() == alarmH && now.minute() == alarmM && now.second() < 30) {\n    tone(BUZZ, 2000); delay(200); noTone(BUZZ); delay(200);\n    if (digitalRead(BTN_SET) == LOW) alarmOn = false;   // Any key silences the alarm\n  }\n  delay(100);\n}",
+      "lib_deps": [
+        "adafruit/RTClib",
+        "avishorp/TM1637"
+      ],
+      "pitfalls": [
+        "The display is dark or garbled: the TM1637 is not an I2C device, so don't put it on PB6/PB7 fighting with the DS3231; swapped CLK/DIO is another common cause.",
+        "The time runs slow/fast compared to your phone: the DS3231 itself is very accurate (under 1 minute a year); what's off is the compile-time setting, which includes the ten-odd seconds between compiling and finishing the upload. Once set, don't adjust again.",
+        "The time resets every time you re-flash: the code calls rtc.adjust() unconditionally. Only set it when lostPower() is true.",
+        "Time is lost even after replacing the coin cell: the module's charging circuit + a non-rechargeable CR2032 \"charged\" the battery to death."
+      ],
+      "concepts": [
+        "RTC timekeeping",
+        "TM1637 display driver",
+        "Time comparison",
+        "Brightness by time of day",
+        "Button-based settings"
+      ],
+      "extensions": [
+        "Add a DHT11 and alternate between time and temperature",
+        "Add a photoresistor for automatic brightness",
+        "Switch to an OLED to show the date and weekday"
+      ]
+    },
+    {
+      "id": "rfid_door_access",
+      "title": "RFID Door Access",
+      "tagline": "Tap a card to open the door: cards on the allow list unlock the servo with a green light; unknown cards get a red light and alarm, and every tap is logged to serial.",
+      "difficulty": 4,
+      "time": "3.5 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "",
+          "name": "RC522 RFID module + blank card + key fob",
+          "qty": 1,
+          "role": "Reads cards (3.3V power only!)"
+        },
+        {
+          "id": "sg90",
+          "name": "SG90 servo",
+          "qty": 1,
+          "role": "Door lock"
+        },
+        {
+          "id": "buzzer_passive",
+          "name": "Passive buzzer",
+          "qty": 1,
+          "role": "Feedback sounds"
+        },
+        {
+          "id": "led_5mm",
+          "name": "5mm LED red/green",
+          "qty": 2,
+          "role": "Status"
+        },
+        {
+          "id": "resistor_kit",
+          "name": "220Ω resistor",
+          "qty": 2,
+          "role": "Current limiting"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.3V3",
+          "to": "rc522.3.3V",
+          "note": "Must be 3.3V; 5V kills it instantly"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "rc522.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA5",
+          "to": "rc522.SCK",
+          "note": "SPI1"
+        },
+        {
+          "from": "bluepill.PA6",
+          "to": "rc522.MISO",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA7",
+          "to": "rc522.MOSI",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA4",
+          "to": "rc522.SDA(SS)",
+          "note": "Chip select"
+        },
+        {
+          "from": "bluepill.PB0",
+          "to": "rc522.RST",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA8",
+          "to": "sg90.orange wire",
+          "note": "PWM"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sg90.red wire",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA1",
+          "to": "buzzer_passive.+",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA2",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_green.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_green.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA3",
+          "to": "220Ω resistor",
+          "note": "Current limiting; don't skip it"
+        },
+        {
+          "from": "220Ω resistor, other end",
+          "to": "led_red.long leg (+)",
+          "note": ""
+        },
+        {
+          "from": "led_red.short leg (-)",
+          "to": "bluepill.GND",
+          "note": ""
+        }
+      ],
+      "steps": [
+        "Connect the RC522 and run the read-UID example. Result: tapping a card prints a 4-byte UID to serial (like A3 5F 12 9C).",
+        "Put your own card's UID in the allow list. Result: tapping your card prints \"Welcome\".",
+        "Connect the servo: a valid card turns it 90° for 3 seconds, then back. Result: an unlock action.",
+        "Green light + two short beeps / red light + one long low tone. Result: you know the result without looking at serial.",
+        "3 unknown cards in a row trigger a 10-second alarm. Result: tamper protection.",
+        "Print timestamped log lines to serial (add a DS3231). Result: an access log."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <SPI.h>\n#include <MFRC522.h>\n#include <Servo.h>\n\nMFRC522 rfid(PA4, PB0);            // SS, RST; SPI1 defaults to PA5/PA6/PA7\nServo lock;\nconst int SERVO = PA8, BUZZ = PA1, GREEN = PA2, RED = PA3;\n// Run it once to print the UID, then put your card here\nconst byte ALLOWED[][4] = { {0xA3, 0x5F, 0x12, 0x9C}, {0x10, 0x22, 0x33, 0x44} };\nint badCount = 0;\n\nbool isAllowed(byte* uid) {\n  for (auto &card : ALLOWED) if (memcmp(card, uid, 4) == 0) return true;\n  return false;\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  SPI.begin();\n  rfid.PCD_Init();\n  lock.attach(SERVO); lock.write(0);\n  pinMode(BUZZ, OUTPUT); pinMode(GREEN, OUTPUT); pinMode(RED, OUTPUT);\n  Serial.println(\"Please tap your card\");\n}\n\nvoid loop() {\n  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) return;\n  Serial.print(\"UID: \");\n  for (byte i = 0; i < rfid.uid.size; i++) { Serial.print(rfid.uid.uidByte[i], HEX); Serial.print(' '); }\n  Serial.println();\n\n  if (isAllowed(rfid.uid.uidByte)) {\n    badCount = 0;\n    digitalWrite(GREEN, HIGH); tone(BUZZ, 2000, 100); delay(150); tone(BUZZ, 2500, 100);\n    lock.write(90); delay(3000); lock.write(0);\n    digitalWrite(GREEN, LOW);\n  } else {\n    digitalWrite(RED, HIGH); tone(BUZZ, 300, 600); delay(700); digitalWrite(RED, LOW);\n    if (++badCount >= 3) { for (int i = 0; i < 20; i++) { tone(BUZZ, 800, 200); digitalWrite(RED, i % 2); delay(500); } badCount = 0; }\n  }\n  rfid.PICC_HaltA();              // Put this card to \"sleep\", otherwise it keeps getting read\n  rfid.PCD_StopCrypto1();\n}",
+      "lib_deps": [
+        "miguelbalboa/MFRC522"
+      ],
+      "pitfalls": [
+        "RC522 fried on 5V: the module is 3.3V only; the pin labeled 3.3V is its maximum. Its logic level is 3.3V too, a perfect match for the Blue Pill.",
+        "No cards read, firmware version prints 0x00 or 0xFF: SPI wiring is wrong or the jumper wires are too long. MOSI/MISO can't be swapped, and keep wires under 15cm.",
+        "One card tap triggers several times: PICC_HaltA() wasn't called, so the card stays in the field.",
+        "Your phone's NFC isn't detected: the RC522 only supports 13.56MHz MIFARE cards; 125kHz ID cards used by some access systems can't be read (you'd need an RDM6300)."
+      ],
+      "concepts": [
+        "SPI bus",
+        "RFID/NFC 13.56MHz",
+        "UID allow list",
+        "Byte-array comparison",
+        "Protecting 3.3V devices"
+      ],
+      "extensions": [
+        "Add an \"admin card\": after tapping it, the next card gets added to the allow list and saved to EEPROM",
+        "Add an OLED to show the name and time",
+        "Connect an electromagnetic lock (12V + relay) for a real door"
+      ]
+    },
+    {
+      "id": "gps_logger",
+      "title": "GPS Logger (Advanced)",
+      "tagline": "Take it biking or hiking: the OLED shows live latitude/longitude and speed, the track is written to an SD card every second, and at home you import it into a map app to see your route.",
+      "difficulty": 5,
+      "time": "6 hours",
+      "hardware_free": false,
+      "parts": [
+        {
+          "id": "bluepill",
+          "name": "STM32F103C8T6 Blue Pill",
+          "qty": 1,
+          "role": "Main controller"
+        },
+        {
+          "id": "stlink",
+          "name": "ST-Link V2 programmer",
+          "qty": 1,
+          "role": "Flashes the program onto the board"
+        },
+        {
+          "id": "breadboard",
+          "name": "Breadboard",
+          "qty": 1,
+          "role": "Plug parts in without soldering"
+        },
+        {
+          "id": "jumper",
+          "name": "Jumper wires",
+          "qty": 1,
+          "role": "Connections"
+        },
+        {
+          "id": "",
+          "name": "GPS module NEO-6M/NEO-7M (with ceramic antenna)",
+          "qty": 1,
+          "role": "Positioning; outputs NMEA over serial"
+        },
+        {
+          "id": "sd_module",
+          "name": "SD card module + SD card",
+          "qty": 1,
+          "role": "Stores the track"
+        },
+        {
+          "id": "oled_096",
+          "name": "0.96\" OLED SSD1306 (I2C)",
+          "qty": 1,
+          "role": "Display"
+        },
+        {
+          "id": "power_18650",
+          "name": "18650 battery + TP4056 charge/discharge module",
+          "qty": 1,
+          "role": "Portable power"
+        },
+        {
+          "id": "button",
+          "name": "Tactile push button",
+          "qty": 1,
+          "role": "Start/stop recording"
+        }
+      ],
+      "wiring": [
+        {
+          "from": "bluepill.PA3 (USART2 RX)",
+          "to": "gps.TX",
+          "note": "The GPS only talks, never listens; one wire is enough"
+        },
+        {
+          "from": "bluepill.PA2 (USART2 TX)",
+          "to": "gps.RX",
+          "note": "Optional, for configuration"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "gps.VCC",
+          "note": "Most modules accept 3.3-5V"
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "gps.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA5",
+          "to": "sd_module.SCK",
+          "note": "SPI1"
+        },
+        {
+          "from": "bluepill.PA6",
+          "to": "sd_module.MISO",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PA7",
+          "to": "sd_module.MOSI",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB12",
+          "to": "sd_module.CS",
+          "note": "Chip select, your choice of pin"
+        },
+        {
+          "from": "bluepill.5V",
+          "to": "sd_module.VCC",
+          "note": "The module has a regulator; a bare SD socket takes 3V3"
+        },
+        {
+          "from": "bluepill.PB6",
+          "to": "oled_096.SCL",
+          "note": "I2C1 clock"
+        },
+        {
+          "from": "bluepill.PB7",
+          "to": "oled_096.SDA",
+          "note": "I2C1 data"
+        },
+        {
+          "from": "bluepill.3V3",
+          "to": "oled_096.VCC",
+          "note": ""
+        },
+        {
+          "from": "bluepill.GND",
+          "to": "oled_096.GND",
+          "note": ""
+        },
+        {
+          "from": "bluepill.PB13",
+          "to": "button.one leg",
+          "note": "INPUT_PULLUP in code; no external resistor needed"
+        },
+        {
+          "from": "button.diagonal leg",
+          "to": "bluepill.GND",
+          "note": "Pressed = LOW"
+        },
+        {
+          "from": "power_18650.OUT+",
+          "to": "bluepill.5V or 3V3",
+          "note": "An 18650's 3.7V straight into the 3V3 pin is wrong either way; use a module with a 5V boost converter"
+        }
+      ],
+      "steps": [
+        "Connect the GPS to USART2 and forward the raw NMEA to Serial as-is. Result: a stream of $GPRMC,$GPGGA text. Go to a window or outside and wait 1-5 minutes for coordinates to appear.",
+        "Parse it with TinyGPS++ and print latitude/longitude, satellite count, and speed to serial. Result: human-readable data.",
+        "Test the SD module alone: write a line of hello and read it back. Result: the file shows up when you read the card on your computer.",
+        "Show latitude/longitude/speed/satellites on the OLED. Result: no computer needed.",
+        "Button starts recording; write one CSV line per second (time,lat,lng,speed). Result: a file is created as you walk around.",
+        "Convert the CSV to GPX on your computer and import it into a map app. Result: you see your own track."
+      ],
+      "code_skeleton": "#include <Arduino.h>\n#include <TinyGPSPlus.h>\n#include <SPI.h>\n#include <SdFat.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n\nHardwareSerial GPS(PA3, PA2);         // RX, TX -> USART2\nTinyGPSPlus gps;\nSdFat sd;\nSdFile logFile;\nAdafruit_SSD1306 oled(128, 64, &Wire, -1);\nconst int SD_CS = PB12, BTN = PB13;\nbool recording = false;\nunsigned long lastLog = 0;\nint lastBtn = HIGH;\n\nvoid setup() {\n  Serial.begin(115200);\n  GPS.begin(9600);                    // NEO-6M default is 9600\n  Wire.begin();\n  oled.begin(SSD1306_SWITCHCAPVCC, 0x3C); oled.setTextColor(WHITE);\n  pinMode(BTN, INPUT_PULLUP);\n  if (!sd.begin(SD_CS, SD_SCK_MHZ(4))) Serial.println(\"SD card init failed\");\n}\n\nvoid loop() {\n  while (GPS.available()) gps.encode(GPS.read());   // Feed characters to the parser\n\n  int b = digitalRead(BTN);\n  if (b == LOW && lastBtn == HIGH) {\n    recording = !recording;\n    if (recording) { logFile.open(\"track.csv\", O_WRONLY | O_CREAT | O_APPEND); logFile.println(\"time,lat,lng,kmh\"); }\n    else logFile.close();\n    delay(50);\n  }\n  lastBtn = b;\n\n  if (millis() - lastLog >= 1000) {\n    lastLog = millis();\n    oled.clearDisplay(); oled.setTextSize(1); oled.setCursor(0, 0);\n    oled.print(\"sats \"); oled.print(gps.satellites.value()); oled.println(recording ? \"  REC\" : \"\");\n    if (gps.location.isValid()) {\n      oled.print(gps.location.lat(), 5); oled.println();\n      oled.print(gps.location.lng(), 5); oled.println();\n      oled.setTextSize(2); oled.print(gps.speed.kmph(), 1); oled.print(\" km/h\");\n      if (recording && logFile.isOpen()) {\n        logFile.print(gps.time.value()); logFile.print(',');\n        logFile.print(gps.location.lat(), 6); logFile.print(',');\n        logFile.print(gps.location.lng(), 6); logFile.print(',');\n        logFile.println(gps.speed.kmph(), 1);\n        logFile.sync();                                   // Flush to the card every second so a power loss doesn't lose data\n      }\n    } else {\n      oled.println(\"searching...\");\n    }\n    oled.display();\n  }\n}",
+      "lib_deps": [
+        "mikalhart/TinyGPSPlus",
+        "greiman/SdFat",
+        "adafruit/Adafruit SSD1306",
+        "adafruit/Adafruit GFX Library",
+        "adafruit/Adafruit BusIO"
+      ],
+      "pitfalls": [
+        "Stuck on searching: a cold-start GPS almost never gets a fix indoors. Go to a window or outside; the first fix can take 5-15 minutes. When the module's LED starts blinking, it has a fix.",
+        "NMEA arrives but latitude/longitude are all 0: no fix yet (the status in $GPRMC is V). Wait for 4 or more satellites.",
+        "SD init fails / the file has only the header and no data: init failures are usually a card that isn't FAT32, jumper wires too long (drop SPI to 4MHz), or unstable module power. Header but no data means power was cut before sync()/close(), so the data was still in the buffer. sync after every write.",
+        "Out of Flash (region FLASH overflowed): the three libraries together exceed 64KB. Most C8T6 chips actually have 128KB; add board_upload.maximum_size = 131072 to platformio.ini, or drop the OLED."
+      ],
+      "concepts": [
+        "NMEA protocol parsing",
+        "SPI and the SD card file system",
+        "I2C + SPI + UART on one board",
+        "Persisting data to storage",
+        "Flash budget"
+      ],
+      "extensions": [
+        "Add an MPU6050 to record how bumpy the ride is",
+        "Add an ESP-01 to upload your position live",
+        "Compute total distance and average speed and show them on the screen"
+      ]
+    }
+  ]
+}

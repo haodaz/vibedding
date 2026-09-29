@@ -13,3 +13,4 @@ platform/preview.log
 platform/server.log
 setup-uv.log
 setup.log
+platform/usage.jsonl

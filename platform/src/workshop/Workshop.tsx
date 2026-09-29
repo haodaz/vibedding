@@ -22,6 +22,17 @@ const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() ==
 
 type Tab = 'board' | 'assembly' | 'code' | 'serial' | 'project'
 
+// 形象姿态：待机 / 工作（跑工具）/ 思考（等模型）/ 庆祝（成功烧录或目标达成）/ 为难（出错）
+export function mentorPose(items: Item[], busy: boolean): string {
+  const last = items[items.length - 1]
+  if (last?.kind === 'system') return 'mentor_stuck'
+  if (last?.kind === 'tool' && last.error) return 'mentor_stuck'
+  if (busy) return items.some((i) => i.kind === 'tool' && i.running) ? 'mentor_working' : 'mentor_thinking'
+  if (last?.kind === 'tool' && (last.name === 'pio_upload' || last.name === 'append_journal') && !last.error) return 'mentor_cheer'
+  if (last?.kind === 'assistant' && /🎉|亮了|成功|done|works|congrat/i.test(last.text)) return 'mentor_cheer'
+  return 'mentor_idle'
+}
+
 export function Workshop() {
   const lang = useLang()
   const [, tick] = useState(0)
@@ -73,7 +84,7 @@ export function Workshop() {
         <div className="ws-log">
           {a.items.length === 0 && (
             <div className="ws-empty">
-              <div className="ws-empty-npc"><NpcImage name="npc_mentor" /></div>
+              <div className="ws-empty-npc"><NpcImage name="mentor_idle" /></div>
               <div><p>{t('ws.eg')}</p><div className="chips">{suggest.map((s) => <button key={s} className="chip" onClick={() => submit(s)}>{s}</button>)}</div></div>
             </div>
           )}
@@ -88,6 +99,7 @@ export function Workshop() {
       </div>
       <div className="ws-divider" onMouseDown={() => (dragging.current = true)} />
       <aside className="ws-space">
+        <div className="ws-mentor"><NpcImage name={mentorPose(a.items, a.busy)} /></div>
         <div className="ws-tabs">
           {(['board', 'assembly', 'code', 'serial', 'project'] as Tab[]).map((k) => (
             <button key={k} className={'chip' + (tab === k ? ' on' : '')} onClick={() => { setTab(k); setAuto(false) }}>
@@ -127,7 +139,7 @@ function Intro() {
   return (
     <div className="intro-mask" onClick={close}>
       <div className="intro-card" onClick={(e) => e.stopPropagation()}>
-        <div className="ws-empty-npc"><NpcImage name="npc_mentor" /></div>
+        <div className="ws-empty-npc"><NpcImage name="mentor_cheer" /></div>
         <div>
           <h2>{t('intro.title')}</h2>
           <p>{t('intro.body')}</p>
@@ -198,7 +210,7 @@ function Projects({ mode }: { mode: string }) {
 function Row({ it, onAnswer }: { it: Item; onAnswer: (id: string, s: string) => void }) {
   const [open, setOpen] = useState(false)
   if (it.kind === 'user') return <div className="ws-row user"><div className="bubble">{it.text}</div></div>
-  if (it.kind === 'assistant') return <div className="ws-row ai"><div className="ws-avatar"><NpcImage name="npc_mentor" /></div><div className="bubble"><Markdown text={it.text} /></div></div>
+  if (it.kind === 'assistant') return <div className="ws-row ai"><div className="ws-avatar"><NpcImage name="mentor_idle" /></div><div className="bubble"><Markdown text={it.text} /></div></div>
   if (it.kind === 'system') return <div className="ws-row sys">{it.text}</div>
   if (it.kind === 'human') return <div className="ws-row cardrow"><HumanCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>
   if (it.kind === 'bom') return <div className="ws-row cardrow"><BomCard ask={it.ask} answer={it.answer} onAnswer={(s) => onAnswer(it.id, s)} /></div>

@@ -92,6 +92,12 @@ const D: Record<string, [string, string]> = {
   'kb.search': ['搜索', 'Search '], 'kb.ai': ['✦ 让 AI 带我做这个', '✦ Have the AI build this with me'], 'kb.ask': ['✦ 问 AI', '✦ Ask AI'], 'kb.empty': ['还没生成。', 'Not generated yet.'],
   'doc.back': ['← 返回', '← Back'], 'doc.ai': ['✦ 让 AI 来做：', '✦ Let the AI do it: '],
   'doc.done': ['做完了？把这张卡的 status 改成 done，然后写一篇日志。或者直接跟 AI 说"这个任务完成了"。', 'Finished? Set this card\'s status to done and write a journal entry, or just tell the AI "this mission is done".'],
+  'nav.admin': ['管理', 'Admin'],
+  'admin.title': ['管理后台', 'Admin'], 'admin.sub': ['用户和用量。只有管理员能看到这一页。', 'Users and usage. Admins only.'],
+  'admin.usage': ['用量', 'Usage'], 'admin.users': ['用户', 'Users'], 'admin.days': ['天', 'days'], 'admin.today': ['今天', 'Today'], 'admin.week': ['近 7 天', 'Last 7 days'],
+  'admin.calls': ['调用次数', 'Calls'], 'admin.tokens': ['Token', 'Tokens'], 'admin.cost': ['成本', 'Cost'], 'admin.byday': ['按天', 'By day'], 'admin.byuser': ['按用户', 'By user'], 'admin.bymodel': ['按模型', 'By model'], 'admin.recent': ['最近调用', 'Recent calls'],
+  'admin.user': ['用户', 'User'], 'admin.model': ['模型', 'Model'], 'admin.time': ['时间', 'Time'], 'admin.role': ['角色', 'Role'], 'admin.created': ['创建', 'Created'], 'admin.lastseen': ['最近登录', 'Last sign-in'], 'admin.status': ['状态', 'Status'],
+  'admin.add': ['建账号', 'Create user'], 'admin.disabled': ['已禁用', 'Disabled'], 'admin.active': ['正常', 'Active'], 'admin.enable': ['启用', 'Enable'], 'admin.disable': ['禁用', 'Disable'], 'admin.promote': ['设为管理员', 'Make admin'], 'admin.demote': ['取消管理员', 'Remove admin'],
   'about.title': ['关于平台', 'About'],
   'empty.404': ['404 · 页面不存在', '404 · not found'],
 }

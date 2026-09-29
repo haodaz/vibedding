@@ -5,7 +5,7 @@ import { Markdown } from '../Markdown'
 export function Mentor({ state, text, onCopy }: { state: 'loading' | 'done' | 'nokey' | 'error'; text?: string; onCopy?: () => void }) {
   return (
     <div className={'mentor ' + state}>
-      <div className="mentor-portrait"><NpcImage name="npc_mentor" /></div>
+      <div className="mentor-portrait"><NpcImage name={state === 'loading' ? 'mentor_thinking' : state === 'error' ? 'mentor_stuck' : 'mentor_idle'} /></div>
       <div className="mentor-box">
         <div className="mentor-name">导师 <span>AI · 嵌入式</span></div>
         {state === 'loading' && <p className="mentor-text typing">让我看看你的代码和运行记录<span className="dots" /></p>}

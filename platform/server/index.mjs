@@ -10,9 +10,18 @@ import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { runTool } from './tools.mjs'
 import { step, agentModel, provider } from './agent.mjs'
+import { usageRecord } from '../shared/spec.mjs'
+
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const envFile = path.join(here, '..', '.env')
+// 本地模式的用量：追加到 platform/usage.jsonl
+const USAGE_FILE = path.join(here, '..', 'usage.jsonl')
+function logUsage(rec) { try { fs.appendFileSync(USAGE_FILE, JSON.stringify({ ts: new Date().toISOString(), ...rec }) + '\n') } catch { /* ignore */ } }
+function readUsage(days) {
+  const since = Date.now() - days * 864e5
+  try { return fs.readFileSync(USAGE_FILE, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => new Date(r.ts).getTime() >= since).reverse() } catch { return [] }
+}
 if (fs.existsSync(envFile)) {
   for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/)
@@ -102,8 +111,22 @@ http.createServer(async (req, res) => {
       for await (const chunk of req) raw += chunk
       const body = JSON.parse(raw)
       const mock = provider() === 'mock' || !!body.mock
-      return json(res, 200, { ...(await step({ messages: body.messages, mock, lang: body.lang })), mock, agentModel: mock ? 'mock' : agentModel(), mode: 'local' })
+      const out = await step({ messages: body.messages, mock, lang: body.lang })
+      if (!mock && out.usage) logUsage(usageRecord(agentModel(), out.usage, { email: 'local', mode: 'local', lang: body.lang ?? 'zh', tool_calls: out.content.filter((c) => c.type === 'tool_use').length }))
+      return json(res, 200, { ...out, mock, agentModel: mock ? 'mock' : agentModel(), mode: 'local' })
     }
+    if (req.url === '/api/admin/me') return json(res, 200, { role: 'admin', email: 'local' })
+    if (req.url.startsWith('/api/admin/usage')) {
+      const days = Number(new URL(req.url, 'http://x').searchParams.get('days') || 30)
+      const rows = readUsage(days)
+      const agg = (key) => { const m = {}; for (const r of rows) { const k = key(r) ?? '—'; const a = (m[k] ??= { key: k, calls: 0, input: 0, output: 0, cached: 0, cost: 0 }); a.calls++; a.input += r.input_tokens; a.output += r.output_tokens; a.cached += r.cached_tokens; a.cost += Number(r.cost_usd) }; return Object.values(m) }
+      const total = { calls: rows.length, input: 0, output: 0, cached: 0, cost: 0 }
+      for (const r of rows) { total.input += r.input_tokens; total.output += r.output_tokens; total.cached += r.cached_tokens; total.cost += Number(r.cost_usd) }
+      const today = new Date().toISOString().slice(0, 10), week = new Date(Date.now() - 7 * 864e5).toISOString()
+      const sum = (f) => rows.filter(f).reduce((s, r) => s + Number(r.cost_usd), 0)
+      return json(res, 200, { days, total, today_cost: sum((r) => r.ts.startsWith(today)), week_cost: sum((r) => r.ts >= week), by_day: agg((r) => r.ts.slice(0, 10)).sort((a, b) => a.key.localeCompare(b.key)), by_user: agg((r) => r.email), by_model: agg((r) => r.model), recent: rows.slice(0, 50) })
+    }
+    if (req.url.startsWith('/api/admin/users')) return json(res, 200, { error: '本地模式没有用户系统（线上版才有）' })
     if (req.url === '/api/tool' && req.method === 'POST') {
       let raw = ''
       for await (const chunk of req) raw += chunk

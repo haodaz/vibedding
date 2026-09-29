@@ -1,6 +1,7 @@
 // Vercel serverless：体验模式的一步。密钥在服务端环境变量里，访客不用自己填。
 // 环境变量：OPENAI_API_KEY（必填）、AGENT_MODEL（默认 gpt-5.6-luna）、AGENT_REASONING（可选）、RATE_PER_MIN（每 IP 每分钟，默认 12）
-import { systemFor, toolDefsFor, openaiStep } from '../../platform/shared/spec.mjs'
+import { systemFor, toolDefsFor, openaiStep, usageRecord } from '../../platform/shared/spec.mjs'
+import { verifyUser, profileOf, rest, hasService } from '../_lib.js'
 
 const bucket = new Map()   // 简单限流：每个实例内存里数，够挡住无意的刷
 function limited(ip, perMin) {
@@ -16,13 +17,12 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   if (!process.env.OPENAI_API_KEY) return res.status(200).json({ error: 'no-credentials' })
-  // 封闭平台：必须带 Supabase 登录令牌（VITE_CLOSED=1 时）
+  // 封闭平台：必须带 Supabase 登录令牌（VITE_CLOSED=1 时）；被禁用的账号拒绝
+  let user = null
   if (process.env.VITE_CLOSED === '1') {
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
-    const url = process.env.VITE_SUPABASE_URL, anon = process.env.VITE_SUPABASE_ANON_KEY
-    if (!token || !url || !anon) return res.status(200).json({ error: 'unauthorized' })
-    const u = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anon, Authorization: `Bearer ${token}` } }).catch(() => null)
-    if (!u || !u.ok) return res.status(200).json({ error: 'unauthorized' })
+    user = await verifyUser(req)
+    if (!user) return res.status(200).json({ error: 'unauthorized' })
+    if (hasService()) { const p = await profileOf(user.id).catch(() => null); if (p?.disabled) return res.status(200).json({ error: 'unauthorized' }) }
   }
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket?.remoteAddress || '?'
   if (limited(ip, Number(process.env.RATE_PER_MIN || 12))) return res.status(429).json({ error: '太快了，歇一分钟再来' })
@@ -32,6 +32,11 @@ export default async function handler(req, res) {
     if (!Array.isArray(messages) || messages.length > 200) return res.status(400).json({ error: 'bad messages' })
     const model = process.env.AGENT_MODEL || 'gpt-5.6-luna'
     const out = await openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model, system: systemFor('static', '', body.lang === 'en' ? 'en' : 'zh'), tools: toolDefsFor('static'), messages, reasoning: process.env.AGENT_REASONING })
+    // 记用量（失败不影响回复）
+    if (hasService()) {
+      const rec = usageRecord(model, out.usage, { user_id: user?.id ?? null, email: user?.email ?? null, mode: 'static', lang: body.lang === 'en' ? 'en' : 'zh', tool_calls: out.content.filter((c) => c.type === 'tool_use').length })
+      rest('usage_log', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(rec) }).catch((e) => console.error('usage_log', e.message))
+    }
     return res.status(200).json({ ...out, mock: false, agentModel: model, mode: 'static' })
   } catch (e) {
     return res.status(500).json({ error: e.message })

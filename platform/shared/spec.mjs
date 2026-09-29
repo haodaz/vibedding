@@ -146,3 +146,27 @@ export async function openaiStep({ apiKey, base = 'https://api.openai.com/v1', m
   if (!r.ok) throw new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 400)}`)
   return parseOpenAIOutput(await r.json())
 }
+
+
+// ---------- 用量计费（每 1M token 美元，口径同 datasquare 的 token-tracker）----------
+export const PRICING_PER_1M = {
+  'gpt-6-astra': { input: 10.0, output: 30.0 },
+  'gpt-5.6-terra': { input: 2.5, output: 10.0 },
+  'gpt-5.6-luna': { input: 0.5, output: 2.0 },
+  'gpt-4o': { input: 2.5, output: 10.0 },
+  'gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'claude-opus-5': { input: 5.0, output: 25.0 },
+  'claude-sonnet-5': { input: 2.0, output: 10.0 },
+  'claude-haiku-4-5': { input: 1.0, output: 5.0 },
+}
+const DEFAULT_PRICING = { input: 1.0, output: 3.0 }
+export function usageRecord(model, usage, extra = {}) {
+  const u = usage ?? {}
+  const input = Number(u.input_tokens ?? 0), output = Number(u.output_tokens ?? 0)
+  const cached = Number(u.input_tokens_details?.cached_tokens ?? u.cache_read_input_tokens ?? 0)
+  const reasoning = Number(u.output_tokens_details?.reasoning_tokens ?? 0)
+  const p = PRICING_PER_1M[model] ?? DEFAULT_PRICING
+  // 缓存命中的输入按 1/10 算（OpenAI 的缓存折扣）
+  const cost = ((input - cached) * p.input + cached * p.input * 0.1 + output * p.output) / 1_000_000
+  return { model, input_tokens: input, output_tokens: output, cached_tokens: cached, reasoning_tokens: reasoning, cost_usd: Number(cost.toFixed(6)), ...extra }
+}

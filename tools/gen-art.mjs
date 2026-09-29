@@ -102,7 +102,8 @@ for (const n of manifest.npcs) {
   if (!force && await fs.stat(file).catch(() => null)) { console.log('跳过（已存在）', n.name); continue }
   jobs.push((async () => {
     try {
-      const png = await genImage(`半写实插画风格的游戏NPC立绘，${n.prompt}，正面略侧的半身像，人物完整不裁切，纯正绿色平涂背景，背景没有任何阴影和渐变，没有文字，没有logo，竖构图`, '900*1440')
+      const styled = /风格/.test(n.prompt) ? n.prompt : `半写实插画风格的游戏NPC立绘，${n.prompt}`
+      const png = await genImage(`${styled}，人物完整不裁切，纯正绿色平涂背景，背景没有任何阴影和渐变，没有文字，没有logo，竖构图`, '900*1440')
       await fs.writeFile(file, await chromaKey(png))
       console.log('✔ 立绘', n.name)
     } catch (e) { console.error('✘', n.name, e.message) }

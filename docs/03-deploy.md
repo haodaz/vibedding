@@ -7,6 +7,12 @@
 - 每个用户的项目、库存、日志、固件存 `visitor_kv`，只能读写自己的行。
 - 贴图（/art/*.png）是静态文件，不在门内；不含知识，只是零件的图。
 
+## 管理后台（用户 + 用量）
+- 运行 `docs/06-admin.sql`（profiles、usage_log 两张表，并把 haoz214@gmail.com 设为管理员）。
+- Vercel 环境变量加 `SUPABASE_SERVICE_ROLE_KEY`（`bash tools/vercel-env.sh` 已包含；它只给服务端函数用，没有 VITE_ 前缀，不会进前端）。
+- 登录后管理员的侧栏会多一项"管理"：用量（今天/7 天/30 天成本、按天/按用户/按模型、最近调用）和用户（建账号、禁用、设管理员）。
+- 每次 AI 调用记一行 usage_log：输入/输出/缓存/推理 token、工具调用数、按模型单价算的美元成本（单价表在 platform/shared/spec.mjs 的 PRICING_PER_1M，口径同 datasquare）。
+
 ## 一次性配置
 1. Supabase SQL Editor 运行 `docs/04-closed-platform.sql`（两张表 + 权限）。
 2. Supabase → Authentication → Sign In / Providers → Email：保持开启，**关掉 "Allow new users to sign up"**；Anonymous 不用开。
