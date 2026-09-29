@@ -2,58 +2,96 @@
   "note": "我已有的元件。id 对应 parts-catalog.json；不在目录里的写 name。AI 出采购清单前会先看这里。",
   "have": [
     {
-      "id": "bluepill",
-      "name": "STM32 蓝药丸",
+      "id": "esp32_devkit",
+      "name": "Freenove ESP32-WROVER 主板（带摄像头）",
       "qty": 1,
-      "note": "用户已有"
-    },
-    {
-      "id": "stlink",
-      "name": "ST-Link V2 烧录器",
-      "qty": 1,
-      "note": "用户已有"
-    },
-    {
-      "id": "mg996r",
-      "name": "MG996R 金属齿舵机",
-      "qty": 1,
-      "note": "自动喂食器用，待到货"
-    },
-    {
-      "id": "ds3231",
-      "name": "DS3231 实时时钟模块（带纽扣电池）",
-      "qty": 1,
-      "note": "自动喂食器用，待到货"
-    },
-    {
-      "id": "button",
-      "name": "轻触按键",
-      "qty": 1,
-      "note": "自动喂食器手动出粮用，待到货"
-    },
-    {
-      "id": "adapter_5v3a",
-      "name": "5V 3A 电源适配器",
-      "qty": 1,
-      "note": "舵机独立供电，待到货"
+      "note": "CH340，USB-C，/dev/cu.usbserial-210"
     },
     {
       "id": "breadboard",
       "name": "面包板",
-      "qty": 1,
-      "note": "自动喂食器原型用，待到货"
+      "qty": 1
     },
     {
       "id": "jumper",
-      "name": "杜邦线套装",
+      "name": "杜邦线",
       "qty": 1,
-      "note": "自动喂食器接线用，待到货"
+      "note": "公公、公母都有"
     },
     {
-      "id": "electrolytic_1000uf",
-      "name": "1000uF 10V 电解电容",
-      "qty": 1,
-      "note": "舵机电源滤波，可选，待到货"
+      "id": "lcd1602",
+      "name": "LCD1602 I2C",
+      "qty": 1
+    },
+    {
+      "id": "sg90",
+      "name": "SG90 舵机",
+      "qty": 1
+    },
+    {
+      "id": "stepper_28byj",
+      "name": "28BYJ-48 步进电机 + ULN2003",
+      "qty": 1
+    },
+    {
+      "id": "hcsr04",
+      "name": "HC-SR04 超声波",
+      "qty": 1
+    },
+    {
+      "id": "keypad",
+      "name": "4x4 矩阵键盘",
+      "qty": 1
+    },
+    {
+      "id": "dht11",
+      "name": "DHT11",
+      "qty": 1
+    },
+    {
+      "id": "buzzer_active",
+      "name": "有源蜂鸣器",
+      "qty": 1
+    },
+    {
+      "id": "relay",
+      "name": "继电器模块",
+      "qty": 1
+    },
+    {
+      "id": "potentiometer",
+      "name": "电位器",
+      "qty": 2
+    },
+    {
+      "id": "ws2812",
+      "name": "WS2812 灯环",
+      "qty": 1
+    },
+    {
+      "id": "sd_module",
+      "name": "SD 卡模块 + 读卡器",
+      "qty": 1
+    },
+    {
+      "id": "led_5mm",
+      "name": "LED（红黄绿）",
+      "qty": 10
+    },
+    {
+      "id": "button",
+      "name": "轻触按键",
+      "qty": 4
+    },
+    {
+      "id": "resistor_kit",
+      "name": "电阻包",
+      "qty": 1
+    },
+    {
+      "id": "usb_cable",
+      "name": "USB-C 数据线",
+      "qty": 1
     }
   ]
 }
