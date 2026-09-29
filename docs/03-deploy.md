@@ -14,15 +14,17 @@
    - `OPENAI_API_KEY`：必填，AI 用
    - `AGENT_MODEL`：可选，默认 `gpt-5.6-luna`
    - `RATE_PER_MIN`：可选，每个 IP 每分钟最多几步，默认 12
+   - `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`：访客数据云端保存（可选，不填存浏览器）
    - `DASHSCOPE_API_KEY`：不需要（图已经生成好在仓库里）
+   一键把这些从本地 .env 复制到剪贴板：`bash tools/vercel-env.sh`，然后在 Vercel 的环境变量页面直接粘贴（它认 .env 格式，会自动拆成多条）。
 3. Deploy。打开网址，顶部状态条应显示"网页体验模式"，AI 那盏灯是绿的。
 4. 试一句"要有光"。
 
 ## 费用与限流
 每一步是一次模型调用。`api/agent/step.js` 里有个按 IP 的简单限流（内存计数，够挡住无意刷）。要认真控成本：在 Vercel 的 Firewall 里加速率规则，或者把密钥换成有月度上限的。
 
-## Supabase（明天）
-现在访客数据在 `platform/src/workshop/storage.ts`，一个 get/set 的小接口，后面是 localStorage。换成 Supabase 只改这一个文件：
+## Supabase
+已接入：`platform/src/workshop/storage.ts` 配了 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` 就走 Supabase（匿名登录，每个访客一个 id），否则退回 localStorage。**需要在 Supabase 后台开启匿名登录**：Authentication → Sign In / Providers → Anonymous sign-ins → 开。没开的话前端会自动退回浏览器存储，控制台有提示。建表：
 
 ```sql
 -- 一张表就够：按匿名 id 分区的 KV
@@ -40,7 +42,7 @@ create policy "own rows" on visitor_kv for all using (visitor_id = current_setti
 
 存的 key：`projects`、`inventory`、`journal`、`firmware`、`parts_added`、`troubleshooting_added`、`ws:session`（对话）。
 
-前端要加的环境变量：`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`。用 `@supabase/supabase-js` 的匿名登录拿 `sub` 当 visitor_id。
+Vercel 上要加 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`（构建时打进前端）。
 
 ## 本地模式不变
 ```bash

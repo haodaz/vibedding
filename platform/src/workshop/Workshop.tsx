@@ -86,8 +86,10 @@ function ResetButton({ onReset }: { onReset: () => void }) {
 
 function Projects({ mode }: { mode: string }) {
   const [list, setList] = useState<string[]>([])
+  const [backend, setBackend] = useState<'supabase' | 'local'>('local')
   useEffect(() => {
     if (mode !== 'local') {
+      store.backend().then(setBackend)
       store.get<Record<string, { title: string }>>('projects').then((ps) => setList(Object.entries(ps ?? {}).map(([k, p]) => `${k}: ${p.title}`)))
       return
     }
@@ -96,7 +98,7 @@ function Projects({ mode }: { mode: string }) {
   }, [mode])
   return (
     <div className="ws-tools ws-projects">
-      <div className="canvas-head"><span className="canvas-title">▣ 我的项目</span><span className="muted small">{mode === 'local' ? 'content/projects/' : '存在你的浏览器里'}</span></div>
+      <div className="canvas-head"><span className="canvas-title">▣ 我的项目</span><span className="muted small">{mode === 'local' ? 'content/projects/' : backend === 'supabase' ? '云端保存（匿名账号）' : '存在你的浏览器里'}</span></div>
       <ul>{list.length ? list.map((l) => <li key={l}>{l}</li>) : <li className="muted">还没有。说一个需求就会有。</li>}</ul>
     </div>
   )
