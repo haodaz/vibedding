@@ -752,3 +752,26 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .bom-buy { display: inline-flex; align-items: center; gap: 4px; color: var(--cyan); text-decoration: none;
   border-bottom: 1px dashed color-mix(in srgb, var(--cyan) 50%, transparent); }
 .bom-buy:hover { color: var(--text); }
+
+/* 实物照（UGC）和示意图（PGC）并存 */
+.part-hero { position: relative; }
+.part-hero-tabs { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 2px; padding: 2px;
+  border-radius: 999px; background: var(--deep-a); backdrop-filter: blur(6px); border: 1px solid var(--border); }
+.part-hero-tabs button { border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font: 500 11px/1 var(--font); padding: 5px 10px; border-radius: 999px; }
+.part-hero-tabs button.on { background: var(--panel-2); color: var(--text); }
+.part-verdict { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.6; margin: -8px 0 12px; }
+.part-verdict.ok { color: var(--accent); } .part-verdict.warn { color: var(--amber); }
+.part-check { display: flex; gap: 10px; padding: 10px; margin-bottom: 12px; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); background: color-mix(in srgb, var(--amber) 8%, transparent); }
+.part-check img { width: 68px; height: 68px; object-fit: cover; border-radius: 8px; flex: none; }
+.part-check > div { min-width: 0; display: grid; gap: 5px; }
+.part-check p { margin: 0; font-size: 12.5px; line-height: 1.55; display: flex; align-items: flex-start; gap: 5px; }
+.part-check p:first-child { color: var(--amber); font-weight: 600; }
+.part-check .chips { display: flex; gap: 6px; margin-top: 2px; }
+.part-check .chip { font-size: 11px; padding: 5px 9px; }
+.part-photo-bar { display: flex; gap: 12px; align-items: center; margin: -6px 0 16px; }
+.part-photo-bar .linkbtn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+  background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; }
+.part-photo-bar .linkbtn:hover:not(:disabled) { color: var(--cyan); }
+.part-photo-bar .linkbtn:disabled { opacity: .55; cursor: default; }

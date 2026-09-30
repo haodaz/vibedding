@@ -125,6 +125,16 @@ const D: Record<string, [string, string]> = {
   'part.pitfalls': ['常见坑', 'Common pitfalls'], 'part.snippet': ['最小代码', 'Minimal code'],
   'part.usedin': ['用在这些项目里', 'Used in these projects'], 'part.related': ['一起用的零件', 'Often used with'],
   'part.disclaimer': ['配图是示意图，买到的实物可能不一样。接线前以板子上的丝印为准。', 'The picture is an illustration — your actual part may look different. Always check the silkscreen on your board before wiring.'],
+  // 用户自己的实物照
+  'part.mine': ['我的实物', 'Mine'], 'part.art': ['示意图', 'Illustration'],
+  'part.add': ['拍一张我的实物', 'Add a photo of mine'], 'part.replace': ['换一张', 'Replace photo'], 'part.drop': ['删掉', 'Remove'],
+  'part.checking': ['让 AI 看看…', 'Letting the AI look…'],
+  'part.ok': ['AI 核对过了，是这个零件。', 'The AI checked: this is the right part.'],
+  'part.no': ['AI 觉得这好像不是这个零件。', "The AI doesn't think this is that part."],
+  'part.unsure': ['AI 看不太清。', "The AI can't tell from this photo."],
+  'part.lookslike': ['它更像：', 'More like: '],
+  'part.retake': ['重拍一张', 'Retake'], 'part.keep': ['就是它，存下', "It is — save it anyway"],
+  'part.kept': ['你确认过这就是它（AI 当时有异议）。', 'You confirmed this is the part — the AI disagreed at the time.'],
   // 管理员的元件库
   'admin.parts': ['元件库', 'Parts'],
   'admin.parts.sub': ['正文里提到这些名字会自动变成可点的 tag。', 'Mentions of these names in any text become clickable tags.'],

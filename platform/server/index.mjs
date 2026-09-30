@@ -101,6 +101,57 @@ async function review(body) {
   return { review: text, model: res.model, usage: res.usage }
 }
 
+// 用户给某个元件传实物照片时，先让模型核对"照片里的真是这个零件吗"。
+// 故意不做成硬拦截：模型看走眼是常事（见 content/prompts/04-ai-lies.md），
+// 所以只给判断和理由，最终留给用户决定。
+const IDENTIFY_SYSTEM = `你在帮一个零基础的人核对手里的电子元件。用户说某张照片是某个零件，你要判断照片里的东西是不是它。
+判断依据：外形、颜色、接口针数、丝印、明显特征。看不清就说看不清，不要硬猜。
+只输出 JSON，不要别的：{"match": true/false/null, "says": "一两句话说明，讲人话", "looks_like": "如果不是，你觉得它更像什么，否则空字符串"}
+match 为 null 表示照片看不清或信息不足。says 用用户的语言（lang 字段给出）。`
+
+async function identify(body) {
+  const { name, expect = '', pins = '', image, lang = 'zh' } = body
+  if (!image) return { error: 'no-image' }
+  const m = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(image)
+  if (!m) return { error: 'bad-image' }
+  const text = [
+    `用户说这张照片里是：${name}`,
+    expect ? `这个零件应该长这样：${expect}` : '',
+    pins ? `它的引脚/接口应该是：${pins}` : '',
+    `lang: ${lang}`,
+  ].filter(Boolean).join('\n')
+
+  let out
+  if (provider() === 'openai') {                 // 跟着"直接做"用的是哪家走
+    const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+    const r = await fetch(`${base}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: agentModel(), instructions: IDENTIFY_SYSTEM, max_output_tokens: 600,
+        input: [{ role: 'user', content: [{ type: 'input_image', image_url: image }, { type: 'input_text', text }] }],
+      }),
+    })
+    if (!r.ok) return { error: `openai-${r.status}` }
+    const j = await r.json()
+    out = (j.output ?? []).flatMap((o) => o.content ?? []).filter((c) => c.type === 'output_text').map((c) => c.text).join('').trim()
+  } else {
+    const res = await getClient().messages.create({
+      model: MODEL,
+      max_tokens: 600,
+      system: [{ type: 'text', text: IDENTIFY_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
+        { type: 'text', text },
+      ] }],
+    })
+    if (res.stop_reason === 'refusal') return { error: 'refused' }
+    out = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+  }
+  try { return JSON.parse(out.replace(/^```json\s*|\s*```$/g, '')) }
+  catch { return { match: null, says: out.slice(0, 300), looks_like: '' } }
+}
+
 function json(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' })
   res.end(JSON.stringify(obj))
@@ -192,6 +243,13 @@ http.createServer(async (req, res) => {
       let raw = ''
       for await (const chunk of req) raw += chunk
       return json(res, 200, await review(JSON.parse(raw)))
+    }
+    if (req.url === '/api/identify' && req.method === 'POST') {
+      // 看图用的是"直接做"那套 provider，不是只认 Anthropic 的评审凭据
+      if (provider() === 'mock' || (provider() === 'anthropic' && !hasCredentials())) return json(res, 200, { error: 'no-credentials' })
+      let raw = ''
+      for await (const chunk of req) raw += chunk
+      return json(res, 200, await identify(JSON.parse(raw)))
     }
     json(res, 404, { error: 'not found' })
   } catch (e) {

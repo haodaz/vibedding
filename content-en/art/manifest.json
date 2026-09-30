@@ -165,6 +165,174 @@
       "prompt": "一根黑色的Micro USB数据线，一端是USB-A接头，另一端是Micro USB接头，线缆盘成一个松松的圈",
       "what": "Powers the board and carries serial. Beware: some cables are charge-only and carry no data",
       "task": "0-2"
+    },
+    {
+      "name": "part_sg90",
+      "label": "SG90 servo",
+      "prompt": "一个蓝色塑料外壳的SG90微型舵机，侧前方45度视角，顶部有白色十字形舵盘，机身侧面两个固定耳片，引出一根三色排线（棕红橙）带白色三针插头，旁边散落两个白色塑料舵盘配件",
+      "what": "A tiny motor that turns to an exact angle. Three wires: brown ground, red power, orange signal",
+      "task": "4"
+    },
+    {
+      "name": "part_relay",
+      "label": "Relay module",
+      "prompt": "一块蓝色PCB的单路继电器模块，俯视微侧视角，板上一个蓝色方形继电器本体，一个黑色光耦芯片，一颗红色指示灯，左侧三针排针，右侧一个三位绿色接线端子带螺丝",
+      "what": "Lets a tiny voltage switch a big appliance on and off — an electrically operated light switch",
+      "task": "6"
+    },
+    {
+      "name": "part_hcsr04",
+      "label": "HC-SR04 ultrasonic",
+      "prompt": "一块HC-SR04超声波测距模块，正面平视，蓝色长方形PCB上并排两个银色圆柱形超声换能器，每个换能器正面是细密的金属网格振膜而不是光滑旋钮，两个换能器之间有一个小晶振和一颗黑色贴片芯片，PCB底边伸出整齐的一排四根笔直的镀金方形排针",
+      "what": "Works like a bat: chirp, listen for the echo, compute the distance. The two silver eyes give it away",
+      "task": "3"
+    },
+    {
+      "name": "part_keypad",
+      "label": "4x4 membrane keypad",
+      "prompt": "一块4x4薄膜矩阵键盘，正面平铺俯视，完全扁平的米白色薄膜面板没有任何凸起按键，表面用浅灰色线条印出四行四列共十六个方形按键区域，底部引出一条很细的扁平柔性排线，排线末端是一个整齐的单排八针黑色插头",
+      "what": "Sixteen keys on eight wires. Row-and-column scanning figures out which one you pressed",
+      "task": "6"
+    },
+    {
+      "name": "part_sd_module",
+      "label": "SD card module",
+      "prompt": "一块Micro SD卡读卡模块，俯视微侧视角，蓝色小PCB上有一个银色金属卡槽，旁边一颗黑色电平转换芯片和几个贴片元件，一侧一排六根直角排针",
+      "what": "Gives your board a hard drive — for logging sensor data, images or music",
+      "task": "6"
+    },
+    {
+      "name": "part_stepper_28byj",
+      "label": "28BYJ-48 stepper motor",
+      "prompt": "一个28BYJ-48步进电机和它的驱动板放在一起，电机是银色圆柱体带蓝色塑料顶盖和一根短转轴，引出五色排线带白色插头；旁边一块绿色小PCB驱动板，板上一颗黑色长条ULN2003芯片、四颗红色指示灯和一个白色插座",
+      "what": "Turns one small step at a time, so you can hit an exact angle. Slow but precise",
+      "task": "4"
+    },
+    {
+      "name": "part_ws2812",
+      "label": "WS2812 LED ring",
+      "prompt": "一个WS2812B可编程LED灯环，正面俯视，黑色圆环形PCB上均匀排布十六颗白色方形贴片LED，其中几颗亮着红绿蓝不同颜色，背面引出三根线",
+      "what": "Every single LED can be its own color, all daisy-chained on one data wire",
+      "task": "6"
+    },
+    {
+      "name": "part_power_18650",
+      "label": "18650 battery + charger",
+      "prompt": "一节蓝色外皮的18650锂电池，旁边一个黑色双节电池盒带红黑引线，还有一块蓝色的TP4056充电板，板上有Micro USB口、两颗红蓝指示灯和几组焊盘",
+      "what": "Cuts the USB cord. Buy cells with a built-in protection board",
+      "task": "6"
+    },
+    {
+      "name": "part_power_adapter",
+      "label": "5V power adapter",
+      "prompt": "一个黑色的5V开关电源适配器，带两脚插头和一根黑色输出线，线端是DC圆头插头；旁边一个黑色DC5.5母座转接小板，带两个螺丝接线端子",
+      "what": "LED strips, motors and pumps are power-hungry — never draw them through the board's USB port",
+      "task": "6"
+    },
+    {
+      "name": "part_dc_motor_l298n",
+      "label": "DC motor + L298N driver",
+      "prompt": "一个黄色塑料外壳的TT直流减速电机带两根红黑引线和一个黄色塑料轮胎，旁边一块L298N电机驱动板，红色PCB上有一个黑色大散热片、绿色螺丝接线端子和一排排针",
+      "what": "Wheels for a robot car. The motor needs its own power supply, not the board's",
+      "task": "6"
+    },
+    {
+      "name": "part_electrolytic_1000uf",
+      "label": "1000μF electrolytic capacitor",
+      "prompt": "一个1000微法的黑色圆柱形电解电容，侧前方视角，外壳有一条白色竖条纹标着负极，顶部有十字压痕，底部引出两根金属长脚，一根明显更长",
+      "what": "A little reservoir of current. Park one next to a servo or motor so the voltage does not sag",
+      "task": "4"
+    },
+    {
+      "name": "part_ds18b20",
+      "label": "DS18B20 temperature probe",
+      "prompt": "一个DS18B20防水温度探头，一段银色不锈钢圆柱形探头连着黑色防水导线，线的另一端分出红黑黄三根裸线",
+      "what": "Waterproof, so it can sit in liquid. The data line needs a 4.7kΩ pull-up resistor",
+      "task": "3-2"
+    },
+    {
+      "name": "part_pump_diode",
+      "label": "1N5819 flyback diode",
+      "prompt": "一颗1N5819肖特基二极管，黑色圆柱形玻璃封装，一端有一道灰白色环标记负极，两端引出细长金属引脚，特写微距",
+      "what": "Motors and pumps kick back when switched off — this absorbs the kick and protects your board",
+      "task": "6"
+    },
+    {
+      "name": "part_rtc_ds3231",
+      "label": "DS3231 real-time clock",
+      "prompt": "一块DS3231实时时钟小板，蓝色长方形PCB，板上一颗黑色方形芯片、一个银色圆柱晶振和一个圆形纽扣电池座装着银色电池，一侧一排排针",
+      "what": "Remembers the time even with the power off — needed for timed feeders, alarms and schedules",
+      "task": "6"
+    },
+    {
+      "name": "part_hc05",
+      "label": "HC-05 Bluetooth module",
+      "prompt": "一块HC-05蓝牙串口模块，蓝色小PCB上覆盖一块银色金属屏蔽罩，罩上有锯齿状天线走线，板边一排六根排针，角上一颗红色指示灯和一个小按键",
+      "what": "The easiest way to send commands from your phone to the board",
+      "task": "6"
+    },
+    {
+      "name": "part_ir_receiver",
+      "label": "IR receiver + remote",
+      "prompt": "一个VS1838B红外接收头，黑色半球形透镜封装带三根金属引脚，旁边一个黑色的薄片红外遥控器，遥控器上有一排小圆按键",
+      "what": "Any remote lying around your house can now control the thing you built",
+      "task": "6"
+    },
+    {
+      "name": "part_mosfet",
+      "label": "MOSFET driver module",
+      "prompt": "一块MOS管驱动模块，蓝色小PCB上焊着一颗黑色TO-220封装的场效应管带银色散热片，板上两组绿色螺丝接线端子和一排排针，一颗红色指示灯",
+      "what": "Quieter than a relay and it can dim or throttle. Drives motors, LED strips and pumps",
+      "task": "6"
+    },
+    {
+      "name": "part_mpu6050",
+      "label": "MPU6050 gyroscope",
+      "prompt": "一块GY-521 MPU6050六轴传感器模块，紫色小PCB俯视，板中央一颗黑色方形芯片，一侧一排八根排针，板上有几个贴片电阻电容",
+      "what": "Knows how it is tilted and shaken — for orientation, step counting and self-balancing robots",
+      "task": "6"
+    },
+    {
+      "name": "part_mq2",
+      "label": "MQ-2 smoke sensor",
+      "prompt": "一块MQ-2气体传感器模块，蓝色PCB上立着一个圆柱形金属网罩包裹的传感器本体，旁边一颗电位器和两颗指示灯，底部一排四根排针",
+      "what": "Sniffs smoke and flammable gas. Needs to warm up before the readings mean anything",
+      "task": "6"
+    },
+    {
+      "name": "part_pir",
+      "label": "PIR motion sensor",
+      "prompt": "一个HC-SR501人体红外感应模块，正面是白色半球形菲涅尔透镜罩，背面绿色PCB上有两个橙色电位器、一个跳线帽和三根排针",
+      "what": "Goes high when a person moves nearby — for automatic lights and doorway alerts",
+      "task": "6"
+    },
+    {
+      "name": "part_rain",
+      "label": "Rain sensor",
+      "prompt": "一块雨滴传感器，一片长方形的黑色感应板表面印着密集的金色梳状走线，用两根杜邦线连到一块蓝色小比较器板，小板上有一颗电位器和四根排针",
+      "what": "Water landing on the board closes the circuit — for laundry alerts and auto-retracting awnings",
+      "task": "6"
+    },
+    {
+      "name": "part_soil_moisture",
+      "label": "Soil moisture sensor",
+      "prompt": "一个电容式土壤湿度传感器，一长条黑色防水PCB探针，上半部有电路和三根排针，下半部是光滑的插土部分，整体细长像一把小尺子",
+      "what": "The heart of any plant-watering project. Buy the capacitive kind — the resistive ones corrode away",
+      "task": "6"
+    },
+    {
+      "name": "part_sound",
+      "label": "Sound sensor",
+      "prompt": "一块声音传感器模块，蓝色小PCB上立着一个银色圆柱形驻极体麦克风，旁边一颗蓝色电位器、一颗芯片和两颗指示灯，底部一排排针",
+      "what": "Clap-to-turn-on lights, or lights that dance with the music",
+      "task": "6"
+    },
+    {
+      "name": "part_water_pump",
+      "label": "Mini submersible pump",
+      "prompt": "一个微型潜水泵，黑色圆柱形塑料泵体带一个侧向出水嘴和底部进水格栅，引出两根红黑细线，旁边盘着一段透明硅胶软管",
+      "what": "For watering and refilling. Never wire it straight to a pin — go through a relay or MOSFET",
+      "task": "6"
     }
   ]
 }

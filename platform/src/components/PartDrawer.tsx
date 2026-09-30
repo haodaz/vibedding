@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Markdown } from '../Markdown'
 import { buyUrl, getPart, openPart, partImage, relatedParts, tagParts, usedIn, type Part } from '../parts'
-import { t } from '../i18n'
+import { getLang, t } from '../i18n'
 import { Icon } from './Icon'
+import { getPhoto, removePhoto, savePhoto, shrink, verify, type PartPhoto, type Verdict } from '../workshop/photos'
 
 // 一段纯文本（任务卡 frontmatter 的 hardware、卡片里的零件名）也走同一套识别
 export function PartText({ text }: { text: string }) {
@@ -52,17 +53,84 @@ function Row({ label, value }: { label: string; value?: string }) {
   return <div className="part-row"><span>{label}</span><div>{value}</div></div>
 }
 
+// 顶部图区：AI 示意图（PGC）和用户自己拍的实物照（UGC）并存，有实物照就默认显示实物照。
+// 传照片时先让 AI 核对"这真的是它吗"，但不硬拦——模型看走眼是常事，最后由用户拍板。
+function PartHero({ part, illustration }: { part: Part; illustration: string | null }) {
+  const [photo, setPhoto] = useState<PartPhoto | null>(null)
+  const [tab, setTab] = useState<'mine' | 'art'>('art')
+  const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<{ src: string; v: Verdict } | null>(null)
+  const file = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { getPhoto(part.id).then((p) => { setPhoto(p); setTab(p ? 'mine' : 'art') }) }, [part.id])
+
+  async function onPick(f: File | undefined) {
+    if (!f) return
+    setBusy(true)
+    try {
+      const src = await shrink(f)
+      const v = await verify({ name: part.name, expect: part.note, pins: part.pins, image: src, lang: getLang() })
+      if (!v) {                                   // 没有后端或核验失败：照存不误
+        await keep({ src, at: new Date().toISOString(), verdict: 'skipped' })
+      } else if (v.match === true) {
+        await keep({ src, at: new Date().toISOString(), verdict: 'yes', says: v.says })
+      } else {
+        setPending({ src, v })                    // 存疑：让用户看 AI 怎么说，自己决定
+      }
+    } catch { /* 读图失败，什么也不做 */ }
+    finally { setBusy(false); if (file.current) file.current.value = '' }
+  }
+  async function keep(p: PartPhoto) { await savePhoto(part.id, p); setPhoto(p); setTab('mine'); setPending(null) }
+  async function drop() { await removePhoto(part.id); setPhoto(null); setTab('art') }
+
+  const showMine = tab === 'mine' && photo
+  return (
+    <>
+      <div className="part-hero">
+        {showMine ? <img src={photo!.src} alt="" />
+          : illustration ? <img src={illustration} alt="" />
+          : <div className="part-noimg"><Icon name="chip" size={28} /></div>}
+        {photo && <div className="part-hero-tabs">
+          <button className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>{t('part.mine')}</button>
+          <button className={tab === 'art' ? 'on' : ''} onClick={() => setTab('art')}>{t('part.art')}</button>
+        </div>}
+      </div>
+
+      {showMine && photo!.verdict === 'yes' && <p className="part-verdict ok"><Icon name="check" size={13} /> {photo!.says || t('part.ok')}</p>}
+      {showMine && photo!.keptAnyway && <p className="part-verdict warn"><Icon name="alert" size={13} /> {t('part.kept')}{photo!.says ? ' ' + photo!.says : ''}</p>}
+
+      {pending && (
+        <div className="part-check">
+          <img src={pending.src} alt="" />
+          <div>
+            <p><Icon name="alert" size={13} /> {pending.v.match === false ? t('part.no') : t('part.unsure')}</p>
+            <p className="muted">{pending.v.says}{pending.v.looks_like ? ` ${t('part.lookslike')}${pending.v.looks_like}` : ''}</p>
+            <div className="chips">
+              <button className="chip" onClick={() => setPending(null)}>{t('part.retake')}</button>
+              <button className="chip" onClick={() => keep({ src: pending.src, at: new Date().toISOString(), verdict: pending.v.match === false ? 'no' : 'unsure', says: pending.v.says, looksLike: pending.v.looks_like, keptAnyway: true })}>{t('part.keep')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="part-photo-bar">
+        <input ref={file} type="file" accept="image/*" hidden onChange={(e) => onPick(e.target.files?.[0])} />
+        <button className="linkbtn" disabled={busy} onClick={() => file.current?.click()}>
+          <Icon name="camera" size={13} /> {busy ? t('part.checking') : photo ? t('part.replace') : t('part.add')}
+        </button>
+        {photo && <button className="linkbtn" onClick={drop}>{t('part.drop')}</button>}
+      </div>
+    </>
+  )
+}
+
 function PartBody({ part, onPick }: { part: Part; onPick: (id: string) => void }) {
   const img = partImage(part.id)
   const related = relatedParts(part.id)
   const projects = usedIn(part.id)
   return (
     <div className="part-body">
-      <div className="part-hero">
-        {img
-          ? <img src={img} alt="" />
-          : <div className="part-noimg"><Icon name="chip" size={28} /></div>}
-      </div>
+      <PartHero part={part} illustration={img} />
       <div className="part-cat">{part.cat}</div>
       <h2>{part.name}</h2>
       {part.note && <p className="part-note">{part.note}</p>}

@@ -27,7 +27,7 @@ try {
 const KEY = process.env.DASHSCOPE_API_KEY
 if (!KEY) { console.error('缺少 DASHSCOPE_API_KEY：写到 platform/.env 里，或者 DASHSCOPE_API_KEY=... npm run art'); process.exit(1) }
 
-const NEG = '文字, 字母, 水印, logo, 低清, 噪点, 畸变, 杂乱, 真人照片'
+const NEG = '文字, 字母, 数字, 丝印字样, 印刷文字, 水印, logo, 低清, 噪点, 畸变, 杂乱, 真人照片'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 let chain = Promise.resolve()

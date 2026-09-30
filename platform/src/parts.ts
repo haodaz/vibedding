@@ -35,12 +35,20 @@ export const buyUrl = (p: Part) => searchUrl(p.buy)
 // public/art/part_*.png 目前 18 张，文件名和 catalog id 不完全一致，手工对上。
 // 没有图的回落到分类占位，不阻塞上线；新图用 `npm run art` 批量生成。
 const IMG: Record<string, string> = {
-  bluepill: 'bluepill', breadboard: 'breadboard', button_12mm: 'button',
+  bluepill: 'bluepill', breadboard: 'breadboard', button: 'button',
   buzzer_active: 'buzzer', buzzer_passive: 'buzzer', dht11: 'dht11',
   esp32_devkit: 'esp32_wrover', esp32_c3_supermini: 'esp32_wrover', jumper: 'jumper',
-  lcd1602: 'lcd1602', ldr: 'ldr', led_5mm: 'led_red', rgb_led: 'led_yellow',
+  lcd1602: 'lcd1602', ldr: 'ldr', led_5mm: 'led_red',
   oled_096: 'oled', oled_13_sh1106: 'oled', potentiometer: 'potentiometer',
-  resistor_kit: 'resistor_220', stlink: 'stlink', usb_cable: 'usb_cable', usb_serial: 'usb_serial',
+  resistor_kit: 'resistor_220', stlink: 'stlink', usb_serial: 'usb_serial',
+  // 下面这些图由 npm run art 按 content/art/manifest.json 生成
+  sg90: 'sg90', mg996r: 'sg90', relay: 'relay', hcsr04: 'hcsr04', keypad: 'keypad',
+  sd_module: 'sd_module', stepper_28byj: 'stepper_28byj', ws2812: 'ws2812',
+  power_18650: 'power_18650', power_adapter: 'power_adapter', dc_motor_l298n: 'dc_motor_l298n',
+  electrolytic_1000uf: 'electrolytic_1000uf', ds18b20: 'ds18b20', pump_diode: 'pump_diode',
+  rtc_ds3231: 'rtc_ds3231', hc05: 'hc05', ir_receiver: 'ir_receiver', mosfet: 'mosfet',
+  mpu6050: 'mpu6050', mq2: 'mq2', pir: 'pir', rain: 'rain',
+  soil_moisture: 'soil_moisture', sound: 'sound', water_pump: 'water_pump',
 }
 export function partImage(id: string): string | null { return IMG[id] ? `/art/part_${IMG[id]}.png` : null }
 

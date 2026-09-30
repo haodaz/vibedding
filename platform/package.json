@@ -8,7 +8,8 @@
     "server": "node server/index.mjs",
     "build": "node ../tools/sync-spec.mjs && vite build",
     "preview": "vite preview",
-    "art": "node ../tools/gen-art.mjs"
+    "art": "node ../tools/gen-art.mjs",
+    "art:qa": "node ../tools/qa-art.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
