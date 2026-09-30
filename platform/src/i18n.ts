@@ -76,7 +76,7 @@ const D: Record<string, [string, string]> = {
   'card.safety': ['安全', 'Safety'],
   'bom.title': ['采购清单', 'Shopping list'], 'bom.have': ['已有', 'Have'], 'bom.skip': ['不要', 'Skip'], 'bom.opt': ['可选', 'optional'], 'bom.check': ['需核对', 'verify'],
   'bom.tobuy': ['要买', 'To buy'], 'bom.items': ['件', 'items'], 'bom.budget': ['预算约', 'est.'], 'bom.mid': ['（按区间中值估）', '(midpoint estimate)'],
-  'bom.copy': ['⎘ 复制购物清单', '⎘ Copy shopping list'], 'bom.confirm': ['就这样，记下来', 'Looks good, save it'], 'bom.search': ['搜', 'search'],
+  'bom.copy': ['⎘ 复制购物清单', '⎘ Copy shopping list'], 'bom.confirm': ['就这样，记下来', 'Looks good, save it'], 'bom.search': ['搜', 'search'], 'bom.find': ['上淘宝找', 'Find it on Amazon'],
   // 学习
   'path.title': ['学习路径', 'Learning path'],
   'path.mission': ['把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。', 'Tear down the barriers so people can focus on what matters: realizing an idea, trying something boldly, creating value in a field they could never master before.'],
@@ -117,6 +117,19 @@ const D: Record<string, [string, string]> = {
   'admin.add': ['建账号', 'Create user'], 'admin.disabled': ['已禁用', 'Disabled'], 'admin.active': ['正常', 'Active'], 'admin.enable': ['启用', 'Enable'], 'admin.disable': ['禁用', 'Disable'], 'admin.promote': ['设为管理员', 'Make admin'], 'admin.demote': ['取消管理员', 'Remove admin'],
   'about.title': ['关于平台', 'About'],
   'empty.404': ['404 · 页面不存在', '404 · not found'],
+  // 元件抽屉
+  'part.close': ['关闭', 'Close'], 'part.missing': ['元件库里还没有这一条', 'Not in the parts library yet'],
+  'part.buy': ['在 Amazon 上找', 'Find it on Amazon'],
+  'part.iface': ['接口', 'Interface'], 'part.volt': ['电压', 'Voltage'], 'part.pins': ['引脚', 'Pins'],
+  'part.wiring': ['怎么接', 'Wiring'], 'part.lib': ['库 / 板子', 'Library / board'],
+  'part.pitfalls': ['常见坑', 'Common pitfalls'], 'part.snippet': ['最小代码', 'Minimal code'],
+  'part.usedin': ['用在这些项目里', 'Used in these projects'], 'part.related': ['一起用的零件', 'Often used with'],
+  'part.disclaimer': ['配图是示意图，买到的实物可能不一样。接线前以板子上的丝印为准。', 'The picture is an illustration — your actual part may look different. Always check the silkscreen on your board before wiring.'],
+  // 管理员的元件库
+  'admin.parts': ['元件库', 'Parts'],
+  'admin.parts.sub': ['正文里提到这些名字会自动变成可点的 tag。', 'Mentions of these names in any text become clickable tags.'],
+  'admin.parts.search': ['搜元件名、型号、分类…', 'Search name, part number, category…'],
+  'admin.parts.count': ['条', 'parts'], 'admin.parts.withimg': ['有配图', 'with images'],
 }
 export function t(key: string, lang: Lang = getLang()): string {
   const e = D[key]; if (!e) return key

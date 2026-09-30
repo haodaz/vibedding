@@ -5,6 +5,7 @@ import bash from 'highlight.js/lib/languages/bash'
 import ini from 'highlight.js/lib/languages/ini'
 import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, parseCanvas } from './canvases'
+import { openPart, tagParts } from './parts'
 
 hljs.registerLanguage('cpp', cpp); hljs.registerLanguage('c', cpp); hljs.registerLanguage('bash', bash); hljs.registerLanguage('sh', bash); hljs.registerLanguage('ini', ini)
 
@@ -42,13 +43,15 @@ function CanvasSeg({ block }: { block: string }) {
   return <Canvas key={spec.type + ':' + (spec.props.id ?? '')} spec={spec} />
 }
 
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, parts = true }: { text: string; parts?: boolean }) {
   const segs = useMemo(() => split(text), [text])
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const root = ref.current
     if (!root) return
     const onClick = async (e: Event) => {
+      const tag = (e.target as HTMLElement).closest('button.part-tag') as HTMLButtonElement | null
+      if (tag?.dataset.part) { openPart(tag.dataset.part); return }
       const btn = (e.target as HTMLElement).closest('button[data-copy]') as HTMLButtonElement | null
       if (!btn) return
       const code = btn.closest('.codeblock')?.querySelector('code')?.textContent ?? ''
@@ -58,6 +61,8 @@ export function Markdown({ text }: { text: string }) {
     root.addEventListener('click', onClick)
     return () => root.removeEventListener('click', onClick)
   }, [])
+  // React 每次换掉 innerHTML 都会抹掉上一轮的 tag，所以跟着正文重新标一遍
+  useEffect(() => { if (parts && ref.current) tagParts(ref.current) }, [segs, parts])
   return (
     <div ref={ref} className="md">
       {segs.map((s, i) => s.kind === 'md'

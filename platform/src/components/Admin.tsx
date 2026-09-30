@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { getToken } from '../auth'
 import { Scene } from './Scene'
 import { t } from '../i18n'
+import { Icon } from './Icon'
+import { allParts, openPart, partImage } from '../parts'
 
 // 管理后台：用户管理 + 用量统计（只有 profiles.role = admin 能进；本地模式只有用量）
 type User = { id: string; email: string; created_at: string; last_sign_in_at: string | null; role: string; disabled: boolean; display_name: string; usage30: { cost: number; tokens: number; calls: number } }
@@ -19,7 +21,7 @@ const fmt$ = (n: number) => '$' + n.toFixed(n < 1 ? 4 : 2)
 const fmtK = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 
 export function Admin() {
-  const [tab, setTab] = useState<'usage' | 'users'>('usage')
+  const [tab, setTab] = useState<'usage' | 'users' | 'parts'>('usage')
   return (
     <>
       <Scene name="prompts_ai" className="hero small">
@@ -30,9 +32,42 @@ export function Admin() {
       <div className="lab-tabs">
         <button className={'chip' + (tab === 'usage' ? ' on' : '')} onClick={() => setTab('usage')}>{t('admin.usage')}</button>
         <button className={'chip' + (tab === 'users' ? ' on' : '')} onClick={() => setTab('users')}>{t('admin.users')}</button>
+        <button className={'chip' + (tab === 'parts' ? ' on' : '')} onClick={() => setTab('parts')}>{t('admin.parts')}</button>
       </div>
-      {tab === 'usage' ? <UsagePanel /> : <UsersPanel />}
+      {tab === 'usage' ? <UsagePanel /> : tab === 'users' ? <UsersPanel /> : <PartsPanel />}
     </>
+  )
+}
+
+// 元件库浏览：管理员直接看全库，点开就是用户在对话里看到的那个抽屉
+function PartsPanel() {
+  const [q, setQ] = useState('')
+  const parts = allParts()
+  const kw = q.trim().toLowerCase()
+  const shown = kw ? parts.filter((p) => (p.id + ' ' + p.name + ' ' + p.cat).toLowerCase().includes(kw)) : parts
+  const withImg = parts.filter((p) => partImage(p.id)).length
+  return (
+    <div className="parts-admin">
+      <p className="muted">{t('admin.parts.sub')}</p>
+      <div className="parts-bar">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('admin.parts.search')} />
+        <span className="muted">{shown.length} {t('admin.parts.count')} · {withImg} {t('admin.parts.withimg')}</span>
+      </div>
+      <div className="parts-grid">
+        {shown.map((p) => {
+          const img = partImage(p.id)
+          return (
+            <button key={p.id} className="parts-cell" onClick={() => openPart(p.id)}>
+              <div className="parts-thumb">{img ? <img src={img} alt="" loading="lazy" /> : <Icon name="chip" size={20} />}</div>
+              <div className="parts-meta">
+                <strong>{p.name}</strong>
+                <small>{p.cat}{p.price && p.price !== '—' ? ` · $${p.price}` : ''}</small>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

@@ -684,3 +684,71 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .ws-thumb button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: var(--red); color: #fff; font-size: 12px; cursor: pointer; line-height: 1; }
 .chip.attach { padding: 8px 10px; display: grid; place-items: center; }
 .bubble-imgs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; } .bubble-imgs img { max-height: 160px; max-width: 100%; border-radius: 8px; border: 1px solid var(--border-2); }
+
+/* ===== 实体库：正文里的元件 tag + 抽屉 ===== */
+.part-tag {
+  font: inherit; color: var(--cyan); background: color-mix(in srgb, var(--cyan) 12%, transparent);
+  border: 0; border-bottom: 1px dashed color-mix(in srgb, var(--cyan) 55%, transparent);
+  padding: 0 3px; margin: 0 -1px; border-radius: 4px; cursor: pointer; transition: background .12s;
+}
+.part-tag:hover { background: color-mix(in srgb, var(--cyan) 24%, transparent); }
+.part-scrim { position: fixed; inset: 0; background: var(--mask); z-index: 60; animation: fade .15s ease; }
+.part-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 61;
+  background: var(--panel-solid); backdrop-filter: blur(14px); border-left: 1px solid var(--border-2);
+  box-shadow: -18px 0 50px var(--shadow); overflow-y: auto; animation: slidein .18s ease;
+}
+@keyframes fade { from { opacity: 0 } } @keyframes slidein { from { transform: translateX(24px); opacity: 0 } }
+.part-close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; display: grid; place-items: center;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); cursor: pointer; }
+.part-close:hover { color: var(--text); }
+.part-body { padding: 18px 20px 28px; }
+.part-hero { height: 150px; border-radius: var(--radius); background: var(--panel-2); border: 1px solid var(--border);
+  display: grid; place-items: center; overflow: hidden; margin-bottom: 14px; }
+.part-hero img { max-height: 100%; max-width: 100%; object-fit: contain; }
+.part-noimg { color: var(--dim); }
+.part-cat { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--violet); margin-bottom: 6px; }
+.part-body h2 { font-size: 19px; line-height: 1.35; margin: 0 0 8px; }
+.part-note { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
+.part-buy { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-radius: var(--radius);
+  background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 14px; text-decoration: none; margin-bottom: 18px; }
+.part-buy:hover { filter: brightness(1.08); }
+.part-buy em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 13px; opacity: .8; }
+.part-rows { display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.part-row { display: grid; grid-template-columns: 78px 1fr; gap: 10px; padding: 10px 12px; background: var(--panel-2); font-size: 13px; line-height: 1.55; }
+.part-row > span { color: var(--muted); font-size: 12px; }
+.part-sec { margin-top: 20px; }
+.part-sec h3 { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+.part-pitfalls { margin: 0; padding-left: 18px; }
+.part-pitfalls li { font-size: 13px; line-height: 1.65; color: var(--amber); margin-bottom: 6px; }
+.part-projects { margin: 0; padding-left: 18px; } .part-projects li { font-size: 13px; line-height: 1.7; color: var(--muted); }
+.part-related { display: flex; flex-wrap: wrap; gap: 6px; }
+.part-chip { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px;
+  border: 1px solid var(--border-2); background: var(--panel-2); color: var(--text); font-size: 12px; cursor: pointer; max-width: 100%; }
+.part-chip:hover { border-color: var(--cyan); }
+.part-chip img { width: 22px; height: 22px; object-fit: contain; border-radius: 50%; background: var(--deep); flex: none; }
+.part-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.part-disclaimer { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border);
+  font-size: 12px; line-height: 1.6; color: var(--dim); }
+.part-empty { padding: 40px 20px; color: var(--muted); text-align: center; }
+.part-drawer .md { font-size: 13px; }
+
+/* 管理员的元件库 */
+.parts-admin { display: grid; gap: 12px; }
+.parts-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.parts-bar input { flex: 1; min-width: 200px; padding: 9px 12px; border-radius: var(--radius);
+  border: 1px solid var(--border-2); background: var(--deep-a); color: var(--text); font: inherit; font-size: 14px; }
+.parts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.parts-cell { display: flex; align-items: center; gap: 10px; padding: 9px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel-2); color: var(--text); }
+.parts-cell:hover { border-color: var(--cyan); }
+.parts-thumb { width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden;
+  border-radius: 8px; background: var(--deep); color: var(--dim); }
+.parts-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.parts-meta { min-width: 0; display: grid; gap: 2px; }
+.parts-meta strong { font-size: 13px; font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parts-meta small { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+@media (max-width: 640px) { .part-drawer { width: 100vw; } }
+.bom-buy { display: inline-flex; align-items: center; gap: 4px; color: var(--cyan); text-decoration: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--cyan) 50%, transparent); }
+.bom-buy:hover { color: var(--text); }

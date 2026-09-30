@@ -3,6 +3,7 @@ import { PartImg } from '../canvases/parts/PartImg'
 import { partByName } from '../canvases/parts/catalog'
 import { t, getLang } from '../i18n'
 import { Icon } from '../components/Icon'
+import { searchUrl } from '../parts'
 
 export interface BomItem { id?: string; name: string; qty: number; role: string; why?: string; price: string; buy: string; have?: boolean; catalog?: boolean; optional?: boolean }
 export interface BomAsk { title: string; items: BomItem[]; note?: string }
@@ -35,7 +36,12 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
               <div className="bom-main">
                 <div className="bom-name"><b>{it.name}</b>{it.optional && <span className="tag opt">{t('bom.opt')}</span>}{it.catalog === false && <span className="tag warn">{t('bom.check')}</span>}</div>
                 <div className="bom-role">{it.role}</div>
-                <div className="muted small">{t('bom.search')}「{it.buy}」{it.why ? ' · ' + it.why : ''}</div>
+                <div className="muted small">
+                  <a className="bom-buy" href={searchUrl(it.buy)} target="_blank" rel="noopener noreferrer">
+                    <Icon name="cart" size={12} /> {t('bom.find')}
+                  </a>
+                  {it.why ? ' · ' + it.why : ''}
+                </div>
               </div>
               <div className="bom-right">
                 <div className="mono">{getLang() === 'en' ? '$' : '¥'}{it.price}{it.qty > 1 ? ` × ${it.qty}` : ''}</div>

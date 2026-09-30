@@ -13,6 +13,7 @@ import { Projects } from './components/Projects'
 import { Admin } from './components/Admin'
 import { Icon } from './components/Icon'
 import { ProfileCard } from './components/Profile'
+import { PartDrawer, PartText } from './components/PartDrawer'
 import { listSessions } from './workshop/agent'
 import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang, useTheme, setTheme } from './i18n'
@@ -73,6 +74,7 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   if (routeMode && routeMode !== mode) setMode(routeMode)
   const isBuild = m === 'build'
   return (
+    <>
     <div className="shell">
       <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
       <div className={'layout' + (inWorkspace ? ' wide' : '') + (collapsed ? ' collapsed' : '')}>
@@ -114,6 +116,9 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
         <main className="content"><Page route={route} /></main>
       </div>
     </div>
+    {/* 抽屉放在 .shell 外面：.shell > :not(.blobs) 会把里面的元素强制成 position:relative */}
+    <PartDrawer />
+    </>
   )
 }
 
@@ -310,7 +315,7 @@ function DocPage({ path }: { path: string }) {
         <h1>{doc.fm.status && <span className={'badge ' + doc.fm.status}><i />{STATUS_LABEL[doc.fm.status as Mission['status']] ?? doc.fm.status}</span>}{doc.fm.title ?? doc.slug}</h1>
         <div className="meta-row">
           {doc.fm.goal && <span><Icon name="check" size={13} /> {doc.fm.goal}</span>}
-          {doc.fm.hardware && <span><Icon name="cpu" size={13} /> {doc.fm.hardware}</span>}
+          {doc.fm.hardware && <span><Icon name="cpu" size={13} /> <PartText text={doc.fm.hardware} /></span>}
           {doc.fm.time && <span>{doc.fm.time}</span>}
           {doc.fm.date && <span>{doc.fm.date}</span>}
         </div>
