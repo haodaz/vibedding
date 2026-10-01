@@ -32,23 +32,25 @@ export function searchUrl(term: string, lang = getLang()): string {
 export const buyUrl = (p: Part) => searchUrl(p.buy)
 
 // —— 配图 ——
-// public/art/part_*.png 目前 18 张，文件名和 catalog id 不完全一致，手工对上。
-// 没有图的回落到分类占位，不阻塞上线；新图用 `npm run art` 批量生成。
+// public/art/part_*.png，文件名和 catalog id 不完全一致，手工对上。
+// 只收通过质检（npm run art:qa）的图。生成模型画不准的那些宁可没图：
+// 新手拿错图去认零件，比没有图更糟。没图的回落到分类占位图标。
+// 已撤掉（模型反复画错，等更好的模型或用户实物照补上）：
+//   bluepill dht11 hc05 keypad lcd1602 oled pir sd_module sg90 sound
 const IMG: Record<string, string> = {
-  bluepill: 'bluepill', breadboard: 'breadboard', button: 'button',
-  buzzer_active: 'buzzer', buzzer_passive: 'buzzer', dht11: 'dht11',
-  esp32_devkit: 'esp32_wrover', esp32_c3_supermini: 'esp32_wrover', jumper: 'jumper',
-  lcd1602: 'lcd1602', ldr: 'ldr', led_5mm: 'led_red',
-  oled_096: 'oled', oled_13_sh1106: 'oled', potentiometer: 'potentiometer',
+  breadboard: 'breadboard', button: 'button',
+  buzzer_active: 'buzzer', buzzer_passive: 'buzzer',
+  esp32_wrover: 'esp32_wrover', jumper: 'jumper',
+  ldr: 'ldr', led_5mm: 'led_red',
+  potentiometer: 'potentiometer',
   resistor_kit: 'resistor_220', stlink: 'stlink', usb_serial: 'usb_serial',
-  // 下面这些图由 npm run art 按 content/art/manifest.json 生成
-  sg90: 'sg90', mg996r: 'sg90', relay: 'relay', hcsr04: 'hcsr04', keypad: 'keypad',
-  sd_module: 'sd_module', stepper_28byj: 'stepper_28byj', ws2812: 'ws2812',
+  relay: 'relay', hcsr04: 'hcsr04',
+  stepper_28byj: 'stepper_28byj', ws2812: 'ws2812',
   power_18650: 'power_18650', power_adapter: 'power_adapter', dc_motor_l298n: 'dc_motor_l298n',
   electrolytic_1000uf: 'electrolytic_1000uf', ds18b20: 'ds18b20', pump_diode: 'pump_diode',
-  rtc_ds3231: 'rtc_ds3231', hc05: 'hc05', ir_receiver: 'ir_receiver', mosfet: 'mosfet',
-  mpu6050: 'mpu6050', mq2: 'mq2', pir: 'pir', rain: 'rain',
-  soil_moisture: 'soil_moisture', sound: 'sound', water_pump: 'water_pump',
+  rtc_ds3231: 'rtc_ds3231', ir_receiver: 'ir_receiver', mosfet: 'mosfet',
+  mpu6050: 'mpu6050', mq2: 'mq2', rain: 'rain',
+  soil_moisture: 'soil_moisture', water_pump: 'water_pump',
 }
 export function partImage(id: string): string | null { return IMG[id] ? `/art/part_${IMG[id]}.png` : null }
 

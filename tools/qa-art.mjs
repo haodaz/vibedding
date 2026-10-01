@@ -16,7 +16,7 @@ const manifest = JSON.parse(await fs.readFile(path.join(ROOT, 'content/art/manif
 // art name -> catalog id（同 parts.ts 的 IMG，反过来取一个代表）
 const MAP = {
   bluepill: 'bluepill', breadboard: 'breadboard', button: 'button', buzzer: 'buzzer_active',
-  dht11: 'dht11', esp32_wrover: 'esp32_devkit', jumper: 'jumper', lcd1602: 'lcd1602', ldr: 'ldr',
+  dht11: 'dht11', esp32_wrover: 'esp32_wrover', jumper: 'jumper', lcd1602: 'lcd1602', ldr: 'ldr',
   led_red: 'led_5mm', led_yellow: 'led_5mm', oled: 'oled_096', potentiometer: 'potentiometer',
   resistor_220: 'resistor_kit', resistor_10k: 'resistor_kit', stlink: 'stlink', usb_serial: 'usb_serial',
   sg90: 'sg90', relay: 'relay', hcsr04: 'hcsr04', keypad: 'keypad', sd_module: 'sd_module',
