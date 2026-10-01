@@ -60,6 +60,49 @@ summary: 英文账号素材，系列名 #NotSoVibeCoding：拍摄清单 + 发进
 
 不需要懂超声波——你只是表达不满。AI 应该自己翻套件、发现超声波模块、改口。
 
+---
+
+## 第三个故事 · 4 图一帖（元件实体库 · 已定稿）
+
+四张图的节奏：认错了东西 → 拍对了它自动归档 → 于是我当场把名字做成了链接 → 点开是这些。
+
+| 图 | 内容 | 注意 |
+|---|---|---|
+| 图 1 | 对话：我拍了一张"以为是主控"的照片，AI 指出那是 LCD1602 | 带 `part detail` / `update inventory` 工具小标签，正好显示它自己在归档 |
+| 图 2 | 对话：第二张照片拍对了，AI 认出主板 + 扩展板 + 蜂鸣器 | 多个 `update inventory` 小标签连成一串，很有说服力 |
+| 图 3 | 特写：正文里 ESP32 被高亮成可点的 tag | |
+| 图 4 | 全貌：左边对话，右边抽屉滑出（图/参数/坑/代码/购买） | **重截**：旧截图标题是 DevKitC 配图却是 WROVER（已修成独立条目）；左边会露出 "Session expired" |
+
+### 正文
+
+> Day 3. Same wall, over and over: the AI names a part, and I have no idea which of the 40 objects on my desk that is.
+>
+> So I built a parts database into the thing I'm building. Every component name in any text — chat, lesson, shopping list — is now a link. Tap it and a drawer slides out: a picture, what the thing actually does, how it wires up, the mistakes people make with it, working code, and where to buy it.
+>
+> 146 parts. I can finally read my own product.
+>
+> #NotSoVibeCoding
+
+### 图说
+
+**图 1**
+> I photographed what I was sure was the controller. It wasn't — it's a character display. The AI identified it, filed it into my inventory, and told me what it's actually good for: showing WATER LOW.
+
+**图 2**
+> Second try. This one IS the controller. It read the board, the expansion board underneath it, and the little black buzzer off to the side — then logged all of them into my inventory without me typing a single part name.
+
+**图 3**
+> I stopped mid-conversation and built this on the spot. Now every part name the AI writes is a link — in chat, in lessons, in shopping lists.
+>
+> The fix took an afternoon. The frustration took three weeks.
+
+**图 4**
+> And this is what happens when I tap it. Picture, voltage, every pin, how to wire it, the three mistakes everyone makes, code that actually compiles, a buy button.
+>
+> Three weeks ago I couldn't name a single object in my kit.
+
+---
+
 ## 用法
 1. 按清单一次拍完照片。
 2. 把照片和对应英文台词发进"直接做"，形成真实对话。
@@ -67,7 +110,7 @@ summary: 英文账号素材，系列名 #NotSoVibeCoding：拍摄清单 + 发进
 4. 现场 AI 回复不理想（没比喻、没提坑），点"新对话"重发，台词不变。
 
 ## 发帖顺序
-置顶串讲（✅ 已发）→ 第一个故事（✅ 已发）→ **第二个故事（4 图：清单 → 检索地狱 → 开箱懵逼 → 图片识别）** → 杜邦线 → VDD → SOS → 第一个作品（狗碗水位报警器收束）。主线是狗，翻车是支线。
+置顶串讲（✅ 已发）→ 第一个故事（✅ 已发）→ 第二个故事（✅ 已发，4 图：清单 → 检索地狱 → 开箱懵逼 → 图片识别）→ **第三个故事（4 图：认错 → 归档 → 做成链接 → 点开）** → 杜邦线 → VDD → SOS → 第一个作品（狗碗水位报警器收束）。
 
 ---
 
