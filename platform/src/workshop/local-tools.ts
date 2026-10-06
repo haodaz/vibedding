@@ -10,14 +10,63 @@ const catalogOf = () => getJson<{ parts: AnyRec[] }>('hardware/parts-catalog.jso
 type AnyRec = Record<string, unknown>
 const day = () => new Date().toISOString().slice(0, 10)
 
+
+// —— 访客自己的板子 ——
+// 体验模式下不能直接吐仓库里的 board.md：那是作者的板子，对访客是假话
+// （评委一进来就被告知"你有一块 ESP32-WROVER，串口 /dev/cu.usbserial-210"）。
+// 板子从访客自己的库存里认：聊到"我有 XX"时 AI 会 update_inventory，这里再读回来。
+const PROFILE_OF: Record<string, string> = {
+  bluepill: 'bluepill', esp32_devkit: 'esp32_devkit', esp32_wrover: 'esp32_wrover',
+  arduino_uno: 'arduino_uno', nucleo_f103: 'nucleo_f103rb', blackpill_f411: 'nucleo_f411re',
+}
+async function visitorBoard(): Promise<{ id: string; name: string; profileId?: string } | null> {
+  const inv = (await store.get<AnyRec[]>('inventory')) ?? []
+  const cat = catalogOf()?.parts ?? []
+  for (const it of inv) {
+    const p = cat.find((x) => x.id === it.id) ?? cat.find((x) => String(x.name) === String(it.name))
+    if (p && /主控|controller/i.test(String(p.cat))) {
+      return { id: String(p.id), name: String(p.name), profileId: PROFILE_OF[String(p.id)] }
+    }
+  }
+  return null
+}
+/** 给界面用：访客聊出来的主控 id（没有就空串），决定虚拟板子画哪一块 */
+export async function visitorBoardId(): Promise<string> { return (await visitorBoard())?.id ?? '' }
+
+async function describeVisitorBoard(): Promise<string> {
+  const b = await visitorBoard()
+  if (!b) {
+    return [
+      '访客还没有登记自己的板子（体验模式下，板子是聊出来的，不是预设的）。',
+      '**不要假设他有任何板子，也不要引用平台自带的示例档案。** 接下来按这个顺序走：',
+      '1. 先问他手里有什么板子；不确定就让他拍一张照片，你来认。',
+      '2. 他说了型号，就 update_inventory 记下来，再 read_board_profile 取引脚。',
+      '3. 他说没有板子 / 还没到货，就**只写代码、用 sim_run 在右边的虚拟板子上跑**，',
+      '   并明确告诉他：虚拟板子能验证逻辑，真正烧录要等硬件接上（体验模式也烧不了，要本地模式）。',
+      '平台认识这些板子：' + Object.keys(PROFILE_OF).join(' / ') + '（list_boards 看全部）。',
+    ].join('\n')
+  }
+  const prof = b.profileId ? getJson<AnyRec>('hardware/boards/' + b.profileId + '.json') : null
+  if (!prof) return `访客登记的主控是：${b.name}（id ${b.id}）。平台没有这块板的详细档案，引脚务必让他核对丝印。`
+  return `访客登记的主控是：${b.name}\n` + JSON.stringify(prof, null, 1).slice(0, 2500)
+    + `\n\n引脚按这份档案来，不要凭记忆。体验模式下只能 sim_run 验证逻辑，真烧录要本地模式 + 板子接上。`
+}
+
 export const LOCAL_TOOLS: Record<string, (input: AnyRec) => Promise<string> | string> = {
-  read_pinout({ filter }) {
+  // 引脚表默认是蓝药丸的。访客用别的板子时，蓝药丸的脚一个都对不上——
+  // 必须明说，否则 AI 会拿着 PC13、PA1 去指挥一块 ESP32。
+  async read_pinout({ filter }) {
+    const b = await visitorBoard()
+    if (b && b.profileId && b.profileId !== 'bluepill') {
+      return `你的板子是 ${b.name}，不是蓝药丸——这张引脚表不适用。\n`
+        + `请改用 read_board_profile({ board: "${b.profileId}" }) 取这块板的引脚，不要套用 PC13/PA1 这类蓝药丸脚名。`
+    }
     const pins = pinsOf(); if (!pins) return '引脚表没加载'
     const all = [...pins.left, ...pins.right, ...pins.bottom]
     const rows = all.filter((p) => !filter || p.funcs.some((f) => f.toUpperCase().includes(String(filter).toUpperCase())))
     return `${pins.board}（${pins.note}）\n` + rows.map((p) => `${p.name}: ${p.funcs.join(', ')}${p.note ? ' — ' + p.note : ''}`).join('\n')
   },
-  read_board() { return raw['hardware/board.md'] ?? '（没有板子档案）' },
+  async read_board() { return describeVisitorBoard() },
   list_parts() { return (manifestOf()?.parts ?? []).map((p) => `${String(p.name).replace(/^part_/, '')}: ${p.label} — ${p.what}`).join('\n') },
   check_env() { return '网页体验模式：没有连接用户的电脑，不能编译/烧录/读串口。虚拟板子（sim_run）是唯一的运行方式。到货后在本地模式烧录。' },
   async write_firmware({ path, content }) {

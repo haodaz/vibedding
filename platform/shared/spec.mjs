@@ -279,10 +279,65 @@ export function parseChatOutput(data) {
   }
 }
 
-export async function chatStep({ apiKey, base = NEBIUS_BASE, model, system, tools, messages, maxTokens = 8000, temperature }) {
+// Nemotron 不收图片，但它是唯一能稳定调工具的。视觉模型反过来：收图但不调工具。
+// 所以照片先由视觉模型翻成文字，再交给 Nemotron 带着工具去推理——
+// 能力不在一个模型里，就让两个模型接力。
+const DESCRIBE_SYSTEM = `你在帮一个零基础的人看他拍的电子元件照片。只描述你真正看见的东西，不要推测用途，不要给建议。
+逐个说：这是什么零件（看不准就说看不准）、什么颜色什么形状、丝印上的字、有几根针/什么接口、在画面里的位置。
+如果有开发板，重点说清楚它的型号丝印和接口。200 字以内，用用户的语言。`
+
+const _descCache = new Map()
+const _imgKey = (b) => (b.source?.data || b.image_url?.url || '').slice(-96)
+
+async function describeImage(block, { apiKey, base, model, lang }) {
+  const key = _imgKey(block)
+  if (_descCache.has(key)) return _descCache.get(key)
+  const url = block.source
+    ? `data:${block.source.media_type || 'image/jpeg'};base64,${block.source.data}`
+    : block.image_url?.url
+  if (!url) return ''
+  const r = await fetch(`${base || NEBIUS_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model, max_tokens: 500,
+      messages: [
+        { role: 'system', content: DESCRIBE_SYSTEM },
+        { role: 'user', content: [{ type: 'image_url', image_url: { url } }, { type: 'text', text: `lang: ${lang || 'zh'}` }] },
+      ],
+    }),
+  })
+  if (!r.ok) return ''
+  const txt = ((await r.json()).choices?.[0]?.message?.content ?? '').trim()
+  _descCache.set(key, txt)
+  return txt
+}
+
+/** 把消息里的图片块换成视觉模型给出的文字描述。对话每轮都会重放全部消息，所以必须缓存。 */
+export async function imagesToText(messages, opts) {
+  const out = []
+  for (const m of messages) {
+    if (typeof m.content === 'string' || !Array.isArray(m.content) || !m.content.some((b) => b.type === 'image')) { out.push(m); continue }
+    const content = []
+    for (const b of m.content) {
+      if (b.type !== 'image') { content.push(b); continue }
+      const desc = await describeImage(b, opts)
+      content.push({ type: 'text', text: desc ? `[用户发来的照片，视觉模型看到的内容]\n${desc}` : '[用户发来一张照片，但没能读取]' })
+    }
+    out.push({ ...m, content })
+  }
+  return out
+}
+
+export async function chatStep({ apiKey, base = NEBIUS_BASE, model, system, tools, messages, maxTokens = 8000, temperature, visionModel, lang }) {
+  // 有图就先翻成文字（Nemotron 收不了图），没图不多跑一次请求
+  const hasImage = messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === 'image'))
+  const msgs = hasImage
+    ? await imagesToText(messages, { apiKey, base, model: visionModel || NEBIUS_MODELS.vision, lang })
+    : messages
   const body = {
     model,
-    messages: toChatMessages(messages, system),
+    messages: toChatMessages(msgs, system),
     tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } })),
     max_tokens: maxTokens,
   }

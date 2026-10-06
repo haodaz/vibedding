@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     const system = systemFor('static', '', body.lang === 'en' ? 'en' : 'zh')
     const tools = toolDefsFor('static')
     const out = useNebius
-      ? await chatStep({ apiKey: env('NEBIUS_API_KEY'), base: env('NEBIUS_BASE_URL') || NEBIUS_BASE, model, system, tools, messages })
+      ? await chatStep({ apiKey: env('NEBIUS_API_KEY'), base: env('NEBIUS_BASE_URL') || NEBIUS_BASE, model, system, tools, messages, visionModel: env('VISION_MODEL') || undefined, lang: body.lang === 'en' ? 'en' : 'zh' })
       : await openaiStep({ apiKey: env('OPENAI_API_KEY'), base: env('OPENAI_BASE_URL'), model, system, tools, messages, reasoning: env('AGENT_REASONING') })
     // 记用量（失败不影响回复）
     if (hasService()) {

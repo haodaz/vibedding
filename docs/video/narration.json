@@ -1,0 +1,66 @@
+[
+  {
+    "id": "01_open",
+    "text": "You can vibe-code a website. I wanted to vibe-build something I could touch."
+  },
+  {
+    "id": "02_why",
+    "text": "My dog's water bowl keeps going empty, and I keep noticing too late. I've been a product manager for thirteen years. I can barely code, and I have never studied electronics."
+  },
+  {
+    "id": "03_ask",
+    "text": "So I built this, and then I became its first user. I told it what I wanted in one sentence, the way I would say it to a person."
+  },
+  {
+    "id": "04_list",
+    "text": "It read what I already own, searched its own parts catalog, and came back with a shopping list. Each part with what it does, why that one, a price, and a link I can actually click."
+  },
+  {
+    "id": "05_safety",
+    "text": "And a warning I would never have known to ask for: this sensor runs at five volts, the board's pins do not, so don't wire them straight together."
+  },
+  {
+    "id": "06_arrive",
+    "text": "Then the parts arrived, and I could not name a single object in the box."
+  },
+  {
+    "id": "07_photo",
+    "text": "So I took a photo and asked. It named what it could see, and told me which one was actually the controller: the black board with the USB connector. That one is the brain."
+  },
+  {
+    "id": "08_vcc",
+    "text": "Then the real barrier showed up. Every guide says connect V C C. My display has no pin called V C C."
+  },
+  {
+    "id": "09_vdd",
+    "text": "It read the silkscreen off my photo: V D D is the supply pin. Same thing tutorials call V C C. An expert corrects that without noticing. I lost ten minutes."
+  },
+  {
+    "id": "10_db",
+    "text": "That is why every part name in here is a link. One tap: a picture, the voltage, every pin, how to wire it, and the mistakes everyone makes with it."
+  },
+  {
+    "id": "11_flash",
+    "text": "When I was ready, it looked up my board, wrote the firmware, and compiled it. The LED on this board is active high, so it wrote active high, because it read that from the board's profile instead of recalling it."
+  },
+  {
+    "id": "12_diag",
+    "text": "The first flash did not take. So it ran a deep diagnosis, changed one setting, and flashed again. That step runs on a bigger model, because a thing that flashed but doesn't work could be power, wiring, levels or code."
+  },
+  {
+    "id": "13_light",
+    "text": "And the light came on."
+  },
+  {
+    "id": "14_tech",
+    "text": "All of it runs on Nebius Token Factory. Nemotron 3 Super drives the loop: thirty tools, about a second per step. Ultra handles diagnosis. Photos go through a vision model first, because the one that reasons best cannot see."
+  },
+  {
+    "id": "15_rule",
+    "text": "And it may never recall a pin number from memory. There is even a file listing every time this AI has been confidently wrong about hardware, and it must re-read it before answering me."
+  },
+  {
+    "id": "16_close",
+    "text": "This is vibe building. In the real world, the light either comes on, or it doesn't. I have never studied embedded systems for a single day. If I could get here, so can you."
+  }
+]

@@ -31,7 +31,7 @@ async function stepAnthropic(messages, lang) {
 export async function step({ messages, mock, lang = 'zh' }) {
   const p = mock || process.env.AGENT_MOCK === '1' ? 'mock' : provider()
   if (p === 'mock') return mockStep(messages)
-  if (p === 'nebius') return chatStep({ apiKey: env('NEBIUS_API_KEY'), base: env('NEBIUS_BASE_URL') || NEBIUS_BASE, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages })
+  if (p === 'nebius') return chatStep({ apiKey: env('NEBIUS_API_KEY'), base: env('NEBIUS_BASE_URL') || NEBIUS_BASE, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages, visionModel: env('VISION_MODEL') || undefined, lang })
   if (p === 'openai') return openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages, reasoning: process.env.AGENT_REASONING })
   return stepAnthropic(messages, lang)
 }

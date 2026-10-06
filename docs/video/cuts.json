@@ -1,0 +1,98 @@
+[
+  {
+    "seg": "01_open",
+    "src": "led8.mp4",
+    "start": 0.4,
+    "_": "闪灯：开门见山给'能摸到的东西'"
+  },
+  {
+    "seg": "02_why",
+    "src": "IMG_7570.MOV",
+    "start": 0.2,
+    "_": "空碗 + 狗抬头：为什么做这个"
+  },
+  {
+    "seg": "03_ask",
+    "src": "session_2026100618214.mp4",
+    "start": 3,
+    "_": "打字提需求"
+  },
+  {
+    "seg": "04_list",
+    "src": "session_2026100618214.mp4",
+    "start": 232,
+    "_": "清单 + Find it on Amazon"
+  },
+  {
+    "seg": "05_safety",
+    "src": "session_2026100618214.mp4",
+    "start": 256,
+    "_": "3.3V/5V 安全提醒"
+  },
+  {
+    "seg": "06_arrive",
+    "src": "IMG_7569.MOV",
+    "start": 0.2,
+    "_": "狗闻零件：零件到了"
+  },
+  {
+    "seg": "07_photo",
+    "src": "parts.mp4",
+    "start": 1.0,
+    "_": "照片 → 逐个认出 → 哪个是主控"
+  },
+  {
+    "seg": "08_vcc",
+    "src": "vcc.mp4",
+    "start": 0.5,
+    "_": "LCD 照片：VCC 在哪"
+  },
+  {
+    "seg": "09_vdd",
+    "src": "vcc.mp4",
+    "start": 6.0,
+    "_": "VDD 就是 VCC"
+  },
+  {
+    "seg": "10_db",
+    "src": "entity.mp4",
+    "start": 0.5,
+    "_": "点标签 → 抽屉滑出 → 常见坑"
+  },
+  {
+    "seg": "11_flash",
+    "src": "flash.mp4",
+    "start": 30,
+    "_": "查板子 → 写固件 → 编译"
+  },
+  {
+    "seg": "12_diag",
+    "src": "flash.mp4",
+    "start": 430,
+    "_": "deep diagnosis → 改配置 → 重烧"
+  },
+  {
+    "seg": "13_light",
+    "src": "led8.mp4",
+    "start": 1.5,
+    "_": "灯亮了"
+  },
+  {
+    "seg": "14_tech",
+    "src": "grid.mp4",
+    "start": 0.5,
+    "_": "146 条元件库在滚"
+  },
+  {
+    "seg": "15_rule",
+    "src": "lies.mp4",
+    "start": 0.5,
+    "_": "AI 撒谎档案"
+  },
+  {
+    "seg": "16_close",
+    "src": "led8.mp4",
+    "start": 3.0,
+    "_": "灯还在闪，落在'你也可以'"
+  }
+]

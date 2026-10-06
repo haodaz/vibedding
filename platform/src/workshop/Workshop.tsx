@@ -10,6 +10,7 @@ import { byPath } from '../content'
 import { Markdown } from '../Markdown'
 import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
+import { visitorBoardId } from './local-tools'
 import { detectMode, type ModeInfo } from './mode'
 import { store } from './storage'
 import { t, getLang, useLang } from '../i18n'
@@ -74,6 +75,16 @@ export function Workshop() {
 
   // 工作区：自动跟着最近发生的事切标签
   const [tab, setTab] = useState<Tab>('board')
+  // 虚拟板子画哪一块：本地模式按仓库里的 board.md（就是用户自己的板子）；
+  // 体验模式按访客聊出来的库存——不能拿作者的板子冒充访客的。
+  const [boardId, setBoardId] = useState('')
+  useEffect(() => {
+    let alive = true
+    const local = byPath('hardware/board.md')?.fm.board ?? ''
+    if (mode?.mode === 'local') { setBoardId(local); return }
+    visitorBoardId().then((b) => { if (alive) setBoardId(b) })
+    return () => { alive = false }
+  }, [mode?.mode, a.items.length])
   const [auto, setAuto] = useState(true)
   const latestWire = [...a.items].reverse().find((i) => i.kind === 'human' && i.ask.kind === 'wire') as Extract<Item, { kind: 'human' }> | undefined
   const latestCode = [...a.items].reverse().find((i) => i.kind === 'tool' && i.name === 'write_firmware' && /\.(cpp|c|h|ino)$/.test(String(i.input.path))) as Extract<Item, { kind: 'tool' }> | undefined
@@ -152,7 +163,7 @@ export function Workshop() {
                 <span className={'st ' + (env && (env.usb.length || env.ports.length) ? 'ok' : 'off')}><i />{env && (env.usb.length || env.ports.length) ? `${t('st.board.on')} ${env.usb[0] ?? env.ports[0]}` : t('st.board.off')}</span>
                 <span className={'st ' + (env?.pio ? 'ok' : 'warn')}><i />{env?.pio ? 'PlatformIO ' + env.pio.replace(/^PlatformIO Core, version /, '') : (mode?.mode === 'local' ? t('st.pio.off') : t('st.static'))}</span>
               </div>
-              {/^esp32/.test(byPath('hardware/board.md')?.fm.board ?? '') ? <BoardEsp32Svg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} /> : <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />}
+              {/^esp32/.test(boardId) ? <BoardEsp32Svg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} /> : <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />}
               <div className="serial-head"><span>Serial <em>115200</em></span><span className={'led ' + (live.running ? 'on' : '')} /></div>
               <pre className="serial-out ws-serial">{live.serial || t('ws.serial.idle')}</pre>
             </div>
