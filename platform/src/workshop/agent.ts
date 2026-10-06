@@ -41,6 +41,8 @@ export class Agent {
   model = ''
   modeInfo: ModeInfo | null = null
   private pending: { id: string; resolve: (s: string) => void } | null = null
+  /** 对话存不进 localStorage（通常是配额满了）。界面可以据此提醒用户导出。 */
+  saveFailed = false
   constructor(public readonly id: string, private onChange: () => void, private onLive: (l: SimLive) => void) {
     try {
       const saved = JSON.parse(localStorage.getItem('ws:session:' + id) ?? 'null')
@@ -55,16 +57,51 @@ export class Agent {
   reset() { this.messages = []; this.items = []; this.emit() }
 
   private emit() {
-    try {
-      localStorage.setItem('ws:session:' + this.id, JSON.stringify({ messages: this.messages, items: this.items, lastBuild: this.lastBuild }))
-      if (this.items.length) {
-        const list = listSessions().filter((s) => s.id !== this.id)
-        const prev = listSessions().find((s) => s.id === this.id)
-        list.unshift({ id: this.id, title: this.title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length })
-        saveIndex(list)
-      }
-    } catch { /* ignore */ }
+    this.persist()
     this.onChange()
+  }
+
+  /**
+   * 存会话。localStorage 每个域名只有 5MB 左右，而带照片的对话很大
+   * （messages 里是给模型的 1024px 原图，一张就上百 KB）。
+   * 存不下时**不能静默失败**——用户的对话会无声无息地消失。
+   * 策略：先腾地方（删最旧的别的会话），再不行就降级（丢掉历史图片的原图），
+   * 最后仍失败才放弃，并留个标记让界面能提醒。
+   */
+  private persist() {
+    const key = 'ws:session:' + this.id
+    const writeIndex = () => {
+      if (!this.items.length) return
+      const list = listSessions().filter((s) => s.id !== this.id)
+      const prev = listSessions().find((s) => s.id === this.id)
+      list.unshift({ id: this.id, title: this.title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length })
+      saveIndex(list)
+    }
+    const tryWrite = (messages: unknown) => {
+      localStorage.setItem(key, JSON.stringify({ messages, items: this.items, lastBuild: this.lastBuild }))
+      writeIndex()
+      this.saveFailed = false
+      return true
+    }
+    try { return tryWrite(this.messages) } catch { /* 下面想办法 */ }
+
+    // 1) 删掉最旧的其他会话腾地方，每删一个重试一次
+    const others = listSessions().filter((s) => s.id !== this.id).sort((a, b) => a.updated - b.updated)
+    for (const s of others) {
+      deleteSession(s.id)
+      try { return tryWrite(this.messages) } catch { /* 继续删 */ }
+    }
+
+    // 2) 还存不下：把除最后一轮外的历史图片原图去掉（文字和工具记录都保留）
+    const slim = this.messages.map((m, i) => {
+      if (i >= this.messages.length - 2 || !Array.isArray(m.content)) return m
+      const content = (m.content as { type: string }[]).map((b) => (b.type === 'image' ? { type: 'text', text: '[图片已省略以节省空间]' } : b))
+      return { ...m, content }
+    })
+    try { return tryWrite(slim) } catch { /* 实在不行 */ }
+
+    this.saveFailed = true
+    return false
   }
 
   /** 页面刷新后，上一轮可能留下没有 tool_result 的 tool_use；模型会拒收。发新消息前补上。 */
