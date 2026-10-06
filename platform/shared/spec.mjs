@@ -164,6 +164,87 @@ export async function openaiStep({ apiKey, base = 'https://api.openai.com/v1', m
   return parseOpenAIOutput(await r.json())
 }
 
+// ---------- OpenAI Chat Completions ----------
+// Nebius Token Factory（跑 NVIDIA Nemotron）走的是经典的 /chat/completions，
+// 不是 OpenAI 新的 /responses，所以消息和工具都要另翻一道。
+export const NEBIUS_BASE = 'https://api.studio.nebius.com/v1'
+
+export function toChatMessages(messages, system) {
+  const out = system ? [{ role: 'system', content: system }] : []
+  for (const m of messages) {
+    if (typeof m.content === 'string') { out.push({ role: m.role, content: m.content }); continue }
+    if (m.role === 'user') {
+      // 工具结果在这套格式里是独立的一条 role:'tool'，不能塞进 user 消息
+      for (const b of m.content) {
+        if (b.type !== 'tool_result') continue
+        out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: typeof b.content === 'string' ? b.content : JSON.stringify(b.content) })
+      }
+      const rest = m.content.filter((b) => b.type !== 'tool_result')
+      if (!rest.length) continue
+      const hasImg = rest.some((b) => b.type === 'image')
+      out.push({
+        role: 'user',
+        content: hasImg
+          ? rest.map((b) => (b.type === 'image'
+            ? { type: 'image_url', image_url: { url: `data:${b.source?.media_type ?? 'image/jpeg'};base64,${b.source?.data ?? ''}` } }
+            : { type: 'text', text: b.text ?? '' }))
+          : rest.filter((b) => b.type === 'text').map((b) => b.text).join('\n'),
+      })
+      continue
+    }
+    // assistant：文字和这一轮的所有 tool_use 合成一条
+    const text = m.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
+    const calls = m.content.filter((b) => b.type === 'tool_use')
+      .map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) } }))
+    const msg = { role: 'assistant', content: text || null }
+    if (calls.length) msg.tool_calls = calls
+    out.push(msg)
+  }
+  return out
+}
+
+export function parseChatOutput(data) {
+  const msg = data.choices?.[0]?.message ?? {}
+  const content = []
+  if (msg.content) content.push({ type: 'text', text: msg.content })
+  for (const c of msg.tool_calls ?? []) {
+    let input = {}
+    try { input = JSON.parse(c.function?.arguments || '{}') } catch { input = { _raw: c.function?.arguments } }
+    content.push({ type: 'tool_use', id: c.id, name: c.function?.name, input })
+  }
+  const hasTool = content.some((c) => c.type === 'tool_use')
+  const u = data.usage ?? {}
+  return {
+    content,
+    stop_reason: hasTool ? 'tool_use' : 'end_turn',
+    model: data.model,
+    // 归一成 Anthropic 口径，usageRecord 才算得对
+    usage: {
+      input_tokens: u.prompt_tokens ?? 0,
+      output_tokens: u.completion_tokens ?? 0,
+      input_tokens_details: { cached_tokens: u.prompt_tokens_details?.cached_tokens ?? 0 },
+    },
+    stop_details: null,
+  }
+}
+
+export async function chatStep({ apiKey, base = NEBIUS_BASE, model, system, tools, messages, maxTokens = 8000, temperature }) {
+  const body = {
+    model,
+    messages: toChatMessages(messages, system),
+    tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } })),
+    max_tokens: maxTokens,
+  }
+  if (temperature !== undefined) body.temperature = temperature
+  const r = await fetch(`${base || NEBIUS_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error(`Nebius ${r.status}: ${(await r.text()).slice(0, 400)}`)
+  return parseChatOutput(await r.json())
+}
+
 
 // ---------- 用量计费（每 1M token 美元，口径同 datasquare 的 token-tracker）----------
 export const PRICING_PER_1M = {

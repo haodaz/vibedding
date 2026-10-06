@@ -1,6 +1,9 @@
 // Vercel serverless：体验模式的一步。密钥在服务端环境变量里，访客不用自己填。
-// 环境变量：OPENAI_API_KEY（必填）、AGENT_MODEL（默认 gpt-5.6-luna）、AGENT_REASONING（可选）、RATE_PER_MIN（每 IP 每分钟，默认 12）
-import { systemFor, toolDefsFor, openaiStep, usageRecord } from '../_spec.js'
+// 环境变量：
+//   走 Nebius（NVIDIA Nemotron）：NEBIUS_API_KEY + AGENT_PROVIDER=nebius，可选 NEBIUS_BASE_URL
+//   走 OpenAI：OPENAI_API_KEY，可选 OPENAI_BASE_URL / AGENT_REASONING
+//   公共：AGENT_MODEL（不填按 provider 取默认）、RATE_PER_MIN（每 IP 每分钟，默认 12）
+import { systemFor, toolDefsFor, openaiStep, chatStep, NEBIUS_BASE, usageRecord } from '../_spec.js'
 import { verifyUser, profileOf, rest, hasService } from '../_lib.js'
 
 const bucket = new Map()   // 简单限流：每个实例内存里数，够挡住无意的刷
@@ -16,7 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'content-type')
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  if (!process.env.OPENAI_API_KEY) return res.status(200).json({ error: 'no-credentials' })
+  if (!process.env.OPENAI_API_KEY && !process.env.NEBIUS_API_KEY) return res.status(200).json({ error: 'no-credentials' })
   // 封闭平台：必须带 Supabase 登录令牌（VITE_CLOSED=1 时）；被禁用的账号拒绝
   let user = null
   if (process.env.VITE_CLOSED === '1') {
@@ -30,8 +33,13 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
     const messages = body?.messages
     if (!Array.isArray(messages) || messages.length > 200) return res.status(400).json({ error: 'bad messages' })
-    const model = process.env.AGENT_MODEL || 'gpt-5.6-luna'
-    const out = await openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model, system: systemFor('static', '', body.lang === 'en' ? 'en' : 'zh'), tools: toolDefsFor('static'), messages, reasoning: process.env.AGENT_REASONING })
+    const useNebius = (process.env.AGENT_PROVIDER || (process.env.NEBIUS_API_KEY ? 'nebius' : 'openai')) === 'nebius'
+    const model = process.env.AGENT_MODEL || (useNebius ? 'nvidia/nemotron-3-super-120b-a12b' : 'gpt-5.6-luna')
+    const system = systemFor('static', '', body.lang === 'en' ? 'en' : 'zh')
+    const tools = toolDefsFor('static')
+    const out = useNebius
+      ? await chatStep({ apiKey: process.env.NEBIUS_API_KEY, base: process.env.NEBIUS_BASE_URL || NEBIUS_BASE, model, system, tools, messages })
+      : await openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model, system, tools, messages, reasoning: process.env.AGENT_REASONING })
     // 记用量（失败不影响回复）
     if (hasService()) {
       const rec = usageRecord(model, out.usage, { user_id: user?.id ?? null, email: user?.email ?? null, mode: 'static', lang: body.lang === 'en' ? 'en' : 'zh', tool_calls: out.content.filter((c) => c.type === 'tool_use').length })
