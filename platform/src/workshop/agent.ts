@@ -204,6 +204,26 @@ export class Agent {
           out = { text: j.ok ? `编译成功（${((j.elapsed ?? 0) / 1000).toFixed(1)}s）。Flash ${j.flash ?? '?'}%，RAM ${j.ram ?? '?'}%。镜像：${imgs}。现在可以 web_flash。` : `编译失败：\n${j.log}`, error: !j.ok }
         }
       } catch (e) { out = { text: '云编译连不上：' + (e as Error).message, error: true } }
+    } else if (u.name === 'diagnose') {
+      // 排障：本地先用关键字把排障库里的相关条目捞出来一起送过去，
+      // 服务端用更强的模型（Nemotron Ultra）一次把所有变量摆在一起比。
+      try {
+        const input = u.input as Record<string, unknown>
+        const kb = KNOWLEDGE_TOOLS.search_troubleshooting?.({ query: String(input.symptom ?? ''), max: 3 }) ?? ''
+        // 必须把板子档案原文送过去。只给一个板子 id，模型会凭记忆编引脚和电平——
+        // 实测它把 Freenove ESP32-WROVER 说成 Waveshare ESP32-S3、灯说成在 GPIO0。
+        const profile = input.board ? (KNOWLEDGE_TOOLS.read_board_profile?.({ board: String(input.board) }) ?? '') : ''
+        const token = await getToken()
+        const res = await fetch('/api/diagnose', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
+          body: JSON.stringify({ ...input, kb, profile, lang: getLang() }),
+        })
+        const j = (await res.json()) as { analysis?: string; model?: string; error?: string }
+        if (j.error === 'no-credentials') out = { text: '排障需要配置模型密钥。可以先 search_troubleshooting 自己查。', error: true }
+        else if (j.error) out = { text: '排障失败：' + j.error, error: true }
+        else out = { text: `（${j.model} 的分析）\n\n${j.analysis}` }
+      } catch (e) { out = { text: '排障连不上：' + (e as Error).message, error: true } }
     } else if (u.name === 'sim_run') {
       const { code, seconds } = u.input as { code: string; seconds?: number }
       const r = await runSim(code, Math.min(Math.max(seconds ?? 3, 1), 15), this.onLive)

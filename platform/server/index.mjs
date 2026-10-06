@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { runTool } from './tools.mjs'
 import { step, agentModel, provider } from './agent.mjs'
+import { NEBIUS_BASE, NEBIUS_MODELS, DIAGNOSE_SYSTEM, DIAGNOSE_SYSTEM_EN } from '../shared/spec.mjs'
 import { usageRecord } from '../shared/spec.mjs'
 import { rest, authAdmin, hasService } from '../../api/_lib.js'
 import { ROOT } from './tools.mjs'
@@ -122,7 +123,22 @@ async function identify(body) {
   ].filter(Boolean).join('\n')
 
   let out
-  if (provider() === 'openai') {                 // 跟着"直接做"用的是哪家走
+  if (provider() === 'nebius') {
+    // Nemotron 不收图片，换同在 Nebius 上的视觉模型
+    const r = await fetch(`${(process.env.NEBIUS_BASE_URL || NEBIUS_BASE).trim()}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(process.env.NEBIUS_API_KEY || '').trim()}` },
+      body: JSON.stringify({
+        model: (process.env.VISION_MODEL || NEBIUS_MODELS.vision).trim(), max_tokens: 600,
+        messages: [
+          { role: 'system', content: IDENTIFY_SYSTEM },
+          { role: 'user', content: [{ type: 'image_url', image_url: { url: image } }, { type: 'text', text }] },
+        ],
+      }),
+    })
+    if (!r.ok) return { error: `nebius-${r.status}` }
+    out = ((await r.json()).choices?.[0]?.message?.content ?? '').trim()
+  } else if (provider() === 'openai') {
     const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
     const r = await fetch(`${base}/responses`, {
       method: 'POST',
@@ -150,6 +166,63 @@ async function identify(body) {
   }
   try { return JSON.parse(out.replace(/^```json\s*|\s*```$/g, '')) }
   catch { return { match: null, says: out.slice(0, 300), looks_like: '' } }
+}
+
+// 排障：烧进去了却不工作。这是整条链路上最难的一步，也是唯一值得上 Ultra 的地方——
+// 要同时把供电、接线、电平、时序、代码摆在一起比，而不是顺着一条线往下走。
+async function diagnose(body) {
+  const { symptom, code = '', serial = '', board = '', profile = '', wiring = '', tried = '', kb = '', lang = 'zh' } = body
+  if (!symptom) return { error: 'no-symptom' }
+  const L = lang === 'en'
+  const user = [
+    L ? `## What the user sees\n${symptom}` : `## 现象\n${symptom}`,
+    board ? (L ? `\n## Board\n${board}` : `\n## 板子\n${board}`) : '',
+    profile ? (L ? `\n## Board profile — THE ONLY source of truth for pins and logic levels\n${profile.slice(0, 5000)}`
+                 : `\n## 板子档案 —— 引脚和电平只能以这里为准\n${profile.slice(0, 5000)}`) : '',
+    wiring ? (L ? `\n## Wiring as known\n${wiring}` : `\n## 已知接线\n${wiring}`) : '',
+    serial ? (L ? `\n## Serial output\n\`\`\`\n${serial.slice(0, 3000)}\n\`\`\`` : `\n## 串口输出\n\`\`\`\n${serial.slice(0, 3000)}\n\`\`\``)
+           : (L ? '\n## Serial output\n(nothing — note that this is itself evidence)' : '\n## 串口输出\n（什么都没有——注意这本身就是证据）'),
+    code ? (L ? `\n## Code on the board\n\`\`\`cpp\n${code.slice(0, 6000)}\n\`\`\`` : `\n## 板子上的代码\n\`\`\`cpp\n${code.slice(0, 6000)}\n\`\`\``) : '',
+    tried ? (L ? `\n## Already ruled out\n${tried}` : `\n## 已经排除\n${tried}`) : '',
+    kb ? (L ? `\n## Related entries from the troubleshooting library\n${kb.slice(0, 4000)}` : `\n## 排障库里的相关条目\n${kb.slice(0, 4000)}`) : '',
+  ].filter(Boolean).join('\n')
+  const system = L ? DIAGNOSE_SYSTEM_EN : DIAGNOSE_SYSTEM
+
+  if (provider() === 'nebius') {
+    const model = (process.env.DIAGNOSE_MODEL || NEBIUS_MODELS.ultra).trim()
+    const r = await fetch(`${(process.env.NEBIUS_BASE_URL || NEBIUS_BASE).trim()}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(process.env.NEBIUS_API_KEY || '').trim()}` },
+      // Ultra 是推理模型：思考走 reasoning_content，正文走 content。
+      // max_tokens 给小了会在推理阶段就被截断，思考过程溢进正文（实测 2000 不够）。
+      body: JSON.stringify({ model, max_tokens: 6000, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+    })
+    if (!r.ok) return { error: `nebius-${r.status}: ${(await r.text()).slice(0, 200)}` }
+    const j = await r.json()
+    const msg = j.choices?.[0]?.message ?? {}
+    const analysis = (msg.content ?? '').trim()
+    if (!analysis) return { error: 'empty-answer' }   // 还在推理就没额度了
+    // 推理过程单独带出来：这是教学平台，"看它怎么想的"本身有价值
+    return { analysis, reasoning: (msg.reasoning_content ?? '').trim() || undefined, model }
+  }
+  if (provider() === 'openai') {
+    const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+    const r = await fetch(`${base}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: agentModel(), instructions: system, max_output_tokens: 2000, input: [{ role: 'user', content: user }] }),
+    })
+    if (!r.ok) return { error: `openai-${r.status}` }
+    const j = await r.json()
+    const text = (j.output ?? []).flatMap((o) => o.content ?? []).filter((c) => c.type === 'output_text').map((c) => c.text).join('').trim()
+    return { analysis: text, model: agentModel() }
+  }
+  const res = await getClient().messages.create({
+    model: MODEL, max_tokens: 2000,
+    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: user }],
+  })
+  return { analysis: res.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim(), model: MODEL }
 }
 
 function json(res, code, obj) {
@@ -243,6 +316,12 @@ http.createServer(async (req, res) => {
       let raw = ''
       for await (const chunk of req) raw += chunk
       return json(res, 200, await review(JSON.parse(raw)))
+    }
+    if (req.url === '/api/diagnose' && req.method === 'POST') {
+      if (provider() === 'mock' || (provider() === 'anthropic' && !hasCredentials())) return json(res, 200, { error: 'no-credentials' })
+      let raw = ''
+      for await (const chunk of req) raw += chunk
+      return json(res, 200, await diagnose(JSON.parse(raw)))
     }
     if (req.url === '/api/identify' && req.method === 'POST') {
       // 看图用的是"直接做"那套 provider，不是只认 Anthropic 的评审凭据
