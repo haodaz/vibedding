@@ -1,67 +1,160 @@
 # Vibedding · Embedding your world with AI
 
-门外汉 × AI 的嵌入式自学与动手平台 · https://www.vibedding.com
+**Build real embedded hardware by talking in plain English.** No toolchain, no terminal, no IDE.
 
-> 把门槛拆掉，让人专注宝贵的部分：实现自己的一个思路，对一件事大胆尝试，在一个原本无法掌握的领域做出点价值。
->
-> 一个人，一块 STM32，一个 AI。边学边把过程铺成路，让下一个门外汉能照着走。
+Live demo: **https://vibedding-git-nebius-elodie1.vercel.app** (no sign-up required)
+[中文 README](README.zh.md) · MIT licensed
 
-## 这是什么
-两件事同时做：
-1. **我在学嵌入式**。零基础，vibe coding 模式：目标驱动、AI 辅助、做出看得见的东西。
-2. **我在把学的过程做成一个平台**。课程、日志、提示词、硬件笔记全部是 markdown，本地一个网页把它们串起来。学到哪，平台就长到哪。
+> Submitted to the **Nebius x NVIDIA Global AI Hackathon** — *Physical AI* track.
+> Runs on **Nebius Token Factory** with **NVIDIA Nemotron 3**.
 
-## 目录
+---
+
+## The problem
+
+A product manager with 13 years of experience, who can read most code and has shipped several AI projects, said he *could not start* an embedded project. What stopped him was not C, not circuits, not algorithms. It was:
+
+> setting up the toolchain, using git, typing terminal commands.
+
+**The barrier is not inside the knowledge. It is in front of it.** It is startup friction — not knowing what you do not know, and every step able to fail with an error message written only for insiders.
+
+Embedded systems is the worst case, because there is an extra layer: the link from *your computer* to *a chip*. If the method works here, it works anywhere.
+
+See [docs/02-barrier-map.md](docs/02-barrier-map.md) for the full barrier map.
+
+## What this is
+
+An agent that does the embedded work for you, and a course that explains every move it makes.
+
+You type `let there be light`. The agent looks up your actual board, picks the LED and resistor from the kit you actually own, draws the wiring, writes the firmware, compiles it, flashes it — and then asks you one question: *is it blinking?*
+
+The only thing it cannot do is push the wire into the hole. That part is yours, and it shows you an instruction card for it.
+
 ```
-embeded/
-├── content/            所有内容，全是 markdown，AI 和人都能直接读写
-│   ├── curriculum/     课程：一个目录 = 一个模块，一个文件 = 一个任务
-│   ├── journal/        学习日志，按天
-│   ├── prompts/        提示词库：怎么向 AI 问硬件问题
-│   └── hardware/       我的板子、套件、接线（只记亲测过的）
-├── firmware/           固件项目，每个任务一个 PlatformIO 工程
-├── platform/           本地网页（Vite + React），渲染 content/；内置实验台（虚拟板子、引脚图、电路小实验）
-│   ├── src/canvases/   每种实验一个目录，注册在 index.tsx
-│   └── server/         本地小服务：AI 评审、板子/工具链状态
-├── tools/              脚本：装环境、体检、烧录、串口
-└── docs/               平台自身的设计文档
+Browser (chat + instruction cards + virtual board)
+   │
+   ├── /api/agent/step ──► Nebius Token Factory ──► NVIDIA Nemotron 3
+   │
+   ├── server tools   read/write files · PlatformIO build/upload/serial · journal
+   ├── knowledge tools  parts · recipes · troubleshooting · glossary · snippets · boards
+   ├── sim tools      run the code on a virtual board, return an event stream
+   └── ask_human      pauses the loop and renders a card: wire / press / paste / observe
 ```
 
-## 线上体验
-部署在 Vercel 的版本不需要安装任何东西：课程、实验台、知识库、虚拟板子、AI 出方案和采购清单都能用；真烧录要在本地模式。部署方法见 [docs/03-deploy.md](docs/03-deploy.md)。
+`ask_human` is the key idea. It is the agent's **hand**, except the hand is you.
 
-## 跑起来
-平台（只要有 Node）：
+## Where NVIDIA Nemotron is used
+
+Nemotron **is** the agent. Every step of the build loop is one Nemotron call on Nebius Token Factory:
+
+| What | Model | Why |
+|---|---|---|
+| The main build loop — reasoning over 30 tools, writing firmware, diagnosing failures | `nvidia/nemotron-3-super-120b-a12b` | Reliable multi-tool function calling at ~1s per step |
+| Web mode (no local server, 25 tools) | same | Same loop, fewer tools |
+
+The agent is **tool-driven by design**: it is instructed never to state a pin number from memory, only from `read_pinout` or `read_board_profile`. Nemotron's function calling is what makes that rule enforceable rather than aspirational.
+
+Measured on the real tool set during development:
+
+- 30 tool definitions in context — correct tool selected on the first call
+- Multi-turn loop holds: tool results feed back, the model continues, and when a tool errors it picks a different one instead of looping
+- ~1 second per step with Nemotron 3 Super
+
+## Where Nebius Token Factory accelerated the work
+
+- **OpenAI-compatible surface.** The platform already had a provider abstraction; adding Nebius meant one `/chat/completions` adapter in [`platform/shared/spec.mjs`](platform/shared/spec.mjs), not a rewrite. Same adapter serves the local server, the Vercel function and the browser.
+- **One key, every environment.** The same Token Factory key drives local development and the deployed preview, so "works on my machine" and "works for a judge" are the same code path.
+- **Model menu without redeployment.** Nano / Super / Ultra / Lightning are all reachable from one endpoint, so swapping the reasoning tier is an environment variable, not a migration.
+
+## The knowledge bases
+
+The bet: **the AI's competence lives in the data, not in the model.** Models are rented and get replaced; the data is ours and stays correct for years. The parts, projects and pitfalls of beginner electronics have barely changed in two decades.
+
+| Base | Size | Tools |
+|---|---|---|
+| Parts catalog | 146 entries — interface, voltage, pins, wiring, minimal code, pitfalls, buy links | `search_parts` · `part_detail` |
+| Project recipes | 30 builds — parts, wiring, steps, code skeleton | `search_projects` |
+| Troubleshooting | 67 symptoms → causes by probability → one-minute check | `search_troubleshooting` |
+| Glossary | 127 terms — analogy first, then definition, then the common misunderstanding | `explain_concept` |
+| Code snippets | 35 compilable minimal programs | `get_snippet` |
+| Board profiles | 6 boards, with a pin translation table between them | `list_boards` · `read_board_profile` |
+
+Retrieval is keyword scoring in the browser — no vector store, no service, a few hundred KB. It works in a fully static deployment.
+
+## Features worth looking at
+
+- **Entity library.** Every part name in any text — chat, lesson, shopping list — becomes a clickable tag. Tap it: picture, voltage, every pin, wiring, the mistakes everyone makes, compilable code, related parts, buy link.
+- **Photo verification.** Point your camera at a part, and the model checks whether it really *is* that part before filing it into your inventory. It does **not** hard-block: the model is wrong often enough that the final call stays with the human, and its dissent is recorded alongside the photo.
+- **Virtual board.** An Arduino subset transpiled to JS in a Web Worker, driving an SVG board with LEDs, buttons and a serial monitor. You can finish a whole lesson before your hardware arrives.
+- **A log of the AI's lies.** [`content/prompts/04-ai-lies.md`](content/prompts/04-ai-lies.md) accumulates every time the model stated something confidently and wrongly — and the agent reads it before answering you.
+
+## Running it
+
+**Web mode** (nothing to install) — just open the demo link. Plans, code, knowledge bases and the virtual board all work.
+
+**Local mode** (real compiling and flashing) needs Node:
+
 ```bash
-cd platform && npm install && npm run dev
+git clone https://github.com/haodaz/vibedding.git
+cd vibedding/platform
+npm install
+cp .env.example .env     # then add your key, see below
+npm run dev              # http://localhost:5173
 ```
-打开 http://localhost:5173 。`npm run dev` 同时起网页和一个本地小服务（AI 评审、板子状态）。
-AI 评审要密钥：把 `platform/.env.example` 复制成 `platform/.env` 填上 `ANTHROPIC_API_KEY`。不填也能用，会退化成"复制提示词自己去问"。
-嵌入式工具链（板子到了再装）：
+
+`platform/.env`:
+
+```bash
+NEBIUS_API_KEY=your_token_factory_key
+AGENT_PROVIDER=nebius
+AGENT_MODEL=nvidia/nemotron-3-super-120b-a12b
+```
+
+With no key at all the platform still runs — the agent falls back to a scripted demo so the UI and the cards can be inspected.
+
+For real flashing, install the embedded toolchain (macOS):
+
 ```bash
 bash tools/setup-mac.sh
-bash tools/check-env.sh
-```
-编译烧录第一个固件：
-```bash
-bash tools/flash.sh firmware/01-blink
+bash tools/check-env.sh      # expect all green
 ```
 
-## 两种用法
-- **直接做**（导航第一项）：说一句"要有光"，AI 查引脚、写代码、在虚拟板子上跑、能烧就烧；它够不着的事（插线、按键、跑命令）弹指令卡请你配合。给不想学只想做成的人，也给有基础的人。
-- **学习路径**：任务卡 + 实验台，自己动手。每张卡底部有"让 AI 来做"可以随时切过去。
+## Layout
 
-## 怎么用这个平台学
-1. 打开学习路径，挑一个任务
-2. 做。卡住了用提示词库的模板问 AI
-3. 做完把任务 md 里的 `status` 改成 `done`，在 journal/ 里写一篇日志
-4. AI 说错的地方，记到 `prompts/04-ai-lies.md`
+```
+content/           everything readable, all markdown + JSON — AI and humans read the same files
+  curriculum/      lessons: one directory per module, one file per mission (27 missions)
+  knowledge/       the five knowledge bases
+  hardware/        parts catalog, board profiles, my inventory
+  journal/         daily log, including every wrong turn
+  prompts/         how to ask an AI about hardware — and where it has lied before
+content-en/        English translations, same structure
+platform/          Vite + React + TS
+  shared/spec.mjs  system prompt, tool schemas, provider adapters — ONE place, three runtimes
+  server/          local server: real PlatformIO build/upload/serial
+  src/workshop/    the agent loop, which runs in the browser
+  src/canvases/    virtual board, pinout, circuit experiments
+api/               Vercel functions for the deployed web mode
+firmware/          one PlatformIO project per build
+tools/             setup, flashing, art generation, image QA
+```
 
-## 核心命题
-门槛不在知识里，在知识之前：环境、终端、git、报错。详见 [docs/02-barrier-map.md](docs/02-barrier-map.md)。
+## Built during the submission period
 
-## 设计原则
-- **任务驱动**：每个任务结束时有看得见的东西（灯亮、屏幕出字），不是"学完第三章"
-- **AI 是副驾驶不是自动驾驶**：每个任务都写明"先让 AI 解释，再要代码，再核对"
-- **只记亲测**：硬件笔记不抄手册，只写自己验证过的
-- **内容即代码**：全部 markdown + git，谁都能 fork 一份写自己的路
+The platform existed before the hackathon as a Chinese-language learning project. Significantly updated for this submission:
+
+- **Nebius Token Factory + NVIDIA Nemotron integration** — new `/chat/completions` adapter, provider routing, deployed and verified end to end
+- **Entity library** — 146-part database, automatic tagging in all text, detail drawer with buy links
+- **Photo verification** — upload a photo of a part, the model confirms or disputes its identity
+- **Part illustrations + an AI quality gate** — images generated for the catalog, then screened by asking a vision model to identify each one; the ones it could not recognise were removed rather than shipped, because a wrong reference picture is worse than none
+- **English content layer** — parts, glossary, recipes and lessons translated, USD pricing, Amazon sourcing
+
+## Feedback on the tools
+
+**Nebius Token Factory.** The OpenAI-compatible surface made adoption a one-adapter change. Two notes: Token Factory exposes `/chat/completions` rather than OpenAI's newer `/responses`, so projects already written against the Responses API need a translation layer — worth stating prominently in the docs. And the `/models` endpoint was the fastest way to discover exact model ids; linking it from the quickstart would save people guessing.
+
+**NVIDIA Nemotron 3 Super.** Function calling held up under 30 concurrent tool definitions with no prompt tuning, which was the main risk in porting an existing agent. Latency around one second per step is better than the model this project previously used. Error recovery was notably good: when a tool returned a failure, it switched approach instead of retrying the same call.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
