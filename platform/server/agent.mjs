@@ -4,8 +4,12 @@ import { systemFor, toolDefsFor, openaiStep, chatStep, NEBIUS_BASE } from '../sh
 import { mockStep } from './mock.mjs'
 import { ROOT } from './tools.mjs'
 
+// 环境变量一律 trim：从网页表格里复制粘贴很容易带进首尾空白或制表符，
+// 带着它去请求模型会报 "model does not exist"，排查起来很费时间
+const env = (k) => (process.env[k] ?? '').trim()
+
 export function provider() {
-  const p = process.env.AGENT_PROVIDER
+  const p = env('AGENT_PROVIDER')
   if (p) return p
   if (process.env.NEBIUS_API_KEY) return 'nebius'
   if (process.env.OPENAI_API_KEY) return 'openai'
@@ -13,7 +17,7 @@ export function provider() {
   return 'mock'
 }
 const DEFAULT_MODEL = { nebius: 'nvidia/nemotron-3-super-120b-a12b', openai: 'gpt-5.6-luna', anthropic: 'claude-opus-5' }
-export const agentModel = () => process.env.AGENT_MODEL || DEFAULT_MODEL[provider()] || 'gpt-5.6-luna'
+export const agentModel = () => env('AGENT_MODEL') || DEFAULT_MODEL[provider()] || 'gpt-5.6-luna'
 export const SYSTEM = systemFor('local', ROOT)
 const sys = (lang) => systemFor('local', ROOT, lang)
 
@@ -27,7 +31,7 @@ async function stepAnthropic(messages, lang) {
 export async function step({ messages, mock, lang = 'zh' }) {
   const p = mock || process.env.AGENT_MOCK === '1' ? 'mock' : provider()
   if (p === 'mock') return mockStep(messages)
-  if (p === 'nebius') return chatStep({ apiKey: process.env.NEBIUS_API_KEY, base: process.env.NEBIUS_BASE_URL || NEBIUS_BASE, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages })
+  if (p === 'nebius') return chatStep({ apiKey: env('NEBIUS_API_KEY'), base: env('NEBIUS_BASE_URL') || NEBIUS_BASE, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages })
   if (p === 'openai') return openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model: agentModel(), system: sys(lang), tools: toolDefsFor('local'), messages, reasoning: process.env.AGENT_REASONING })
   return stepAnthropic(messages, lang)
 }

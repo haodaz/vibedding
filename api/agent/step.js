@@ -33,13 +33,15 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
     const messages = body?.messages
     if (!Array.isArray(messages) || messages.length > 200) return res.status(400).json({ error: 'bad messages' })
-    const useNebius = (process.env.AGENT_PROVIDER || (process.env.NEBIUS_API_KEY ? 'nebius' : 'openai')) === 'nebius'
-    const model = process.env.AGENT_MODEL || (useNebius ? 'nvidia/nemotron-3-super-120b-a12b' : 'gpt-5.6-luna')
+    // 一律 trim：从网页上复制值很容易带进制表符/空格，模型名带上它就会报 model does not exist
+    const env = (k) => (process.env[k] ?? '').trim()
+    const useNebius = (env('AGENT_PROVIDER') || (env('NEBIUS_API_KEY') ? 'nebius' : 'openai')) === 'nebius'
+    const model = env('AGENT_MODEL') || (useNebius ? 'nvidia/nemotron-3-super-120b-a12b' : 'gpt-5.6-luna')
     const system = systemFor('static', '', body.lang === 'en' ? 'en' : 'zh')
     const tools = toolDefsFor('static')
     const out = useNebius
-      ? await chatStep({ apiKey: process.env.NEBIUS_API_KEY, base: process.env.NEBIUS_BASE_URL || NEBIUS_BASE, model, system, tools, messages })
-      : await openaiStep({ apiKey: process.env.OPENAI_API_KEY, base: process.env.OPENAI_BASE_URL, model, system, tools, messages, reasoning: process.env.AGENT_REASONING })
+      ? await chatStep({ apiKey: env('NEBIUS_API_KEY'), base: env('NEBIUS_BASE_URL') || NEBIUS_BASE, model, system, tools, messages })
+      : await openaiStep({ apiKey: env('OPENAI_API_KEY'), base: env('OPENAI_BASE_URL'), model, system, tools, messages, reasoning: env('AGENT_REASONING') })
     // 记用量（失败不影响回复）
     if (hasService()) {
       const rec = usageRecord(model, out.usage, { user_id: user?.id ?? null, email: user?.email ?? null, mode: 'static', lang: body.lang === 'en' ? 'en' : 'zh', tool_calls: out.content.filter((c) => c.type === 'tool_use').length })
