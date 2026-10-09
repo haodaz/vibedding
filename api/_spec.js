@@ -16,7 +16,7 @@ export const BASE_SYSTEM = `你是"embeded"平台里的动手导师。用户是�
 5. **分步实施。** 每一步：part_detail 确认接法 → ask_human(wire) → get_snippet 取底稿再写代码 → sim_run 验证逻辑 → 能真烧就烧，不能就在虚拟板子上收尾 → ask_human(observe) 问结果 → append_journal。
 6. 用户没有板子 / 零件还没到，就把能在虚拟板子上做的先做了，告诉他到货后从哪一步继续。
 
-出问题时：先 search_troubleshooting，按它给的顺序验证，一次只改一个变量。解决了一个排障库里没有的新坑，用 add_troubleshooting 记进去。
+出问题时：**烧进去了却不工作，先调 diagnose**（它会用更强的模型把供电/接线/电平/代码一起过一遍，并自动带上排障库），按它给的顺序一次只验证一件事。只是想查某个报错关键字，用 search_troubleshooting 就够。解决了一个排障库里没有的新坑，用 add_troubleshooting 记进去。
 解释概念时：先 explain_concept，用它的比喻。
 
 硬规则：
@@ -43,7 +43,7 @@ How to take a request:
 5. **Build step by step.** Each step: part_detail to confirm wiring → ask_human(wire) → get_snippet for a base, then write code → sim_run to verify logic → flash for real if possible, otherwise finish on the virtual board → ask_human(observe) → append_journal.
 6. No board / parts not arrived yet: do everything possible on the virtual board and say where to resume once parts arrive.
 
-When something fails: search_troubleshooting first, verify in its order, change one variable at a time. Solved a new pitfall not in the library? add_troubleshooting.
+When something fails: **if it flashed but does not work, call diagnose first** — it reasons over power, wiring, logic levels and code together with a stronger model, and the platform attaches the troubleshooting library automatically. Verify one thing at a time, in the order it gives. For a plain error-string lookup, search_troubleshooting is enough. Solved a new pitfall not in the library? add_troubleshooting.
 When explaining a concept: explain_concept first, use its analogy.
 
 Hard rules:
@@ -56,6 +56,44 @@ Hard rules:
 - If the user says you were wrong, record_ai_mistake, then fix it.
 - When the user sends a photo: first describe what you see (which part is which, where wires go), then judge whether it is right; if unclear, say so and ask for another angle instead of guessing.
 - Reply in English.`
+
+// 排障专用提示（跑在 Nemotron Ultra 上）。和主循环分开，因为这里要的是
+// "一次把所有变量摆上桌比较"，而不是"选下一个工具"。
+export const DIAGNOSE_SYSTEM = `你是嵌入式排障专家，面对的是一个零基础的人：他照着指示接好了线、烧进了程序，但东西不工作。他没有示波器，可能连万用表都不会用。
+
+按这个顺序想，不要跳：
+1. **供电和共地** —— 最常见也最容易被忽略。模块有没有电？地有没有和主控连在一起？模块要 5V 还是 3.3V？
+2. **接线** —— 有没有插错排、插在相邻孔、母头没套到底、面包板那一行本来就不通。
+3. **电平和引脚能力** —— 5V 器件的输出直接进 3.3V 芯片？用了只能输入的脚？用了被板载外设占用的脚？
+4. **代码** —— 引脚号写错、忘了 pinMode、高低电平搞反（有些板子低电平才亮）、波特率不匹配。
+5. **器件本身坏了** —— 放最后，新手最容易第一个怀疑它，但其实概率最低。
+
+输出要求：
+- 最多给 **3 个**最可能的原因，按概率排，每条写清楚：为什么怀疑它、**一分钟内怎么验证**（只用眼睛、手和串口，不要求仪器）、如果是它怎么解决。
+- 最后给**一条**"下一步只做这一件事"的建议。一次只改一个变量，这是排障的铁律。
+- 串口有输出就重点分析它：它是你唯一的真实证据。串口完全没输出本身就是一条强信号（程序可能根本没跑起来，或者波特率不对）。
+- **引脚号、板载 LED 在哪、高电平还是低电平点亮、板子型号，一律以给你的「板子档案」为准，不许凭记忆。**
+  档案里没有的，就说"档案里没写，需要核对丝印"，不要用别的板子的常识去补。
+- 讲人话，先比喻再术语。不确定就说不确定，不要编。
+- 用 markdown，短段落。全程中文。`
+
+export const DIAGNOSE_SYSTEM_EN = `You are an embedded troubleshooting expert helping a complete beginner. They wired things up as instructed and flashed the firmware, but it does not work. They have no oscilloscope and may not know how to use a multimeter.
+
+Work in this order, do not skip:
+1. **Power and common ground** — the most common cause and the easiest to overlook. Does the module have power? Is its ground tied to the controller's ground? Does it want 5V or 3.3V?
+2. **Wiring** — off-by-one rows, adjacent holes, a female header not pushed all the way on, a breadboard row that was never connected.
+3. **Logic levels and pin capability** — a 5V output going straight into a 3.3V chip? An input-only pin used as an output? A pin already taken by onboard hardware?
+4. **Code** — wrong pin number, missing pinMode, inverted logic (some boards are active-LOW), mismatched baud rate.
+5. **The part is dead** — last. Beginners suspect this first; it is the least likely.
+
+Output rules:
+- At most **3** causes, ranked by probability. For each: why you suspect it, **how to verify it in under a minute** (eyes, hands and the serial monitor only — no instruments), and the fix if it is the cause.
+- End with **one** "do only this next" step. Change one variable at a time — that is the iron rule of debugging.
+- If there is serial output, make it your main evidence. No serial output at all is itself a strong signal (the program may never have started, or the baud rate is wrong).
+- **Pin numbers, where the onboard LED is, whether it is active HIGH or LOW, and the board's identity come ONLY from the board profile you are given — never from memory.**
+  If the profile does not say, say "the profile does not cover this, check the silkscreen" instead of filling the gap with another board's conventions.
+- Plain English, analogy before jargon. Say when you are unsure instead of inventing.
+- Markdown, short paragraphs. Reply in English.`
 
 export const MODE_NOTES_EN = {
   local: (root) => `Runtime: local hands-on mode. The project lives on this computer at ${root} . Any command you give must be copy-paste runnable with that real path — no placeholders. You have real tools: pio_build, pio_upload, serial_read. No tools for installing software or changing the system: use ask_human(paste).`,
@@ -109,6 +147,7 @@ export const CLIENT_TOOL_SCHEMAS = [
   { name: 'list_boards', description: '列出平台支持的开发板（蓝药丸、Nucleo、ESP32、UNO…）和各自适合谁。用户手里不是蓝药丸时先看。', input_schema: O({}) },
   { name: 'read_board_profile', description: '读某块板子的档案：platformio 配置、板载 LED、总线引脚、怎么烧录、坑、完整引脚表。用户用的不是蓝药丸时，引脚必须查这个而不是 read_pinout。', input_schema: O({ board: S('bluepill / nucleo_f103rb / nucleo_f411re / esp32_devkit / arduino_uno'), filter: S('可选，只看某类功能') }, ['board']) },
   { name: 'part_detail', description: '一个元件的完整档案：引脚标签、怎么接蓝药丸、最小代码、坑。写接线卡和代码前查。', input_schema: O({ id: S() }, ['id']) },
+  { name: 'diagnose', description: '**烧进去了但不工作时用这个，不要自己猜。** 把现象、当前代码、串口输出交给一个更强的推理模型（Nemotron Ultra），它会同时权衡供电、共地、引脚、电平、时序和代码，给出按概率排序的原因、每条的一分钟验证法，以及"下一步只改这一个地方"的建议。平台会自动把排障库里的相关条目一起送过去。灯不亮、串口乱码、传感器读数不动、电机不转、烧录成功却没反应——都先调它。', input_schema: O({ symptom: S('用户看到的现象，用他自己的话，如"烧进去了，灯一下都不闪"'), code: S('板子上现在跑的代码'), serial: S('最近的串口输出，没有就留空'), board: S('板子 id，如 esp32_wrover / bluepill'), wiring: S('已知的接线，一行一条'), tried: S('已经排除了什么，避免重复建议') }, ['symptom']) },
 ]
 
 // 体验模式（Vercel / 纯静态）能用的服务端工具子集：在浏览器里用 localStorage 和打包的 JSON 实现
@@ -163,6 +202,154 @@ export async function openaiStep({ apiKey, base = 'https://api.openai.com/v1', m
   const r = await fetch(`${base}/responses`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(body) })
   if (!r.ok) throw new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 400)}`)
   return parseOpenAIOutput(await r.json())
+}
+
+// ---------- OpenAI Chat Completions ----------
+// Nebius Token Factory（跑 NVIDIA Nemotron）走的是经典的 /chat/completions，
+// 不是 OpenAI 新的 /responses，所以消息和工具都要另翻一道。
+export const NEBIUS_BASE = 'https://api.studio.nebius.com/v1'
+
+// Nemotron 分层。按 Nebius 的建议：高频小事用 Nano，主循环用 Super，
+// 真正需要权衡多个变量的事（烧进去了却不工作）用 Ultra。
+// 好处不只是省钱：Nano 的照片识别更快，Ultra 的排障结论明显更有条理。
+export const NEBIUS_MODELS = {
+  nano: 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B',    // 短平快的文本活：查词、摘要
+  super: 'nvidia/nemotron-3-super-120b-a12b',        // 主循环：选工具、写代码、指导接线
+  ultra: 'nvidia/Nemotron-3-Ultra-550b-a55b',        // 排障：串口 + 引脚 + 电平 + 供电 + 代码一起看
+  // Nemotron 系列目前不收图片（实测返回 "This model does not support image input"），
+  // 所以认实物照片换一个同在 Nebius 上的视觉模型。备选 openbmb/MiniCPM-V-4_5。
+  vision: 'google/gemma-3-27b-it',
+}
+
+export function toChatMessages(messages, system) {
+  const out = system ? [{ role: 'system', content: system }] : []
+  for (const m of messages) {
+    if (typeof m.content === 'string') { out.push({ role: m.role, content: m.content }); continue }
+    if (m.role === 'user') {
+      // 工具结果在这套格式里是独立的一条 role:'tool'，不能塞进 user 消息
+      for (const b of m.content) {
+        if (b.type !== 'tool_result') continue
+        out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: typeof b.content === 'string' ? b.content : JSON.stringify(b.content) })
+      }
+      const rest = m.content.filter((b) => b.type !== 'tool_result')
+      if (!rest.length) continue
+      const hasImg = rest.some((b) => b.type === 'image')
+      out.push({
+        role: 'user',
+        content: hasImg
+          ? rest.map((b) => (b.type === 'image'
+            ? { type: 'image_url', image_url: { url: `data:${b.source?.media_type ?? 'image/jpeg'};base64,${b.source?.data ?? ''}` } }
+            : { type: 'text', text: b.text ?? '' }))
+          : rest.filter((b) => b.type === 'text').map((b) => b.text).join('\n'),
+      })
+      continue
+    }
+    // assistant：文字和这一轮的所有 tool_use 合成一条
+    const text = m.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
+    const calls = m.content.filter((b) => b.type === 'tool_use')
+      .map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) } }))
+    const msg = { role: 'assistant', content: text || null }
+    if (calls.length) msg.tool_calls = calls
+    out.push(msg)
+  }
+  return out
+}
+
+export function parseChatOutput(data) {
+  const msg = data.choices?.[0]?.message ?? {}
+  const content = []
+  if (msg.content) content.push({ type: 'text', text: msg.content })
+  for (const c of msg.tool_calls ?? []) {
+    let input = {}
+    try { input = JSON.parse(c.function?.arguments || '{}') } catch { input = { _raw: c.function?.arguments } }
+    content.push({ type: 'tool_use', id: c.id, name: c.function?.name, input })
+  }
+  const hasTool = content.some((c) => c.type === 'tool_use')
+  const u = data.usage ?? {}
+  return {
+    content,
+    stop_reason: hasTool ? 'tool_use' : 'end_turn',
+    model: data.model,
+    // 归一成 Anthropic 口径，usageRecord 才算得对
+    usage: {
+      input_tokens: u.prompt_tokens ?? 0,
+      output_tokens: u.completion_tokens ?? 0,
+      input_tokens_details: { cached_tokens: u.prompt_tokens_details?.cached_tokens ?? 0 },
+    },
+    stop_details: null,
+  }
+}
+
+// Nemotron 不收图片，但它是唯一能稳定调工具的。视觉模型反过来：收图但不调工具。
+// 所以照片先由视觉模型翻成文字，再交给 Nemotron 带着工具去推理——
+// 能力不在一个模型里，就让两个模型接力。
+const DESCRIBE_SYSTEM = `你在帮一个零基础的人看他拍的电子元件照片。只描述你真正看见的东西，不要推测用途，不要给建议。
+逐个说：这是什么零件（看不准就说看不准）、什么颜色什么形状、丝印上的字、有几根针/什么接口、在画面里的位置。
+如果有开发板，重点说清楚它的型号丝印和接口。200 字以内，用用户的语言。`
+
+const _descCache = new Map()
+const _imgKey = (b) => (b.source?.data || b.image_url?.url || '').slice(-96)
+
+async function describeImage(block, { apiKey, base, model, lang }) {
+  const key = _imgKey(block)
+  if (_descCache.has(key)) return _descCache.get(key)
+  const url = block.source
+    ? `data:${block.source.media_type || 'image/jpeg'};base64,${block.source.data}`
+    : block.image_url?.url
+  if (!url) return ''
+  const r = await fetch(`${base || NEBIUS_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model, max_tokens: 500,
+      messages: [
+        { role: 'system', content: DESCRIBE_SYSTEM },
+        { role: 'user', content: [{ type: 'image_url', image_url: { url } }, { type: 'text', text: `lang: ${lang || 'zh'}` }] },
+      ],
+    }),
+  })
+  if (!r.ok) return ''
+  const txt = ((await r.json()).choices?.[0]?.message?.content ?? '').trim()
+  _descCache.set(key, txt)
+  return txt
+}
+
+/** 把消息里的图片块换成视觉模型给出的文字描述。对话每轮都会重放全部消息，所以必须缓存。 */
+export async function imagesToText(messages, opts) {
+  const out = []
+  for (const m of messages) {
+    if (typeof m.content === 'string' || !Array.isArray(m.content) || !m.content.some((b) => b.type === 'image')) { out.push(m); continue }
+    const content = []
+    for (const b of m.content) {
+      if (b.type !== 'image') { content.push(b); continue }
+      const desc = await describeImage(b, opts)
+      content.push({ type: 'text', text: desc ? `[用户发来的照片，视觉模型看到的内容]\n${desc}` : '[用户发来一张照片，但没能读取]' })
+    }
+    out.push({ ...m, content })
+  }
+  return out
+}
+
+export async function chatStep({ apiKey, base = NEBIUS_BASE, model, system, tools, messages, maxTokens = 8000, temperature, visionModel, lang }) {
+  // 有图就先翻成文字（Nemotron 收不了图），没图不多跑一次请求
+  const hasImage = messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === 'image'))
+  const msgs = hasImage
+    ? await imagesToText(messages, { apiKey, base, model: visionModel || NEBIUS_MODELS.vision, lang })
+    : messages
+  const body = {
+    model,
+    messages: toChatMessages(msgs, system),
+    tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } })),
+    max_tokens: maxTokens,
+  }
+  if (temperature !== undefined) body.temperature = temperature
+  const r = await fetch(`${base || NEBIUS_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error(`Nebius ${r.status}: ${(await r.text()).slice(0, 400)}`)
+  return parseChatOutput(await r.json())
 }
 
 

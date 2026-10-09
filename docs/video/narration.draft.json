@@ -1,0 +1,16 @@
+[
+  { "id": "01_open", "text": "You can vibe-code a website. I wanted to vibe-build something I could touch." },
+  { "id": "02_why", "text": "My dog's water bowl keeps going empty, and I keep noticing too late. I've been a product manager for thirteen years. I can barely code, and I have never studied electronics." },
+  { "id": "03_ask", "text": "So I built this, and then I became its first user. I told it what I wanted, in one sentence, the way I'd say it to a person." },
+  { "id": "04_list", "text": "It read what I already own, searched its own parts catalog, and came back with a shopping list. Six parts, seventeen dollars, each one with what it does, why that one, and a link I can actually click." },
+  { "id": "05_safety", "text": "And a warning I would never have thought to ask for: this sensor runs at five volts, the board's pins do not, so do not wire them straight together." },
+  { "id": "06_arrive", "text": "The parts arrived. I could not name a single object in the box." },
+  { "id": "07_photo", "text": "So I took a photo and asked. It went through the pile and told me what each thing was, and which one was actually the controller." },
+  { "id": "08_vcc", "text": "Then the real barrier showed up. The guide says V C C. My screen says V D D. Same pin. Two naming conventions, decades old, both still alive. An expert's eye corrects it without noticing. I lost ten minutes." },
+  { "id": "09_db", "text": "That is why every part name in here is a link. One tap: a picture, the voltage, every pin, how to wire it, and the mistakes everyone makes with it." },
+  { "id": "10_flash", "text": "When I was ready, it wrote the firmware, compiled it, and flashed it onto the board on my desk." },
+  { "id": "11_light", "text": "And the light came on." },
+  { "id": "12_tech", "text": "All of this runs on Nebius Token Factory. Nemotron 3 Super drives the loop: thirty tools, about a second per step. When something is flashed but doesn't work, it escalates to Nemotron 3 Ultra, which weighs power, wiring, logic levels and code together." },
+  { "id": "13_rule", "text": "And it is never allowed to recall a pin number from memory. Every one has to come from the board's own profile. There is even a file in here listing every time this AI has been confidently wrong about hardware, and it has to re-read it before it answers me." },
+  { "id": "14_close", "text": "This is vibe building. In the real world, the light either comes on, or it doesn't. I have never studied embedded systems for a single day. If I could get here, so can you." }
+]

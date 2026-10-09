@@ -258,3 +258,67 @@ markdown 里一个 ` ```canvas ` 代码块，`key: value` 写属性，`---` 之�
    - STM32 走串口引导程序：BOOT0 跳线拨到 1，用 CH340 接 PA9/PA10，实现 STM32 的 UART bootloader 协议（AN3155，~200 行 JS），Web Serial 直接烧。
    - STM32 走 ST-Link：WebUSB 版 st-link（开源项目 webstlink）可以做，但 ST-Link 克隆固件差异大，作备选。
 指令卡多一种 `flash`：浏览器弹出串口选择框，用户选设备，进度条，烧完自动复位。工具 `web_flash` 在浏览器执行，替代本地模式的 `pio_upload`。
+
+---
+
+## 15. 元件实体库（2026-09-30 / 10-01）
+
+### 为什么
+门外汉最常卡的不是概念，是**对不上号**：AI 说"接 HC-SR04 的 Echo"，用户不知道桌上四十个东西里哪个是它。名字和实物之间没有桥。
+
+### 做法
+`Markdown.tsx` 是全平台正文的唯一渲染出口，所以在那里做实体识别，**一处改动，聊天和课程任务卡同时生效**。
+
+- **识别**：从 `parts-catalog.json` 建别名索引，扫 DOM 文本节点。只认带数字且 ≥4 字符的型号串（HC-SR04、ULN2003），挡掉 I2C、5V 这类总线和单位；代码块、链接里不标；一条消息里同一个元件只标第一次。
+- **抽屉**：图、分类、接口/电压/引脚/接线/库、常见坑、最小代码、用在哪些项目、一起用的零件、购买链接（英文去 Amazon，中文去淘宝）。
+- **相关配件白捡**：不另建关系表，从 30 个项目食谱里"一起出现过"推出来。
+- **管理员**：`/admin` 多一个元件库 tab，全库可搜可点。
+
+### 两层配图：PGC + UGC
+示意图（通义万相生成）告诉你"这类东西长什么样"，**用户自己拍的实物照**告诉你"你手里这个是哪个版本"——正是 LCD1602 那条坑（I2C 版还是并口版）需要的。
+
+传照片时先让模型核对"这真的是它吗"。**故意不做硬拦截**：模型看走眼是常事（见 `prompts/04-ai-lies.md`），说不是时给理由和"它更像什么"，由用户拍板；用户坚持保存的，把当时的异议一并记下。照片存 `storage.ts`（登录走 Supabase visitor_kv，否则 localStorage），压到 640px jpeg。
+
+### 贴图质检：一个诚实的结论
+用同一个核验接口给生成的贴图做质检（`npm run art:qa`），42 张里只有 16 张能被认出来。重写提示词再生成一轮，通过数几乎没变，有些反而更糟（薄膜键盘画成带市电插头的墙壁开关、SG90 舵机画成扳把开关盒）。
+
+**结论：这个文生图模型画不准具体电子元件。** 认不出的 10 张直接删掉，回落到分类占位图标——新手拿一张错图去认零件，比没有图更糟。这不是功能缺失，是和"只记亲测"同一条原则。
+
+### 经验
+- flex/grid 项目的 `min-width: auto` 不小于内容固有宽度，所以给图写 `width/height: 100%` 会被顶成正方形、上下被裁掉。要用 `auto` + `max-*: 100%`。
+- 负面提示词里禁"文字/数字"会把形状一起扭曲（键盘连键位标注都没了）。真实元件本来就有丝印，不该硬禁。
+
+---
+
+## 16. 接入 Nebius Token Factory + NVIDIA Nemotron（2026-10-06）
+
+### 为什么
+参加 Nebius × NVIDIA Global AI Hackathon（Physical AI 赛道，截止 10-30）。硬性要求：跑在 Nebius 上，且至少用一个 NVIDIA 开源模型。
+
+### 改了什么
+规格集中在 `shared/spec.mjs` 一处，这次的收益兑现了：接入只是**加一个适配器**，不是重写。
+
+Nebius 兼容的是经典的 `/chat/completions`，不是 OpenAI 新的 `/responses`，两者结构不同：
+- `tool_result` 要拆成独立的 `role:'tool'` 消息，不能塞进 user 消息
+- assistant 的文字和这一轮所有 `tool_use` 要合成一条带 `tool_calls`
+- 用量字段 `prompt_tokens/completion_tokens` 要归一成 Anthropic 口径，`usageRecord` 才算得对
+
+`provider()` 认 `nebius`；本地服务和 Vercel 函数共用同一个适配器。
+
+### 实测（真实密钥，不是推测）
+- **30 个工具定义下首次命中**，Super 和 Nano 都准确选对工具
+- **每步约 1 秒**，比原来用的模型还快
+- **多轮循环稳定**：工具结果回灌后继续推进；某个工具报错会换一个，不死循环
+- 静态模式（25 个工具）同样通过
+
+原本最担心"换模型后工具调用会崩"，没有发生。
+
+### 可用模型（从 `/models` 实际拉取）
+`nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`、`nvidia/nemotron-3-super-120b-a12b`（默认）、`nvidia/Nemotron-3-Ultra-550b-a55b`、`nvidia/Nemotron-3_5-Lightning`。
+Base URL：`https://api.studio.nebius.com/v1`（实测可用）。
+
+### 部署隔离
+`main` 继续用 OpenAI 跑正式站点，`nebius` 分支用 Nemotron 跑预览地址，环境变量在 Vercel 里按 Preview 作用域分开。**改造前的状态打了标签 `v1.0-openai`，随时能回去。**
+
+### 踩的坑
+从网页表格复制环境变量的值，**把制表符一起带进去了**，报 "The model `\tnvidia/...` does not exist"——名字肉眼看是对的，极难查。现在所有环境变量读取时一律 `trim()`。
