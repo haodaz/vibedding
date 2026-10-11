@@ -5,7 +5,7 @@
 Live demo: **https://vibedding-git-nebius-elodie1.vercel.app** (no sign-up required)
 [中文 README](README.zh.md) · MIT licensed
 
-> Submitted to the **Nebius x NVIDIA Global AI Hackathon** — *Physical AI* track.
+> Submitted to the **Nebius x NVIDIA Global AI Hackathon** — *Best Apps and Agents* track.
 > Runs on **Nebius Token Factory** with **NVIDIA Nemotron 3**.
 
 ---

@@ -293,7 +293,7 @@ markdown 里一个 ` ```canvas ` 代码块，`key: value` 写属性，`---` 之�
 ## 16. 接入 Nebius Token Factory + NVIDIA Nemotron（2026-10-06）
 
 ### 为什么
-参加 Nebius × NVIDIA Global AI Hackathon（Physical AI 赛道，截止 10-30）。硬性要求：跑在 Nebius 上，且至少用一个 NVIDIA 开源模型。
+参加 Nebius × NVIDIA Global AI Hackathon（Best Apps and Agents 赛道，截止 10-30）。硬性要求：跑在 Nebius 上，且至少用一个 NVIDIA 开源模型。
 
 ### 改了什么
 规格集中在 `shared/spec.mjs` 一处，这次的收益兑现了：接入只是**加一个适配器**，不是重写。
