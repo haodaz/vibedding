@@ -14,6 +14,7 @@ import { Admin } from './components/Admin'
 import { Icon } from './components/Icon'
 import { ProfileCard } from './components/Profile'
 import { PartDrawer, PartText } from './components/PartDrawer'
+import { Landing } from './components/Landing'
 import { listSessions } from './workshop/agent'
 import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang, useTheme, setTheme } from './i18n'
@@ -70,7 +71,8 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const routeMode: Mode | null = inWorkspace || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
   const m: Mode | null = routeMode ?? mode
   const pick = (x: Mode) => { setMode(x); location.hash = x === 'build' ? '/projects' : '/path' }
-  if (route === '/' || !m) return <ModePicker onPick={pick} />
+  // 根路径给落地页：评委冷启动落在这里，先讲清楚这是什么，再让他选模式
+  if (route === '/' || !m) return <Landing onPick={pick} />
   if (routeMode && routeMode !== mode) setMode(routeMode)
   const isBuild = m === 'build'
   return (
@@ -132,34 +134,6 @@ function History({ route }: { route: string }) {
     <div className="history">
       <div className="history-label">{t('nav.projects').toUpperCase()}</div>
       {list.slice(0, 12).map((s) => <a key={s.id} href={href('/make?p=' + s.id)} className={cur === s.id ? 'on' : ''} title={s.title}><Icon name="chat" size={13} /><span>{s.title || t('ws.newproject')}</span></a>)}
-    </div>
-  )
-}
-
-function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
-  const lang = getLang()
-  return (
-    <div className="picker">
-      <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
-      <div className="picker-body">
-        <div className="brand-name" style={{ fontSize: 34 }}>vibedding<em>_</em></div>
-        <p className="tagline">{t('tagline')}</p>
-        <h1>{t('mode.pick')}</h1>
-        <div className="picker-cards">
-          <button className="picker-card" onClick={() => onPick('build')}>
-            <Scene name="hero_home" className="picker-art" />
-            <div className="picker-text"><b><Icon name="bolt" size={20} /> {t('mode.build')}</b><p>{t('mode.build.desc')}</p></div>
-          </button>
-          <button className="picker-card" onClick={() => onPick('learn')}>
-            <Scene name="mod1_blink" className="picker-art" />
-            <div className="picker-text"><b><Icon name="book" size={20} /> {t('mode.learn')}</b><p>{t('mode.learn.desc')}</p></div>
-          </button>
-        </div>
-        <div className="chips" style={{ justifyContent: 'center', marginTop: 26 }}>
-          <span className="langswitch big" style={{ margin: 0 }}><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button></span>
-          <span className="themeswitch"><button onClick={() => setTheme('light')} title="Light"><Icon name="sun" size={14} /></button><button onClick={() => setTheme('auto')} title="Auto"><Icon name="auto" size={14} /></button><button onClick={() => setTheme('dark')} title="Dark"><Icon name="moon" size={14} /></button></span>
-        </div>
-      </div>
     </div>
   )
 }
