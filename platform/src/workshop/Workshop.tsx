@@ -133,6 +133,7 @@ export function Workshop() {
       </form>
       <div className="ws-start-pick">{t('ws.start.pick')}</div>
       <StarterCards onPick={submit} />
+      <Intro />
     </div>
   )
 

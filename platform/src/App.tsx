@@ -16,6 +16,7 @@ import { ProfileCard } from './components/Profile'
 import { PartDrawer, PartText } from './components/PartDrawer'
 import { Landing } from './components/Landing'
 import { SideRail } from './components/SideRail'
+import { Boundary } from './components/Boundary'
 import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang, useTheme, setTheme } from './i18n'
 
@@ -51,7 +52,7 @@ export default function App() {
   if (CLOSED && !session) return <Login />
   if (loadErr) return <div className="boot"><pre style={{ color: 'var(--red)' }}>{loadErr}</pre></div>
   if (loadedLang !== lang) return <div className="boot"><pre>[    0.012] loading content…<span className="caret">▮</span></pre></div>
-  return <Shell email={session?.user.email ?? null} lang={lang} />
+  return <Boundary><Shell email={session?.user.email ?? null} lang={lang} /></Boundary>
 }
 
 function Shell({ email, lang }: { email: string | null; lang: Lang }) {
@@ -74,8 +75,11 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const routeMode: Mode | null = inWorkspace || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
   const m: Mode | null = routeMode ?? mode
   const pick = (x: Mode) => { setMode(x); location.hash = x === 'build' ? '/projects' : '/path' }
+  // 落地页的主 CTA 直接进工作台。原来它走 pick('build') 落在 /projects——
+  // 一个叫「Projects」、写着「还没有项目」的清单页，不是按钮承诺的那个东西。
+  const openWorkshop = () => { setMode('build'); location.hash = '/make?p=p_' + Date.now().toString(36) }
   // 根路径给落地页：评委冷启动落在这里，先讲清楚这是什么，再让他选模式
-  if (route === '/' || !m) return <Landing onPick={pick} />
+  if (route === '/' || !m) return <Landing onPick={pick} onOpen={openWorkshop} />
   if (routeMode && routeMode !== mode) setMode(routeMode)
   const isBuild = m === 'build'
   return (

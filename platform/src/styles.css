@@ -919,3 +919,13 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 }
 :root[data-theme="dark"] .ws-start::before { opacity: .4; }
 @media (prefers-reduced-motion: no-preference) { .ws-start::before { transition: opacity .4s ease; } }
+
+/* 兜底卡。不复用 .boot 那套终端风——崩了的时候要让人一眼看懂发生了什么、能干什么。 */
+.boundary { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.boundary-card { max-width: 520px; padding: 26px 24px; border-radius: 16px; border: 1px solid var(--border-2);
+  background: var(--panel-solid); box-shadow: 0 20px 50px var(--shadow); }
+.boundary-card h2 { margin: 0 0 10px; font-size: 20px; }
+.boundary-card p { margin: 0 0 14px; color: var(--muted); line-height: 1.75; }
+.boundary-card pre { margin: 0 0 18px; padding: 10px 12px; border-radius: 9px; overflow: auto;
+  background: var(--panel-2); color: var(--red); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+.boundary-acts { display: flex; gap: 10px; }

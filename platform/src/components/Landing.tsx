@@ -68,7 +68,7 @@ const COPY = {
 const VIDEO = 'https://youtu.be/O4n4fKckOM4'
 const REPO = 'https://github.com/haodaz/vibedding'
 
-export function Landing({ onPick }: { onPick: (m: 'build' | 'learn') => void }) {
+export function Landing({ onPick, onOpen }: { onPick: (m: 'build' | 'learn') => void; onOpen: () => void }) {
   const lang = getLang()
   const i = lang === 'zh' ? 0 : 1
   const s = (p: readonly string[] | string[]) => p[i]
@@ -82,7 +82,7 @@ export function Landing({ onPick }: { onPick: (m: 'build' | 'learn') => void }) 
         <div className="lp-bar-right">
           <span className="langswitch"><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button></span>
           <span className="themeswitch"><button onClick={() => setTheme('light')} title="Light"><Icon name="sun" size={14} /></button><button onClick={() => setTheme('auto')} title="Auto"><Icon name="auto" size={14} /></button><button onClick={() => setTheme('dark')} title="Dark"><Icon name="moon" size={14} /></button></span>
-          <button className="lp-btn sm" onClick={() => onPick('build')}>{s(COPY.ctaOpen)}</button>
+          <button className="lp-btn sm" onClick={onOpen}>{s(COPY.ctaOpen)}</button>
         </div>
       </header>
 
@@ -92,7 +92,7 @@ export function Landing({ onPick }: { onPick: (m: 'build' | 'learn') => void }) 
           <h1>{s(COPY.h1)}</h1>
           <p className="lp-lead">{s(COPY.sub)}</p>
           <div className="lp-cta">
-            <button className="lp-btn" onClick={() => onPick('build')}><Icon name="bolt" size={17} /> {s(COPY.ctaOpen)}</button>
+            <button className="lp-btn" onClick={onOpen}><Icon name="bolt" size={17} /> {s(COPY.ctaOpen)}</button>
             <a className="lp-btn ghost" href={VIDEO} target="_blank" rel="noreferrer">{s(COPY.ctaWatch)}</a>
             <span className="lp-note">{s(COPY.noSignup)}</span>
           </div>

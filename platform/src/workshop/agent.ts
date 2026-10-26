@@ -14,6 +14,20 @@ export type Block =
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
 export interface HumanAsk { kind: 'wire' | 'press' | 'paste' | 'observe'; title: string; why?: string; steps: string[]; parts?: string[]; wires?: string; paste?: string; expect?: string; safety?: string; options?: string[] }
 
+/** 模型给的 ask_human 参数不一定守 schema：steps 常常回成一整段字符串而不是数组。
+ * 以前这里是一句盲转，渲染处直接 .map，一崩就是整个应用白屏。
+ * 所有数组字段在进 items 之前统一归一化——宁可显示得朴素一点，也不能让页面消失。 */
+function asList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x)).filter((x) => x.trim())
+  if (typeof v === 'string') return v.split(/\r?\n|(?<=[。.;；])\s+/).map((x) => x.replace(/^\s*\d+[.、)]\s*/, '').trim()).filter(Boolean)
+  return []
+}
+function normalizeAsk(input: unknown): HumanAsk {
+  const o = (input ?? {}) as Record<string, unknown>
+  const kind = o.kind === 'press' || o.kind === 'paste' || o.kind === 'observe' ? o.kind : 'wire'
+  return { ...o, kind, title: String(o.title ?? ''), steps: asList(o.steps), parts: asList(o.parts), options: asList(o.options) } as HumanAsk
+}
+
 export type Item =
   | { kind: 'user'; text: string; images?: string[] }   // images: data URL 缩略图
   | { kind: 'assistant'; text: string }
@@ -226,7 +240,7 @@ export class Agent {
       return { text: answer }
     }
     if (u.name === 'ask_human') {
-      const ask = u.input as unknown as HumanAsk
+      const ask = normalizeAsk(u.input)
       this.items.push({ kind: 'human', id: u.id, ask }); this.emit()
       const answer = await new Promise<string>((resolve) => { this.pending = { id: u.id, resolve } })
       return { text: `用户回复：${answer}` }

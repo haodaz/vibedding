@@ -8,6 +8,9 @@ import { searchUrl } from '../parts'
 export interface BomItem { id?: string; name: string; qty: number; role: string; why?: string; price: string; buy: string; have?: boolean; catalog?: boolean; optional?: boolean }
 export interface BomAsk { title: string; items: BomItem[]; note?: string }
 
+// 这套数字本来按人民币整数设计；换成美元之后，几毛钱的元件被 toFixed(0) 抹成 $0——
+// 列着单价却写总价 0，看着像坏了。小额保留两位。
+const money = (n: number) => (n >= 10 || n === 0 ? n.toFixed(0) : n.toFixed(2))
 const mid = (p: string) => { const m = p.match(/(\d+(?:\.\d+)?)\s*[-~～]\s*(\d+(?:\.\d+)?)/); if (m) return (+m[1] + +m[2]) / 2; const n = parseFloat(p); return isNaN(n) ? 0 : n }
 
 // 采购清单卡：勾"已有"，剩下的就是要买的。确认后把结果回给 AI。
@@ -22,7 +25,7 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
   const confirm = () => {
     const haveList = ask.items.filter((_, i) => have[i]).map((i) => i.name)
     const skipList = ask.items.filter((_, i) => skip[i]).map((i) => i.name)
-    onAnswer(`已有：${haveList.join('、') || '无'}；不要了：${skipList.join('、') || '无'}；要买：${toBuy.map((i) => `${i.name} x${i.qty}`).join('、') || '无'}；预算约 ¥${total.toFixed(0)}`)
+    onAnswer(`已有：${haveList.join('、') || '无'}；不要了：${skipList.join('、') || '无'}；要买：${toBuy.map((i) => `${i.name} x${i.qty}`).join('、') || '无'}；预算约 ${getLang() === 'en' ? '$' : '¥'}${money(total)}`)
   }
   return (
     <div className={'bom' + (done ? ' done' : '')}>
@@ -54,7 +57,7 @@ export function BomCard({ ask, answer, onAnswer }: { ask: BomAsk; answer?: strin
       </div>
       {ask.note && <p className="hcard-expect"><Icon name="alert" size={14} /> {ask.note}</p>}
       <div className="bom-foot">
-        <div className="bom-total">{t('bom.tobuy')} <b>{toBuy.length}</b> {t('bom.items')} · {t('bom.budget')} <b>{getLang() === 'en' ? '$' : '¥'}{total.toFixed(0)}</b><span className="muted small">{t('bom.mid')}</span></div>
+        <div className="bom-total">{t('bom.tobuy')} <b>{toBuy.length}</b> {t('bom.items')} · {t('bom.budget')} <b>{getLang() === 'en' ? '$' : '¥'}{money(total)}</b><span className="muted small">{t('bom.mid')}</span></div>
         {done ? <div className="hcard-answer"><Icon name="check" size={14} /> {answer}</div> : (
           <div className="chips">
             <button className="chip" onClick={async () => { await navigator.clipboard.writeText(buyText); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? t('card.copied') : t('bom.copy')}</button>
