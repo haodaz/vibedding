@@ -15,7 +15,7 @@ import { Icon } from './components/Icon'
 import { ProfileCard } from './components/Profile'
 import { PartDrawer, PartText } from './components/PartDrawer'
 import { Landing } from './components/Landing'
-import { listSessions } from './workshop/agent'
+import { SideRail } from './components/SideRail'
 import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang, useTheme, setTheme } from './i18n'
 
@@ -102,7 +102,7 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
             ))}
             {isAdmin && <a href={href('/admin')} className={route.startsWith('/admin') ? 'active' : ''} title={t('nav.admin')}><Icon name="settings" />{!collapsed && <span>{t('nav.admin')}</span>}</a>}
           </nav>
-          {isBuild && !collapsed && <History route={route} />}
+          {isBuild && !collapsed && <SideRail route={route} />}
           <div className="sidebar-bottom">
             <ProfileCard email={email} collapsed={collapsed} />
             {!collapsed && (
@@ -125,19 +125,6 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
 }
 
 // 侧栏里的项目历史（像对话历史）
-function History({ route }: { route: string }) {
-  const [list, setList] = useState(listSessions)
-  useEffect(() => { const f = () => setList(listSessions()); window.addEventListener('storage', f); const id = setInterval(f, 2000); return () => { window.removeEventListener('storage', f); clearInterval(id) } }, [])
-  if (!list.length) return null
-  const cur = route.match(/[?&]p=([^&]+)/)?.[1]
-  return (
-    <div className="history">
-      <div className="history-label">{t('nav.projects').toUpperCase()}</div>
-      {list.slice(0, 12).map((s) => <a key={s.id} href={href('/make?p=' + s.id)} className={cur === s.id ? 'on' : ''} title={s.title}><Icon name="chat" size={13} /><span>{s.title || t('ws.newproject')}</span></a>)}
-    </div>
-  )
-}
-
 function isActive(route: string, path: string) {
   if (path === '/path') return route === '/path' || route.startsWith('/doc/curriculum')
   const kind = path.slice(1)

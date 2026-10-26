@@ -26,11 +26,18 @@ export type Item =
 type ApiMsg = { role: 'user' | 'assistant'; content: unknown }
 
 // 会话索引：一个项目一个会话。id 是本地生成的草稿号；AI 调 save_project 后带上 slug。
-export interface SessionMeta { id: string; title: string; slug?: string; updated: number; created: number; steps: number }
+export interface SessionMeta { id: string; title: string; slug?: string; updated: number; created: number; steps: number; renamed?: boolean }
 const INDEX_KEY = 'ws:sessions'
 export function listSessions(): SessionMeta[] { try { return JSON.parse(localStorage.getItem(INDEX_KEY) ?? '[]') } catch { return [] } }
 function saveIndex(list: SessionMeta[]) { try { localStorage.setItem(INDEX_KEY, JSON.stringify(list)) } catch { /* */ } }
 export function newSessionId() { return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
+// 用户改过的名字要压住 agent 自己起的：persist() 每一步都会写 this.title，
+// 不留标记的话改完下一步就被冲掉。
+export function renameSession(id: string, title: string) {
+  const t = title.trim()
+  if (!t) return
+  saveIndex(listSessions().map((s) => (s.id === id ? { ...s, title: t, renamed: true } : s)))
+}
 export function deleteSession(id: string) { saveIndex(listSessions().filter((s) => s.id !== id)); try { localStorage.removeItem('ws:session:' + id) } catch { /* */ } }
 
 export class Agent {
@@ -74,7 +81,8 @@ export class Agent {
       if (!this.items.length) return
       const list = listSessions().filter((s) => s.id !== this.id)
       const prev = listSessions().find((s) => s.id === this.id)
-      list.unshift({ id: this.id, title: this.title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length })
+      const title = prev?.renamed ? prev.title : this.title
+      list.unshift({ id: this.id, title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length, renamed: prev?.renamed })
       saveIndex(list)
     }
     const tryWrite = (messages: unknown) => {

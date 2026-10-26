@@ -34,6 +34,9 @@ const D: Record<string, [string, string]> = {
   // 状态条
   'st.board.on': ['板子已连接', 'Board connected'], 'st.board.off': ['板子未连接', 'No board'], 'st.pio.off': ['PlatformIO 未安装', 'PlatformIO missing'],
   'st.static': ['网页体验模式 · 虚拟板子', 'Web mode · virtual board'], 'st.nobackend': ['纯静态 · 无后端', 'Static · no backend'],
+  'rail.projects': ['项目', 'Projects'], 'rail.today': ['今天', 'Today'], 'rail.yesterday': ['昨天', 'Yesterday'],
+  'rail.week': ['7 天内', 'Previous 7 days'], 'rail.older': ['更早', 'Older'],
+  'rail.rename': ['改名', 'Rename'], 'rail.delete': ['删除', 'Delete'], 'rail.confirm': ['再点一下确认', 'Click again to confirm'],
   'st.ai.none': ['AI 未配置', 'AI not configured'], 'st.ai.key': ['AI 需自填密钥', 'AI needs your key'],
   // 直接做
   'ws.title': ['直接做', 'Build'],

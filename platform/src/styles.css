@@ -638,11 +638,42 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .ws-envbar .st i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); } .ws-envbar .st.ok { color: var(--accent); } .ws-envbar .st.ok i { background: var(--accent); box-shadow: 0 0 6px var(--accent); } .ws-envbar .st.warn { color: var(--amber); } .ws-envbar .st.warn i { background: var(--amber); }
 .tool-chip { padding: 3px 10px 3px 6px; }
 @media (max-width: 900px) { .layout.collapsed { grid-template-columns: 1fr; } .sidebar.rail { flex-direction: row; height: auto; } }
-.history { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; overflow: auto; min-height: 0; }
-.history-label { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; padding: 4px 10px; }
-.history a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
-.history a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .history a .ico { color: var(--dim); flex-shrink: 0; }
-.history a:hover { background: var(--panel); color: var(--text); } .history a.on { background: var(--panel); color: var(--text); border: 1px solid var(--border-2); }
+/* 左栏下半截：项目 + 按天分组的最近对话。取代原来那个顶着 PROJECTS 标签、
+   实际列的是对话的平铺列表。行上挂了 ⋯ 菜单（改名/删除），所以不能再用裸 <a>。 */
+.rail-sections { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; overflow: auto; min-height: 0; }
+.rail-sec { display: flex; flex-direction: column; gap: 2px; }
+.rail-label { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--dim);
+  letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; }
+.rail-count { margin-left: auto; opacity: .7; }
+
+.rail-proj { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
+.rail-proj span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-proj:hover { background: var(--panel); color: var(--text); }
+.rail-proj.on { background: var(--panel); color: var(--text); }
+.rail-proj-ico { flex: none; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 10px; background: var(--panel-2); color: var(--accent); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* ⋯ 平时不占视线，hover 或菜单打开时才出现 */
+.rail-row { position: relative; display: flex; align-items: center; border-radius: 7px; }
+.rail-row > a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: var(--muted); font-size: 13px; }
+.rail-row > a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-row > a .ico { color: var(--dim); flex-shrink: 0; }
+.rail-row:hover { background: var(--panel); } .rail-row:hover > a { color: var(--text); }
+.rail-row.on { background: var(--panel); border: 1px solid var(--border-2); } .rail-row.on > a { color: var(--text); }
+.rail-more { flex: none; opacity: 0; width: 22px; height: 22px; margin-right: 4px; border: 0; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--muted); font-size: 14px; line-height: 1; }
+.rail-row:hover .rail-more, .rail-row.menu .rail-more { opacity: 1; }
+.rail-more:hover { background: var(--panel-2); color: var(--text); }
+.rail-menu { position: absolute; right: 4px; top: calc(100% - 2px); z-index: 20; min-width: 136px; padding: 4px;
+  display: flex; flex-direction: column; border-radius: 9px; border: 1px solid var(--border-2);
+  background: var(--panel-solid); backdrop-filter: blur(14px); box-shadow: 0 12px 30px var(--shadow); }
+.rail-menu button { text-align: left; padding: 7px 9px; border: 0; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--text); font: inherit; font-size: 13px; }
+.rail-menu button:hover { background: var(--panel-2); }
+.rail-menu button.danger { color: var(--red); }
+.rail-edit { width: 100%; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--accent);
+  background: var(--deep); color: var(--text); font: inherit; font-size: 13px; }
+
 .ws-start { max-width: 980px; margin: 0 auto; padding: 10px 0 110px; }
 .start-input { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(980px, calc(100vw - 64px - 44px)); z-index: 5; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
 .ws-start-head { display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: center; margin-bottom: 22px; }
