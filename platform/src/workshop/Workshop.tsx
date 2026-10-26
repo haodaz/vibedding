@@ -12,6 +12,7 @@ import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
 import { visitorBoardId } from './local-tools'
 import { detectMode, type ModeInfo } from './mode'
+import { ModelChip } from '../components/ModelChip'
 import { store } from './storage'
 import { t, getLang, useLang } from '../i18n'
 import { PartImg } from '../canvases/parts/PartImg'
@@ -52,6 +53,13 @@ export function mentorPose(items: Item[], busy: boolean): string {
   return 'mentor_idle'
 }
 
+/** 按本机时间挑招呼语。名字只在用户真的改过时才带——默认值是 'local'，带上很蠢。 */
+function greeting(who: string) {
+  const h = new Date().getHours()
+  const g = t(h < 12 ? 'hello.morning' : h < 18 ? 'hello.afternoon' : 'hello.evening')
+  return who ? `${g}, ${who}` : g
+}
+
 export function Workshop() {
   const lang = useLang()
   const [, tick] = useState(0)
@@ -63,6 +71,8 @@ export function Workshop() {
   const [env, setEnv] = useState<{ pio: string | null; usb: string[]; ports: string[] } | null>(null)
   useEffect(() => { fetch('/api/status').then((r) => r.json()).then(setEnv).catch(() => setEnv(null)) }, [])
   const [mode, setMode] = useState<ModeInfo | null>(null)
+  const [who, setWho] = useState('')
+  useEffect(() => { let on = true; store.get<{ display_name?: string }>('profile').then((p) => { const n = p?.display_name ?? ''; if (on && n && n !== 'local') setWho(n) }).catch(() => { /* 没名字就只说招呼语 */ }) ; return () => { on = false } }, [])
   useEffect(() => { detectMode().then(setMode) }, [])
   const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
   const endRef = useRef<HTMLDivElement>(null)
@@ -112,15 +122,17 @@ export function Workshop() {
 
   if (!started) return (
     <div className="ws-start">
-      <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{t('ws.start.title')}</h1><p className="muted">{t('ws.start.sub')}</p></div></div>
-      <StarterCards onPick={submit} />
+      <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{greeting(who)}</h1><p className="muted">{t('ws.start.title')}</p></div></div>
       <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }} onPaste={onPaste} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files) }}>
         {imgs.length > 0 && <div className="ws-attach">{imgs.map((im, i) => <span key={i} className="ws-thumb"><img src={im.dataUrl} alt="" /><button type="button" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>×</button></span>)}</div>}
         <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} autoFocus />
+        <ModelChip model={mode?.ai ?? null} />
         <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
       </form>
+      <div className="ws-start-pick">{t('ws.start.pick')}</div>
+      <StarterCards onPick={submit} />
     </div>
   )
 
@@ -141,6 +153,7 @@ export function Workshop() {
           <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={a.busy ? t('ws.busy') : imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} disabled={a.busy} autoFocus />
+          <ModelChip model={mode?.ai ?? null} />
           <button className="chip primary" disabled={a.busy || (!text.trim() && !imgs.length)}>{t('ws.send')}</button>
         </form>
       </div>

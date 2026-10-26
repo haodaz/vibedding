@@ -34,6 +34,13 @@ const D: Record<string, [string, string]> = {
   // 状态条
   'st.board.on': ['板子已连接', 'Board connected'], 'st.board.off': ['板子未连接', 'No board'], 'st.pio.off': ['PlatformIO 未安装', 'PlatformIO missing'],
   'st.static': ['网页体验模式 · 虚拟板子', 'Web mode · virtual board'], 'st.nobackend': ['纯静态 · 无后端', 'Static · no backend'],
+  'hello.morning': ['早上好', 'Good morning'], 'hello.afternoon': ['下午好', 'Good afternoon'],
+  'hello.evening': ['晚上好', 'Good evening'], 'ws.start.pick': ['或者从这里开始', 'Or start from one of these'],
+  'model.title': ['三层模型，按一步值多少钱分配', 'Three tiers, matched to what a step is worth'],
+  'model.super': ['主循环：30 个工具，一步约一秒', 'The loop: 30 tools, ~1s per step'],
+  'model.ultra': ['深度排障：烧进去了但不动', 'Deep diagnosis: flashed but nothing works'],
+  'model.vision': ['看照片：最会推理的那个看不见图', 'Photos: the one that reasons best cannot see'],
+  'model.via': ['全部经由 Nebius Token Factory', 'All of it through Nebius Token Factory'],
   'rail.projects': ['项目', 'Projects'], 'rail.today': ['今天', 'Today'], 'rail.yesterday': ['昨天', 'Yesterday'],
   'rail.week': ['7 天内', 'Previous 7 days'], 'rail.older': ['更早', 'Older'],
   'rail.rename': ['改名', 'Rename'], 'rail.delete': ['删除', 'Delete'], 'rail.confirm': ['再点一下确认', 'Click again to confirm'],

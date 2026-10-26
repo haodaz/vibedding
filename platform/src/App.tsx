@@ -63,9 +63,12 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const setMode = (m: Mode) => { try { localStorage.setItem(MODE_KEY, m) } catch { /* */ } setModeState(m) }
   const [booted, setBooted] = useState(() => { try { return sessionStorage.getItem('booted') === '1' } catch { return true } })
   const inWorkspace = route.startsWith('/make')
-  // 侧栏：手动开合记住；进工作区默认收起
+  // 侧栏：手动开合记住。工作区里也默认展开——项目区和对话列表恰恰是在这里最该看得见的，
+  // 以前进 /make 自动收起，等于把刚找到的东西又藏起来。窄屏仍然收起，不然三栏挤不下。
   const [manual, setManual] = useState<boolean | null>(null)
-  const collapsed = manual ?? inWorkspace
+  const [narrow, setNarrow] = useState(() => window.innerWidth < 1180)
+  useEffect(() => { const f = () => setNarrow(window.innerWidth < 1180); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
+  const collapsed = manual ?? (inWorkspace && narrow)
   useEffect(() => { setManual(null) }, [inWorkspace])
   if (!booted) return <Boot onDone={() => { try { sessionStorage.setItem('booted', '1') } catch { /* */ } setBooted(true) }} />
   const routeMode: Mode | null = inWorkspace || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
