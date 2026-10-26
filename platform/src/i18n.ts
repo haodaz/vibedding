@@ -63,7 +63,7 @@ const D: Record<string, [string, string]> = {
   'ws.err.unavail': ['AI 服务暂时不可用，稍后再试。', 'The AI service is unavailable right now. Try again in a bit.'],
   'ws.thinking': ['让我看看……', 'Thinking…'],
   'ws.err.nobackend': ['这里没有后端。在右侧"设置"里填你自己的 OpenAI 密钥就能直接用（密钥只存在你的浏览器里）。', 'No backend here. Add your own OpenAI key in Settings on the right (it stays in your browser).'],
-  'ws.err.nocred': ['服务端还没配 AI 密钥（OPENAI_API_KEY）。', 'The server has no AI key (OPENAI_API_KEY) yet.'],
+  'ws.err.nocred': ['服务端还没配 AI 密钥（NEBIUS_API_KEY / OPENAI_API_KEY）。', 'The server has no AI key (NEBIUS_API_KEY / OPENAI_API_KEY) yet.'],
   'ws.err.auth': ['登录已过期，刷新页面重新登录。', 'Session expired — refresh and sign in again.'],
   'ws.err.refusal': ['模型拒绝了这个请求。', 'The model declined this request.'],
   'ws.err.conn': ['连不上本地服务：', 'Cannot reach the local server: '],
