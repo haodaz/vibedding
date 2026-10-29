@@ -94,13 +94,19 @@ const PREFER: Record<string, string> = { esp32: 'esp32_devkit', stm32: 'bluepill
 
 let cache: { key: string; index: Map<string, string>; re: RegExp | null } | null = null
 
+// 模型写型号时爱用排版连字符：HC‑SR04 里那个是 U+2011（非断行连字符），不是 ASCII 的 '-'。
+// 别名索引里存的是 ASCII，于是整条实体库在这种写法下静默失效——正文里一个 tag 都不出。
+// 全部折成 ASCII 再匹配。这些都是单字符替换，长度不变，所以匹配下标仍然对得上原文。
+const DASHES = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/g
+export const normDash = (s: string) => s.replace(DASHES, '-')
+
 function buildIndex(): { index: Map<string, string>; re: RegExp | null } {
   const parts = allParts()
   const key = parts.length + ':' + (parts[0]?.name ?? '')
   if (cache && cache.key === key) return cache
   const index = new Map<string, string>()
   const add = (alias: string, id: string) => {
-    const a = alias.trim().toLowerCase()
+    const a = normDash(alias).trim().toLowerCase()
     if (a.length < 3 || SKIP.has(a)) return
     const cur = index.get(a)
     if (cur && cur !== id) { index.set(a, PREFER[a] ?? (cur.length <= id.length ? cur : id)); return }
@@ -131,7 +137,7 @@ function buildIndex(): { index: Map<string, string>; re: RegExp | null } {
 
 export function matchPart(text: string): string | null {
   const { index } = buildIndex()
-  return index.get(text.trim().toLowerCase()) ?? null
+  return index.get(normDash(text).trim().toLowerCase()) ?? null
 }
 
 // 把一段已渲染的 HTML 里的元件名包成 tag。跳过代码块、链接、已经是 tag 的地方。
@@ -151,18 +157,20 @@ export function tagParts(root: HTMLElement): void {
   const seen = new Set<string>()   // 一条消息 / 一篇文档里，同一个元件只标第一次，不然满屏是 tag
   for (const node of targets) {
     const text = node.nodeValue!
+    const probe = normDash(text)     // 等长，所以下标可以拿回原文去切
     re.lastIndex = 0
-    if (!re.test(text)) continue
+    if (!re.test(probe)) continue
     re.lastIndex = 0
     const frag = document.createDocumentFragment()
     let last = 0, m: RegExpExecArray | null
-    while ((m = re.exec(text))) {
+    while ((m = re.exec(probe))) {
       const id = index.get(m[1].toLowerCase())
       if (!id || seen.has(id)) continue
       seen.add(id)
       if (m.index > last) frag.append(text.slice(last, m.index))
       const b = document.createElement('button')
-      b.className = 'part-tag'; b.type = 'button'; b.dataset.part = id; b.textContent = m[1]
+      b.className = 'part-tag'; b.type = 'button'; b.dataset.part = id
+      b.textContent = text.slice(m.index, m.index + m[0].length)   // 显示保留作者原来的写法
       frag.append(b)
       last = m.index + m[0].length
     }

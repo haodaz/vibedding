@@ -14,3 +14,10 @@ platform/server.log
 setup-uv.log
 setup.log
 platform/usage.jsonl
+
+# 演示视频的中间产物：帧序列几十万张、长录像几百 MB，不进仓库
+docs/video/work/
+docs/video/clips/
+docs/video/photos/
+docs/video/assets/
+docs/video/.state-backup/

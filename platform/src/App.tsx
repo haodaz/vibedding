@@ -14,7 +14,9 @@ import { Admin } from './components/Admin'
 import { Icon } from './components/Icon'
 import { ProfileCard } from './components/Profile'
 import { PartDrawer, PartText } from './components/PartDrawer'
-import { listSessions } from './workshop/agent'
+import { Landing } from './components/Landing'
+import { SideRail } from './components/SideRail'
+import { Boundary } from './components/Boundary'
 import { getToken } from './auth'
 import { getLang, setLang, t, useLang, type Lang, useTheme, setTheme } from './i18n'
 
@@ -50,7 +52,7 @@ export default function App() {
   if (CLOSED && !session) return <Login />
   if (loadErr) return <div className="boot"><pre style={{ color: 'var(--red)' }}>{loadErr}</pre></div>
   if (loadedLang !== lang) return <div className="boot"><pre>[    0.012] loading content…<span className="caret">▮</span></pre></div>
-  return <Shell email={session?.user.email ?? null} lang={lang} />
+  return <Boundary><Shell email={session?.user.email ?? null} lang={lang} /></Boundary>
 }
 
 function Shell({ email, lang }: { email: string | null; lang: Lang }) {
@@ -62,15 +64,22 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
   const setMode = (m: Mode) => { try { localStorage.setItem(MODE_KEY, m) } catch { /* */ } setModeState(m) }
   const [booted, setBooted] = useState(() => { try { return sessionStorage.getItem('booted') === '1' } catch { return true } })
   const inWorkspace = route.startsWith('/make')
-  // 侧栏：手动开合记住；进工作区默认收起
+  // 侧栏：手动开合记住。工作区里也默认展开——项目区和对话列表恰恰是在这里最该看得见的，
+  // 以前进 /make 自动收起，等于把刚找到的东西又藏起来。窄屏仍然收起，不然三栏挤不下。
   const [manual, setManual] = useState<boolean | null>(null)
-  const collapsed = manual ?? inWorkspace
+  const [narrow, setNarrow] = useState(() => window.innerWidth < 1180)
+  useEffect(() => { const f = () => setNarrow(window.innerWidth < 1180); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
+  const collapsed = manual ?? (inWorkspace && narrow)
   useEffect(() => { setManual(null) }, [inWorkspace])
   if (!booted) return <Boot onDone={() => { try { sessionStorage.setItem('booted', '1') } catch { /* */ } setBooted(true) }} />
   const routeMode: Mode | null = inWorkspace || route.startsWith('/projects') || route.startsWith('/admin') ? 'build' : route.startsWith('/path') || route.startsWith('/lab') || route.startsWith('/journal') || route.startsWith('/prompts') || route.startsWith('/doc/') ? 'learn' : null
   const m: Mode | null = routeMode ?? mode
   const pick = (x: Mode) => { setMode(x); location.hash = x === 'build' ? '/projects' : '/path' }
-  if (route === '/' || !m) return <ModePicker onPick={pick} />
+  // 落地页的主 CTA 直接进工作台。原来它走 pick('build') 落在 /projects——
+  // 一个叫「Projects」、写着「还没有项目」的清单页，不是按钮承诺的那个东西。
+  const openWorkshop = () => { setMode('build'); location.hash = '/make?p=p_' + Date.now().toString(36) }
+  // 根路径给落地页：评委冷启动落在这里，先讲清楚这是什么，再让他选模式
+  if (route === '/' || !m) return <Landing onPick={pick} onOpen={openWorkshop} />
   if (routeMode && routeMode !== mode) setMode(routeMode)
   const isBuild = m === 'build'
   return (
@@ -100,7 +109,7 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
             ))}
             {isAdmin && <a href={href('/admin')} className={route.startsWith('/admin') ? 'active' : ''} title={t('nav.admin')}><Icon name="settings" />{!collapsed && <span>{t('nav.admin')}</span>}</a>}
           </nav>
-          {isBuild && !collapsed && <History route={route} />}
+          {isBuild && !collapsed && <SideRail route={route} />}
           <div className="sidebar-bottom">
             <ProfileCard email={email} collapsed={collapsed} />
             {!collapsed && (
@@ -123,47 +132,6 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
 }
 
 // 侧栏里的项目历史（像对话历史）
-function History({ route }: { route: string }) {
-  const [list, setList] = useState(listSessions)
-  useEffect(() => { const f = () => setList(listSessions()); window.addEventListener('storage', f); const id = setInterval(f, 2000); return () => { window.removeEventListener('storage', f); clearInterval(id) } }, [])
-  if (!list.length) return null
-  const cur = route.match(/[?&]p=([^&]+)/)?.[1]
-  return (
-    <div className="history">
-      <div className="history-label">{t('nav.projects').toUpperCase()}</div>
-      {list.slice(0, 12).map((s) => <a key={s.id} href={href('/make?p=' + s.id)} className={cur === s.id ? 'on' : ''} title={s.title}><Icon name="chat" size={13} /><span>{s.title || t('ws.newproject')}</span></a>)}
-    </div>
-  )
-}
-
-function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
-  const lang = getLang()
-  return (
-    <div className="picker">
-      <div className="blobs"><i className="b1" /><i className="b2" /><i className="b3" /></div>
-      <div className="picker-body">
-        <div className="brand-name" style={{ fontSize: 34 }}>vibedding<em>_</em></div>
-        <p className="tagline">{t('tagline')}</p>
-        <h1>{t('mode.pick')}</h1>
-        <div className="picker-cards">
-          <button className="picker-card" onClick={() => onPick('build')}>
-            <Scene name="hero_home" className="picker-art" />
-            <div className="picker-text"><b><Icon name="bolt" size={20} /> {t('mode.build')}</b><p>{t('mode.build.desc')}</p></div>
-          </button>
-          <button className="picker-card" onClick={() => onPick('learn')}>
-            <Scene name="mod1_blink" className="picker-art" />
-            <div className="picker-text"><b><Icon name="book" size={20} /> {t('mode.learn')}</b><p>{t('mode.learn.desc')}</p></div>
-          </button>
-        </div>
-        <div className="chips" style={{ justifyContent: 'center', marginTop: 26 }}>
-          <span className="langswitch big" style={{ margin: 0 }}><button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>English</button></span>
-          <span className="themeswitch"><button onClick={() => setTheme('light')} title="Light"><Icon name="sun" size={14} /></button><button onClick={() => setTheme('auto')} title="Auto"><Icon name="auto" size={14} /></button><button onClick={() => setTheme('dark')} title="Dark"><Icon name="moon" size={14} /></button></span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function isActive(route: string, path: string) {
   if (path === '/path') return route === '/path' || route.startsWith('/doc/curriculum')
   const kind = path.slice(1)

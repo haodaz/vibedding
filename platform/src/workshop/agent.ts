@@ -14,6 +14,20 @@ export type Block =
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
 export interface HumanAsk { kind: 'wire' | 'press' | 'paste' | 'observe'; title: string; why?: string; steps: string[]; parts?: string[]; wires?: string; paste?: string; expect?: string; safety?: string; options?: string[] }
 
+/** 模型给的 ask_human 参数不一定守 schema：steps 常常回成一整段字符串而不是数组。
+ * 以前这里是一句盲转，渲染处直接 .map，一崩就是整个应用白屏。
+ * 所有数组字段在进 items 之前统一归一化——宁可显示得朴素一点，也不能让页面消失。 */
+function asList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x)).filter((x) => x.trim())
+  if (typeof v === 'string') return v.split(/\r?\n|(?<=[。.;；])\s+/).map((x) => x.replace(/^\s*\d+[.、)]\s*/, '').trim()).filter(Boolean)
+  return []
+}
+function normalizeAsk(input: unknown): HumanAsk {
+  const o = (input ?? {}) as Record<string, unknown>
+  const kind = o.kind === 'press' || o.kind === 'paste' || o.kind === 'observe' ? o.kind : 'wire'
+  return { ...o, kind, title: String(o.title ?? ''), steps: asList(o.steps), parts: asList(o.parts), options: asList(o.options) } as HumanAsk
+}
+
 export type Item =
   | { kind: 'user'; text: string; images?: string[] }   // images: data URL 缩略图
   | { kind: 'assistant'; text: string }
@@ -26,11 +40,18 @@ export type Item =
 type ApiMsg = { role: 'user' | 'assistant'; content: unknown }
 
 // 会话索引：一个项目一个会话。id 是本地生成的草稿号；AI 调 save_project 后带上 slug。
-export interface SessionMeta { id: string; title: string; slug?: string; updated: number; created: number; steps: number }
+export interface SessionMeta { id: string; title: string; slug?: string; updated: number; created: number; steps: number; renamed?: boolean }
 const INDEX_KEY = 'ws:sessions'
 export function listSessions(): SessionMeta[] { try { return JSON.parse(localStorage.getItem(INDEX_KEY) ?? '[]') } catch { return [] } }
 function saveIndex(list: SessionMeta[]) { try { localStorage.setItem(INDEX_KEY, JSON.stringify(list)) } catch { /* */ } }
 export function newSessionId() { return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
+// 用户改过的名字要压住 agent 自己起的：persist() 每一步都会写 this.title，
+// 不留标记的话改完下一步就被冲掉。
+export function renameSession(id: string, title: string) {
+  const t = title.trim()
+  if (!t) return
+  saveIndex(listSessions().map((s) => (s.id === id ? { ...s, title: t, renamed: true } : s)))
+}
 export function deleteSession(id: string) { saveIndex(listSessions().filter((s) => s.id !== id)); try { localStorage.removeItem('ws:session:' + id) } catch { /* */ } }
 
 export class Agent {
@@ -41,6 +62,8 @@ export class Agent {
   model = ''
   modeInfo: ModeInfo | null = null
   private pending: { id: string; resolve: (s: string) => void } | null = null
+  /** 对话存不进 localStorage（通常是配额满了）。界面可以据此提醒用户导出。 */
+  saveFailed = false
   constructor(public readonly id: string, private onChange: () => void, private onLive: (l: SimLive) => void) {
     try {
       const saved = JSON.parse(localStorage.getItem('ws:session:' + id) ?? 'null')
@@ -55,16 +78,52 @@ export class Agent {
   reset() { this.messages = []; this.items = []; this.emit() }
 
   private emit() {
-    try {
-      localStorage.setItem('ws:session:' + this.id, JSON.stringify({ messages: this.messages, items: this.items, lastBuild: this.lastBuild }))
-      if (this.items.length) {
-        const list = listSessions().filter((s) => s.id !== this.id)
-        const prev = listSessions().find((s) => s.id === this.id)
-        list.unshift({ id: this.id, title: this.title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length })
-        saveIndex(list)
-      }
-    } catch { /* ignore */ }
+    this.persist()
     this.onChange()
+  }
+
+  /**
+   * 存会话。localStorage 每个域名只有 5MB 左右，而带照片的对话很大
+   * （messages 里是给模型的 1024px 原图，一张就上百 KB）。
+   * 存不下时**不能静默失败**——用户的对话会无声无息地消失。
+   * 策略：先腾地方（删最旧的别的会话），再不行就降级（丢掉历史图片的原图），
+   * 最后仍失败才放弃，并留个标记让界面能提醒。
+   */
+  private persist() {
+    const key = 'ws:session:' + this.id
+    const writeIndex = () => {
+      if (!this.items.length) return
+      const list = listSessions().filter((s) => s.id !== this.id)
+      const prev = listSessions().find((s) => s.id === this.id)
+      const title = prev?.renamed ? prev.title : this.title
+      list.unshift({ id: this.id, title, slug: this.slug, updated: Date.now(), created: prev?.created ?? Date.now(), steps: this.items.filter((i) => i.kind === 'tool').length, renamed: prev?.renamed })
+      saveIndex(list)
+    }
+    const tryWrite = (messages: unknown) => {
+      localStorage.setItem(key, JSON.stringify({ messages, items: this.items, lastBuild: this.lastBuild }))
+      writeIndex()
+      this.saveFailed = false
+      return true
+    }
+    try { return tryWrite(this.messages) } catch { /* 下面想办法 */ }
+
+    // 1) 删掉最旧的其他会话腾地方，每删一个重试一次
+    const others = listSessions().filter((s) => s.id !== this.id).sort((a, b) => a.updated - b.updated)
+    for (const s of others) {
+      deleteSession(s.id)
+      try { return tryWrite(this.messages) } catch { /* 继续删 */ }
+    }
+
+    // 2) 还存不下：把除最后一轮外的历史图片原图去掉（文字和工具记录都保留）
+    const slim = this.messages.map((m, i) => {
+      if (i >= this.messages.length - 2 || !Array.isArray(m.content)) return m
+      const content = (m.content as { type: string }[]).map((b) => (b.type === 'image' ? { type: 'text', text: '[图片已省略以节省空间]' } : b))
+      return { ...m, content }
+    })
+    try { return tryWrite(slim) } catch { /* 实在不行 */ }
+
+    this.saveFailed = true
+    return false
   }
 
   /** 页面刷新后，上一轮可能留下没有 tool_result 的 tool_use；模型会拒收。发新消息前补上。 */
@@ -181,7 +240,7 @@ export class Agent {
       return { text: answer }
     }
     if (u.name === 'ask_human') {
-      const ask = u.input as unknown as HumanAsk
+      const ask = normalizeAsk(u.input)
       this.items.push({ kind: 'human', id: u.id, ask }); this.emit()
       const answer = await new Promise<string>((resolve) => { this.pending = { id: u.id, resolve } })
       return { text: `用户回复：${answer}` }
@@ -204,6 +263,26 @@ export class Agent {
           out = { text: j.ok ? `编译成功（${((j.elapsed ?? 0) / 1000).toFixed(1)}s）。Flash ${j.flash ?? '?'}%，RAM ${j.ram ?? '?'}%。镜像：${imgs}。现在可以 web_flash。` : `编译失败：\n${j.log}`, error: !j.ok }
         }
       } catch (e) { out = { text: '云编译连不上：' + (e as Error).message, error: true } }
+    } else if (u.name === 'diagnose') {
+      // 排障：本地先用关键字把排障库里的相关条目捞出来一起送过去，
+      // 服务端用更强的模型（Nemotron Ultra）一次把所有变量摆在一起比。
+      try {
+        const input = u.input as Record<string, unknown>
+        const kb = KNOWLEDGE_TOOLS.search_troubleshooting?.({ query: String(input.symptom ?? ''), max: 3 }) ?? ''
+        // 必须把板子档案原文送过去。只给一个板子 id，模型会凭记忆编引脚和电平——
+        // 实测它把 Freenove ESP32-WROVER 说成 Waveshare ESP32-S3、灯说成在 GPIO0。
+        const profile = input.board ? (KNOWLEDGE_TOOLS.read_board_profile?.({ board: String(input.board) }) ?? '') : ''
+        const token = await getToken()
+        const res = await fetch('/api/diagnose', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
+          body: JSON.stringify({ ...input, kb, profile, lang: getLang() }),
+        })
+        const j = (await res.json()) as { analysis?: string; model?: string; error?: string }
+        if (j.error === 'no-credentials') out = { text: '排障需要配置模型密钥。可以先 search_troubleshooting 自己查。', error: true }
+        else if (j.error) out = { text: '排障失败：' + j.error, error: true }
+        else out = { text: `（${j.model} 的分析）\n\n${j.analysis}` }
+      } catch (e) { out = { text: '排障连不上：' + (e as Error).message, error: true } }
     } else if (u.name === 'sim_run') {
       const { code, seconds } = u.input as { code: string; seconds?: number }
       const r = await runSim(code, Math.min(Math.max(seconds ?? 3, 1), 15), this.onLive)

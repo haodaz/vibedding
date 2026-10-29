@@ -10,7 +10,9 @@ import { byPath } from '../content'
 import { Markdown } from '../Markdown'
 import { NpcImage } from '../components/Scene'
 import type { SimLive } from './sim'
+import { visitorBoardId } from './local-tools'
 import { detectMode, type ModeInfo } from './mode'
+import { ModelChip } from '../components/ModelChip'
 import { store } from './storage'
 import { t, getLang, useLang } from '../i18n'
 import { PartImg } from '../canvases/parts/PartImg'
@@ -22,7 +24,7 @@ import { StarterCards } from './StarterCards'
 const TOOL_LABEL: Record<string, [string, string]> = {
   search_projects: ['查项目食谱', 'search recipes'], search_troubleshooting: ['查排障库', 'search troubleshooting'], explain_concept: ['查术语表', 'glossary'], get_snippet: ['取代码片段', 'get snippet'], list_boards: ['看板子列表', 'list boards'], read_board_profile: ['读板子档案', 'board profile'], part_detail: ['查元件档案', 'part detail'],
   search_parts: ['查元件库', 'search parts'], add_part: ['收录元件', 'add part'], read_inventory: ['看库存', 'read inventory'], update_inventory: ['更新库存', 'update inventory'], save_project: ['保存项目', 'save project'], list_projects: ['列项目', 'list projects'], read_project: ['读项目', 'read project'], add_troubleshooting: ['记排障', 'add troubleshooting'],
-  cloud_build: ['云编译', 'cloud build'], web_flash: ['浏览器烧录', 'flash from browser'], read_pinout: ['查引脚表', 'pinout'], read_board: ['读板子档案', 'board'], list_parts: ['看套件清单', 'kit list'], check_env: ['检查环境', 'check env'], read_file: ['读文件', 'read file'], list_files: ['列目录', 'list files'], write_firmware: ['写固件', 'write firmware'], pio_build: ['编译', 'build'], pio_upload: ['烧录', 'flash'], serial_read: ['读串口', 'read serial'], append_journal: ['记日志', 'journal'], record_ai_mistake: ['记错误', 'log mistake'], sim_run: ['虚拟板子运行', 'run on virtual board'],
+  cloud_build: ['云编译', 'cloud build'], web_flash: ['浏览器烧录', 'flash from browser'], read_pinout: ['查引脚表', 'pinout'], read_board: ['读板子档案', 'board'], list_parts: ['看套件清单', 'kit list'], check_env: ['检查环境', 'check env'], read_file: ['读文件', 'read file'], list_files: ['列目录', 'list files'], write_firmware: ['写固件', 'write firmware'], pio_build: ['编译', 'build'], pio_upload: ['烧录', 'flash'], serial_read: ['读串口', 'read serial'], append_journal: ['记日志', 'journal'], record_ai_mistake: ['记错误', 'log mistake'], sim_run: ['虚拟板子运行', 'run on virtual board'], diagnose: ['深度排障', 'deep diagnosis'],
 }
 const label = (n: string) => { const e = TOOL_LABEL[n]; return e ? (getLang() === 'en' ? e[1] : e[0]) : n }
 
@@ -51,6 +53,13 @@ export function mentorPose(items: Item[], busy: boolean): string {
   return 'mentor_idle'
 }
 
+/** 按本机时间挑招呼语。名字只在用户真的改过时才带——默认值是 'local'，带上很蠢。 */
+function greeting(who: string) {
+  const h = new Date().getHours()
+  const g = t(h < 12 ? 'hello.morning' : h < 18 ? 'hello.afternoon' : 'hello.evening')
+  return who ? `${g}, ${who}` : g
+}
+
 export function Workshop() {
   const lang = useLang()
   const [, tick] = useState(0)
@@ -62,6 +71,8 @@ export function Workshop() {
   const [env, setEnv] = useState<{ pio: string | null; usb: string[]; ports: string[] } | null>(null)
   useEffect(() => { fetch('/api/status').then((r) => r.json()).then(setEnv).catch(() => setEnv(null)) }, [])
   const [mode, setMode] = useState<ModeInfo | null>(null)
+  const [who, setWho] = useState('')
+  useEffect(() => { let on = true; store.get<{ display_name?: string }>('profile').then((p) => { const n = p?.display_name ?? ''; if (on && n && n !== 'local') setWho(n) }).catch(() => { /* 没名字就只说招呼语 */ }) ; return () => { on = false } }, [])
   useEffect(() => { detectMode().then(setMode) }, [])
   const [text, setText] = useState(() => { const m = location.hash.match(/[?&]q=([^&]+)/); return m ? decodeURIComponent(m[1]) : '' })
   const endRef = useRef<HTMLDivElement>(null)
@@ -74,6 +85,16 @@ export function Workshop() {
 
   // 工作区：自动跟着最近发生的事切标签
   const [tab, setTab] = useState<Tab>('board')
+  // 虚拟板子画哪一块：本地模式按仓库里的 board.md（就是用户自己的板子）；
+  // 体验模式按访客聊出来的库存——不能拿作者的板子冒充访客的。
+  const [boardId, setBoardId] = useState('')
+  useEffect(() => {
+    let alive = true
+    const local = byPath('hardware/board.md')?.fm.board ?? ''
+    if (mode?.mode === 'local') { setBoardId(local); return }
+    visitorBoardId().then((b) => { if (alive) setBoardId(b) })
+    return () => { alive = false }
+  }, [mode?.mode, a.items.length])
   const [auto, setAuto] = useState(true)
   const latestWire = [...a.items].reverse().find((i) => i.kind === 'human' && i.ask.kind === 'wire') as Extract<Item, { kind: 'human' }> | undefined
   const latestCode = [...a.items].reverse().find((i) => i.kind === 'tool' && i.name === 'write_firmware' && /\.(cpp|c|h|ino)$/.test(String(i.input.path))) as Extract<Item, { kind: 'tool' }> | undefined
@@ -101,15 +122,18 @@ export function Workshop() {
 
   if (!started) return (
     <div className="ws-start">
-      <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{t('ws.start.title')}</h1><p className="muted">{t('ws.start.sub')}</p></div></div>
-      <StarterCards onPick={submit} />
+      <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{greeting(who)}</h1><p className="muted">{t('ws.start.title')}</p></div></div>
       <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }} onPaste={onPaste} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files) }}>
         {imgs.length > 0 && <div className="ws-attach">{imgs.map((im, i) => <span key={i} className="ws-thumb"><img src={im.dataUrl} alt="" /><button type="button" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>×</button></span>)}</div>}
         <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} autoFocus />
+        <ModelChip model={mode?.ai ?? null} />
         <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
       </form>
+      <div className="ws-start-pick">{t('ws.start.pick')}</div>
+      <StarterCards onPick={submit} />
+      <Intro />
     </div>
   )
 
@@ -130,6 +154,7 @@ export function Workshop() {
           <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={a.busy ? t('ws.busy') : imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} disabled={a.busy} autoFocus />
+          <ModelChip model={mode?.ai ?? null} />
           <button className="chip primary" disabled={a.busy || (!text.trim() && !imgs.length)}>{t('ws.send')}</button>
         </form>
       </div>
@@ -152,7 +177,7 @@ export function Workshop() {
                 <span className={'st ' + (env && (env.usb.length || env.ports.length) ? 'ok' : 'off')}><i />{env && (env.usb.length || env.ports.length) ? `${t('st.board.on')} ${env.usb[0] ?? env.ports[0]}` : t('st.board.off')}</span>
                 <span className={'st ' + (env?.pio ? 'ok' : 'warn')}><i />{env?.pio ? 'PlatformIO ' + env.pio.replace(/^PlatformIO Core, version /, '') : (mode?.mode === 'local' ? t('st.pio.off') : t('st.static'))}</span>
               </div>
-              {/^esp32/.test(byPath('hardware/board.md')?.fm.board ?? '') ? <BoardEsp32Svg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} /> : <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />}
+              {/^esp32/.test(boardId) ? <BoardEsp32Svg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} /> : <BoardSvg pins={live.pins as Record<string, PinState>} buttonDown={false} onButton={() => {}} />}
               <div className="serial-head"><span>Serial <em>115200</em></span><span className={'led ' + (live.running ? 'on' : '')} /></div>
               <pre className="serial-out ws-serial">{live.serial || t('ws.serial.idle')}</pre>
             </div>

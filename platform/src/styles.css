@@ -638,13 +638,48 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .ws-envbar .st i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); } .ws-envbar .st.ok { color: var(--accent); } .ws-envbar .st.ok i { background: var(--accent); box-shadow: 0 0 6px var(--accent); } .ws-envbar .st.warn { color: var(--amber); } .ws-envbar .st.warn i { background: var(--amber); }
 .tool-chip { padding: 3px 10px 3px 6px; }
 @media (max-width: 900px) { .layout.collapsed { grid-template-columns: 1fr; } .sidebar.rail { flex-direction: row; height: auto; } }
-.history { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; overflow: auto; min-height: 0; }
-.history-label { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; padding: 4px 10px; }
-.history a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
-.history a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .history a .ico { color: var(--dim); flex-shrink: 0; }
-.history a:hover { background: var(--panel); color: var(--text); } .history a.on { background: var(--panel); color: var(--text); border: 1px solid var(--border-2); }
+/* 左栏下半截：项目 + 按天分组的最近对话。取代原来那个顶着 PROJECTS 标签、
+   实际列的是对话的平铺列表。行上挂了 ⋯ 菜单（改名/删除），所以不能再用裸 <a>。 */
+.rail-sections { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; overflow: auto; min-height: 0; }
+.rail-sec { display: flex; flex-direction: column; gap: 2px; }
+.rail-label { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--dim);
+  letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; }
+.rail-count { margin-left: auto; opacity: .7; }
+
+.rail-proj { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
+.rail-proj span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-proj:hover { background: var(--panel); color: var(--text); }
+.rail-proj.on { background: var(--panel); color: var(--text); }
+.rail-proj-ico { flex: none; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 10px; background: var(--panel-2); color: var(--accent); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* ⋯ 平时不占视线，hover 或菜单打开时才出现 */
+.rail-row { position: relative; display: flex; align-items: center; border-radius: 7px; }
+.rail-row > a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: var(--muted); font-size: 13px; }
+.rail-row > a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-row > a .ico { color: var(--dim); flex-shrink: 0; }
+.rail-row:hover { background: var(--panel); } .rail-row:hover > a { color: var(--text); }
+.rail-row.on { background: var(--panel); border: 1px solid var(--border-2); } .rail-row.on > a { color: var(--text); }
+.rail-more { flex: none; opacity: 0; width: 22px; height: 22px; margin-right: 4px; border: 0; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--muted); font-size: 14px; line-height: 1; }
+.rail-row:hover .rail-more, .rail-row.menu .rail-more { opacity: 1; }
+.rail-more:hover { background: var(--panel-2); color: var(--text); }
+.rail-menu { position: absolute; right: 4px; top: calc(100% - 2px); z-index: 20; min-width: 136px; padding: 4px;
+  display: flex; flex-direction: column; border-radius: 9px; border: 1px solid var(--border-2);
+  background: var(--panel-solid); backdrop-filter: blur(14px); box-shadow: 0 12px 30px var(--shadow); }
+.rail-menu button { text-align: left; padding: 7px 9px; border: 0; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--text); font: inherit; font-size: 13px; }
+.rail-menu button:hover { background: var(--panel-2); }
+.rail-menu button.danger { color: var(--red); }
+.rail-edit { width: 100%; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--accent);
+  background: var(--deep); color: var(--text); font: inherit; font-size: 13px; }
+
 .ws-start { max-width: 980px; margin: 0 auto; padding: 10px 0 110px; }
-.start-input { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(980px, calc(100vw - 64px - 44px)); z-index: 5; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+/* 空态的输入框跟着内容走，不钉在屏幕底边——它是这一屏的主角，
+   钉在底下就和上面的卡片断成两块了。（对话开始后用的是另一条 .ws-input 规则） */
+.start-input { position: static; transform: none; width: auto; margin: 0 0 30px; box-shadow: 0 14px 36px var(--shadow); }
+.ws-start-pick { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--dim); margin: 0 2px 12px; }
 .ws-start-head { display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: center; margin-bottom: 22px; }
 .ws-empty-npc.big { height: 170px; }
 .ws-start-head h1 { margin: 0 0 6px; font-size: 34px; }
@@ -776,3 +811,121 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
   background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; }
 .part-photo-bar .linkbtn:hover:not(:disabled) { color: var(--cyan); }
 .part-photo-bar .linkbtn:disabled { opacity: .55; cursor: default; }
+
+/* ─────────────────────────────────────────────────────────────
+   落地页（route === '/'）。浅深两套主题都走 :root 变量，不写死颜色。
+   这一页是评委的第一眼，所以只做一件事：三十秒讲清楚这是什么。
+   ───────────────────────────────────────────────────────────── */
+.lp { position: relative; min-height: 100vh; color: var(--text); }
+.lp > * { position: relative; z-index: 1; }
+.lp-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 12px clamp(16px, 4vw, 40px); background: var(--deep-a); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border); }
+.lp-bar-right { display: flex; align-items: center; gap: 10px; }
+
+.lp-sec, .lp-hero { max-width: 1120px; margin: 0 auto; padding: clamp(44px, 7vw, 86px) clamp(16px, 4vw, 40px); }
+.lp-sec h2 { font-size: clamp(22px, 2.6vw, 31px); margin: 0 0 10px; letter-spacing: -.01em; }
+.lp-sub { color: var(--muted); max-width: 70ch; line-height: 1.75; margin: 0 0 26px; }
+
+/* 首屏：左字右片。视频窄屏时排到下面，不要挤成一条缝 */
+.lp-hero { display: grid; gap: clamp(22px, 4vw, 48px); grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: center; }
+@media (max-width: 880px) { .lp-hero { grid-template-columns: 1fr; } }
+.lp-kicker { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+.lp-hero h1 { font-size: clamp(28px, 4.4vw, 50px); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 18px; }
+.lp-lead { color: var(--muted); font-size: clamp(14.5px, 1.4vw, 16.5px); line-height: 1.8; margin: 0 0 26px; }
+.lp-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.lp-note { color: var(--dim); font-size: 13px; }
+.lp-hero-media { border-radius: 16px; overflow: hidden; border: 1px solid var(--border-2); box-shadow: 0 24px 60px var(--shadow); background: var(--panel-2); aspect-ratio: 16 / 9; }
+.lp-hero-media video { width: 100%; height: 100%; display: block; object-fit: cover; }
+
+.lp-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border: 0; border-radius: 10px; cursor: pointer;
+  font: inherit; font-weight: 650; font-size: 15px; background: var(--accent); color: var(--on-accent); text-decoration: none; }
+.lp-btn:hover { filter: brightness(1.07); }
+.lp-btn.sm { padding: 7px 14px; font-size: 13.5px; }
+.lp-btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--border-2); }
+.lp-btn.ghost:hover { filter: none; box-shadow: inset 0 0 0 1px var(--accent); }
+
+.lp-grid3 { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 860px) { .lp-grid3 { grid-template-columns: 1fr; } }
+.lp-card { padding: 20px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel); }
+.lp-card p { color: var(--muted); line-height: 1.75; margin: 10px 0 0; font-size: 14.5px; }
+.lp-q { display: block; line-height: 1.5; font-size: 16px; }
+.lp-card.tech code { font-family: var(--mono); font-size: 13px; color: var(--violet); }
+.lp-card.tech b { display: block; margin-top: 6px; font-size: 17px; }
+
+.lp-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.lp-steps li { display: flex; gap: 16px; align-items: flex-start; }
+.lp-steps b { font-size: 16.5px; }
+.lp-steps p { color: var(--muted); line-height: 1.75; margin: 6px 0 0; max-width: 72ch; }
+.lp-num { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 13px; background: var(--panel-2); color: var(--accent); box-shadow: inset 0 0 0 1px var(--border-2); }
+
+/* 截图按 2 倍抓的，这里只许缩不许放，放大了发出去就糊 */
+.lp-shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--border-2); box-shadow: 0 20px 56px var(--shadow); }
+.lp-shot img { display: block; width: 100%; height: auto; }
+
+.lp-honest { max-width: 820px; }
+.lp-honest p { color: var(--muted); line-height: 1.85; margin: 0; }
+.lp-foot-note { color: var(--dim); font-size: 13.5px; margin: 18px 0 0; }
+
+.lp-picker { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 720px) { .lp-picker { grid-template-columns: 1fr; } }
+.lp-pick { text-align: left; padding: 22px; border-radius: 14px; cursor: pointer; font: inherit; color: var(--text);
+  background: var(--panel); border: 1px solid var(--border); transition: border-color .15s ease, transform .15s ease; }
+.lp-pick:hover { border-color: var(--accent); transform: translateY(-2px); }
+.lp-pick b { display: flex; align-items: center; gap: 9px; font-size: 18px; }
+.lp-pick p { color: var(--muted); line-height: 1.7; margin: 8px 0 0; font-size: 14.5px; }
+
+.lp-foot { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; max-width: 1120px;
+  margin: 0 auto; padding: 26px clamp(16px, 4vw, 40px) 44px; border-top: 1px solid var(--border); color: var(--dim); font-size: 13.5px; }
+.lp-foot-links { display: flex; gap: 18px; }
+.lp-foot a { color: var(--muted); text-decoration: none; }
+.lp-foot a:hover { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) { .lp-pick:hover { transform: none; } }
+
+/* 输入框里的模型胶囊 + 它的说明气泡。
+   气泡朝上开：输入框在底部，朝下会掉出视口。 */
+.modelchip-wrap { position: relative; flex: none; }
+.modelchip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  background: transparent; border: 1px solid var(--border); white-space: nowrap; }
+.modelchip:hover, .modelchip.on { color: var(--text); border-color: var(--border-2); background: var(--panel); }
+.modelchip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--violet); flex: none; }
+.modelchip-pop { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 30; width: min(340px, calc(100vw - 48px));
+  padding: 12px 13px; border-radius: 12px; border: 1px solid var(--border-2);
+  background: var(--panel-solid); backdrop-filter: blur(14px); box-shadow: 0 16px 40px var(--shadow); }
+.modelchip-pop-head { font-size: 12.5px; color: var(--text); margin-bottom: 9px; }
+.modelchip-pop ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.modelchip-pop li { display: grid; gap: 1px; }
+.modelchip-pop code { font-family: var(--mono); font-size: 11.5px; color: var(--violet); }
+.modelchip-pop li span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.modelchip-pop-foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--dim); }
+
+/* 空态的氛围底：参考 Neatlogs 那张水彩风景，但不引素材——
+   一张图要么太具体（抢走「你想做什么」的注意力），要么要美术排期。
+   用两层极淡的径向渐变压在底部，只负责让这一屏不空，不承担任何信息。
+   纯 CSS，0 字节，深浅两套都跟着变量走。 */
+.ws-start { position: relative; isolation: isolate; }
+/* 锚视口而不是锚容器：.ws-start 会长到 800 多像素高，锚在它底部等于把渐变推到屏幕外。 */
+.ws-start::before {
+  content: ''; position: fixed; z-index: -1; left: 50%; transform: translateX(-50%);
+  bottom: -12vh; width: 150vw; height: 56vh; pointer-events: none;
+  background:
+    radial-gradient(60% 70% at 32% 100%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(55% 62% at 72% 100%, color-mix(in srgb, var(--violet) 22%, transparent), transparent 72%);
+  filter: blur(30px); opacity: .7;
+}
+:root[data-theme="dark"] .ws-start::before { opacity: .4; }
+@media (prefers-reduced-motion: no-preference) { .ws-start::before { transition: opacity .4s ease; } }
+
+/* 兜底卡。不复用 .boot 那套终端风——崩了的时候要让人一眼看懂发生了什么、能干什么。 */
+.boundary { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.boundary-card { max-width: 520px; padding: 26px 24px; border-radius: 16px; border: 1px solid var(--border-2);
+  background: var(--panel-solid); box-shadow: 0 20px 50px var(--shadow); }
+.boundary-card h2 { margin: 0 0 10px; font-size: 20px; }
+.boundary-card p { margin: 0 0 14px; color: var(--muted); line-height: 1.75; }
+.boundary-card pre { margin: 0 0 18px; padding: 10px 12px; border-radius: 9px; overflow: auto;
+  background: var(--panel-2); color: var(--red); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+.boundary-acts { display: flex; gap: 10px; }
