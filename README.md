@@ -1,3 +1,13 @@
+> ### 🏆 Hackathon submission → [`nebius`](https://github.com/haodaz/vibedding/tree/nebius) branch
+>
+> This is the main development trunk. The **Nebius × NVIDIA Global AI Hackathon** submission
+> lives on the [`nebius`](https://github.com/haodaz/vibedding/tree/nebius) branch, which has the
+> Nebius Token Factory / NVIDIA Nemotron integration, the English README, and the live demo link.
+>
+> **Live demo:** https://vibedding-git-nebius-elodie1.vercel.app · **Demo video:** https://youtu.be/O4n4fKckOM4
+>
+> *比赛提交在 `nebius` 分支，这里是主干。*
+
 # Vibedding · Embedding your world with AI
 
 门外汉 × AI 的嵌入式自学与动手平台 · https://www.vibedding.com
