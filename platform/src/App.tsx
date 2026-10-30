@@ -26,6 +26,7 @@ const MODE_KEY = 'vb:mode'
 const getMode = (): Mode | null => { try { const v = localStorage.getItem(MODE_KEY); return v === 'build' || v === 'learn' ? v : null } catch { return null } }
 const NAV: Record<Mode, { path: string; icon: string; label: string }[]> = {
   build: [
+    { path: '/make', icon: 'home', label: 'nav.home' },
     { path: '/projects', icon: 'folder', label: 'nav.projects' },
     { path: '/hardware', icon: 'cpu', label: 'nav.hardware' },
     { path: '/kb', icon: 'library', label: 'nav.kb' },
@@ -133,6 +134,7 @@ function Shell({ email, lang }: { email: string | null; lang: Lang }) {
 
 // 侧栏里的项目历史（像对话历史）
 function isActive(route: string, path: string) {
+  if (path === '/make') return route === '/make'   // 带 ?p= 的是某一轮对话，不是家
   if (path === '/path') return route === '/path' || route.startsWith('/doc/curriculum')
   const kind = path.slice(1)
   return route.startsWith(path) || route.startsWith('/doc/' + kind)

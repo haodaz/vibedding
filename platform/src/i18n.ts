@@ -40,6 +40,7 @@ const D: Record<string, [string, string]> = {
   'err.body': ['多半是模型回了一个意料之外的形状。你的对话还在，开一个新的通常就好了。', 'Most likely the model returned an unexpected shape. Your chats are safe — starting a new one usually clears it.'],
   'err.new': ['开新对话', 'New chat'], 'err.reload': ['刷新', 'Reload'],
   'ws.placeholder.big': ['说一件你想做的事，或者交代一个问题……（Enter 发送，Shift+Enter 换行）', 'Say what you want to build, or describe a problem… (Enter to send, Shift+Enter for a new line)'],
+  'nav.home': ['工作台', 'Home'],
   'wh.inv': ['你的库存', 'Your inventory'], 'wh.inv.unit': ['样东西在手上', 'things you own'],
   'wh.inv.none': ['聊到「我有 XX」它就记下来', 'Say "I have an X" and it remembers'],
   'wh.overview': ['概览', 'Overview'], 'wh.all': ['全部', 'All'], 'wh.none': ['还没有，说一句就开始', 'Nothing yet — say one sentence to start'],

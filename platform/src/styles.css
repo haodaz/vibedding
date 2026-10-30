@@ -1009,7 +1009,9 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .wh-stat li.wh-none { color: var(--dim); }
 
 /* 底图：钉在视口底边，压在内容下面。只用 currentColor + 透明度，深浅自动成立。 */
-.bd { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100vw; height: min(46vh, 420px);
+.layout { --rail-w: 250px; }
+.layout.collapsed { --rail-w: 64px; }
+.bd { position: fixed; left: var(--rail-w); bottom: 0; width: calc(100vw - var(--rail-w)); height: min(46vh, 420px);
   z-index: -1; pointer-events: none; color: var(--accent); }
 .bd-far { stroke: currentColor; opacity: .26; }
 .bd-pad { fill: currentColor; opacity: .3; }

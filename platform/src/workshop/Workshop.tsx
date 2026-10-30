@@ -66,6 +66,8 @@ export function Workshop() {
   const lang = useLang()
   const [, tick] = useState(0)
   const [live, setLive] = useState<SimLive>({ pins: {}, serial: '', running: false })
+  // #/make 是「家」（工作台总览）；#/make?p=xxx 是某一轮对话。两件事，别混。
+  const isHome = !/[?&]p=/.test(location.hash)
   const sessionId = (() => { const m = location.hash.match(/[?&]p=([^&]+)/); return m ? decodeURIComponent(m[1]) : newSessionId() })()
   const agent = useRef<Agent | null>(null)
   if (!agent.current || agent.current.id !== sessionId) agent.current = new Agent(sessionId, () => tick((n) => n + 1), setLive)
@@ -145,7 +147,7 @@ export function Workshop() {
           <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
         </div>
       </form>
-      <WorkspaceHome onPick={(x) => setText(x)} onHasWork={setHasWork} />
+      {isHome && <WorkspaceHome onPick={(x) => setText(x)} onHasWork={setHasWork} />}
       {!hasWork && <>
         <div className="ws-start-pick">{t('ws.start.pick')}</div>
         <StarterCards onPick={submit} />
