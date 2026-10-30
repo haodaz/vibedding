@@ -64,6 +64,9 @@ export class Agent {
   private pending: { id: string; resolve: (s: string) => void } | null = null
   /** 对话存不进 localStorage（通常是配额满了）。界面可以据此提醒用户导出。 */
   saveFailed = false
+  /** 从工作台的家里点一个项目开新对话时带进来的。slug 本来只能等 AI 调 save_project
+   *  才推导得出，但「在某个项目里新开一轮」是先有归属、后有动作，所以要能预先绑定。 */
+  presetSlug?: string
   constructor(public readonly id: string, private onChange: () => void, private onLive: (l: SimLive) => void) {
     try {
       const saved = JSON.parse(localStorage.getItem('ws:session:' + id) ?? 'null')
@@ -73,7 +76,7 @@ export class Agent {
   }
 
   get title(): string { const first = this.items.find((i) => i.kind === 'user') as Extract<Item, { kind: 'user' }> | undefined; const saved = [...this.items].reverse().find((i) => i.kind === 'tool' && i.name === 'save_project') as Extract<Item, { kind: 'tool' }> | undefined; return String(saved?.input.title ?? first?.text ?? '').slice(0, 60) }
-  get slug(): string | undefined { const saved = [...this.items].reverse().find((i) => i.kind === 'tool' && i.name === 'save_project') as Extract<Item, { kind: 'tool' }> | undefined; return saved ? String(saved.input.slug) : undefined }
+  get slug(): string | undefined { const saved = [...this.items].reverse().find((i) => i.kind === 'tool' && i.name === 'save_project') as Extract<Item, { kind: 'tool' }> | undefined; return saved ? String(saved.input.slug) : this.presetSlug }
 
   reset() { this.messages = []; this.items = []; this.emit() }
 

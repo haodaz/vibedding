@@ -13,6 +13,8 @@ import type { SimLive } from './sim'
 import { visitorBoardId } from './local-tools'
 import { detectMode, type ModeInfo } from './mode'
 import { ModelChip } from '../components/ModelChip'
+import { WorkspaceHome } from '../components/WorkspaceHome'
+import { Backdrop } from '../components/Backdrop'
 import { store } from './storage'
 import { t, getLang, useLang } from '../i18n'
 import { PartImg } from '../canvases/parts/PartImg'
@@ -68,9 +70,13 @@ export function Workshop() {
   const agent = useRef<Agent | null>(null)
   if (!agent.current || agent.current.id !== sessionId) agent.current = new Agent(sessionId, () => tick((n) => n + 1), setLive)
   const a = agent.current
+  // 从家里点项目「新开一轮」时带的归属。先有项目、后有动作，所以不能等 save_project 推导。
+  const urlSlug = location.hash.match(/[?&]slug=([^&]+)/)?.[1]
+  if (urlSlug && !a.presetSlug) a.presetSlug = decodeURIComponent(urlSlug)
   const [env, setEnv] = useState<{ pio: string | null; usb: string[]; ports: string[] } | null>(null)
   useEffect(() => { fetch('/api/status').then((r) => r.json()).then(setEnv).catch(() => setEnv(null)) }, [])
   const [mode, setMode] = useState<ModeInfo | null>(null)
+  const [hasWork, setHasWork] = useState(false)
   const [who, setWho] = useState('')
   useEffect(() => { let on = true; store.get<{ display_name?: string }>('profile').then((p) => { const n = p?.display_name ?? ''; if (on && n && n !== 'local') setWho(n) }).catch(() => { /* 没名字就只说招呼语 */ }) ; return () => { on = false } }, [])
   useEffect(() => { detectMode().then(setMode) }, [])
@@ -122,17 +128,28 @@ export function Workshop() {
 
   if (!started) return (
     <div className="ws-start">
+      <Backdrop />
       <div className="ws-start-head"><div className="ws-empty-npc big"><NpcImage name="mentor_idle" /></div><div><h1>{greeting(who)}</h1><p className="muted">{t('ws.start.title')}</p></div></div>
       <form className="ws-input start-input" onSubmit={(e) => { e.preventDefault(); submit(text) }} onPaste={onPaste} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files) }}>
         {imgs.length > 0 && <div className="ws-attach">{imgs.map((im, i) => <span key={i} className="ws-thumb"><img src={im.dataUrl} alt="" /><button type="button" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>×</button></span>)}</div>}
-        <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
-        <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={imgs.length ? t('ws.placeholder.img') : t('ws.placeholder')} autoFocus />
-        <ModelChip model={mode?.ai ?? null} />
-        <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
+        {/* 家里的输入框是一个大框，不是一条搜索栏：控件收进框内底边，发送在右下角。
+            单行输入读起来像「搜点什么」，大框读起来像「交代一件事」。 */}
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} autoFocus
+          placeholder={imgs.length ? t('ws.placeholder.img') : t('ws.placeholder.big')}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(text) } }} />
+        <div className="start-bar">
+          <button type="button" className="chip attach" title={t('ws.attach')} onClick={() => fileRef.current?.click()}><Icon name="camera" size={15} /></button>
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }} />
+          <ModelChip model={mode?.ai ?? null} />
+          <span className="start-bar-gap" />
+          <button className="chip primary" disabled={!text.trim()}><Icon name="play" size={14} /> {t('ws.send')}</button>
+        </div>
       </form>
-      <div className="ws-start-pick">{t('ws.start.pick')}</div>
-      <StarterCards onPick={submit} />
+      <WorkspaceHome onPick={(x) => setText(x)} onHasWork={setHasWork} />
+      {!hasWork && <>
+        <div className="ws-start-pick">{t('ws.start.pick')}</div>
+        <StarterCards onPick={submit} />
+      </>}
       <Intro />
     </div>
   )

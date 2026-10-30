@@ -4,6 +4,7 @@ import { href } from '../router'
 import { t } from '../i18n'
 import { deleteSession, listSessions, renameSession, type SessionMeta } from '../workshop/agent'
 import { store } from '../workshop/storage'
+import { projectHref } from './WorkspaceHome'
 
 // 开发模式左栏的下半截：项目 + 最近对话。
 //
@@ -85,7 +86,6 @@ export function SideRail({ route }: { route: string }) {
   }, [route])
 
   const cur = route.match(/[?&]p=([^&]+)/)?.[1]
-  const inProjects = route.startsWith('/projects')
   if (!list.length && !projects.length) return null
 
   return (
@@ -94,7 +94,7 @@ export function SideRail({ route }: { route: string }) {
         <div className="rail-sec">
           <div className="rail-label">{t('rail.projects')}<span className="rail-count">{projects.length}</span></div>
           {projects.slice(0, 8).map((p) => (
-            <a key={p.slug} className={'rail-proj' + (inProjects ? ' on' : '')} href={href('/projects')} title={p.title}>
+            <a key={p.slug} className={'rail-proj' + (cur && list.find((x) => x.id === cur)?.slug === p.slug ? ' on' : '')} href={projectHref(p.slug, list)} title={p.title}>
               <span className="rail-proj-ico">{(p.title || p.slug).slice(0, 1).toUpperCase()}</span>
               <span>{p.title || p.slug}</span>
             </a>

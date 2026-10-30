@@ -929,3 +929,95 @@ nav a { gap: 10px; } nav a .ico { color: var(--muted); } nav a.active .ico { col
 .boundary-card pre { margin: 0 0 18px; padding: 10px 12px; border-radius: 9px; overflow: auto;
   background: var(--panel-2); color: var(--red); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
 .boundary-acts { display: flex; gap: 10px; }
+
+/* 工作台的家：输入框下面那一屏「你手上正在做什么」。
+   最近对话不放这儿——它在侧栏里，重复一遍只会把这一屏稀释掉。 */
+.wh { display: flex; flex-direction: column; gap: 26px; margin: 4px 0 30px; }
+.wh-sec { display: flex; flex-direction: column; gap: 10px; }
+.wh-label { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin: 0 2px; }
+.wh-label span { padding: 1px 6px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
+
+.wh-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .wh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .wh-grid { grid-template-columns: 1fr; } }
+.wh-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 15px; border-radius: 13px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  transition: border-color .15s ease, transform .15s ease; }
+.wh-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.wh-card b { font-size: 15px; line-height: 1.35; }
+.wh-card p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wh-card-ico { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--panel-2); color: var(--accent); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* 学习那一条：一张卡 + 一个「让 AI 带我做」。不用先切到 Learn 模式。 */
+.wh-learn { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
+.wh-next { flex: 1 1 320px; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px;
+  border-radius: 13px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+.wh-next:hover { border-color: var(--cyan); }
+.wh-next-k { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); }
+.wh-next b { font-size: 15.5px; }
+.wh-next p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+.wh-ask { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 18px;
+  border: 0; border-radius: 13px; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 600;
+  background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.wh-ask:hover { color: var(--on-accent); background: var(--accent); box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .wh-card:hover { transform: none; } }
+
+/* 熟客的建议行。四张深色大图是整页最重的东西，会把工作台压成图库——
+   所以对已经有项目的人换成这个：轻、可扫、动词高亮。 */
+.wh-sug { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.wh-sug button { width: 100%; text-align: left; padding: 7px 10px; border: 0; border-radius: 9px; cursor: pointer;
+  background: transparent; color: var(--muted); font: inherit; font-size: 14.5px; }
+.wh-sug button:hover { background: var(--panel); color: var(--text); }
+.wh-sug em { font-style: normal; font-weight: 650; color: var(--cyan); }
+
+/* 第一次来的人还是看图卡，但别那么黑：压一层白，和整页的浅色对上 */
+.start-card .start-art::after { content: ''; position: absolute; inset: 0; background: var(--bg-2); opacity: .16; pointer-events: none; }
+.start-card .start-art { position: relative; }
+:root[data-theme="dark"] .start-card .start-art::after { opacity: 0; }
+
+/* 家里的大输入框。参照「知己 / 一答 / 百业学院」那套：
+   一个有高度的框，控件收在框内底边，发送在右下角。
+   单行输入读起来是「搜点什么」，大框读起来是「交代一件事」——这是首页像不像工作台的分水岭。 */
+.start-input { flex-direction: column; align-items: stretch; gap: 0; padding: 14px 14px 10px; }
+.start-input textarea { width: 100%; border: 0; outline: none; resize: none; background: transparent;
+  color: var(--text); font: inherit; font-size: 15.5px; line-height: 1.7; min-height: 76px; padding: 0 2px; }
+.start-input textarea::placeholder { color: var(--dim); }
+.start-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.start-bar-gap { flex: 1; }
+
+/* 概览的三张卡。并排的卡只有**行结构完全一样**才干净：
+   图标+标题+全部 / 大数字+单位 / 三行「名称 + 一个数」。
+   之前这里只有结构没有样式，项目符号和裸数字全露出来了。 */
+.wh-stat { display: flex; flex-direction: column; padding: 15px 16px 13px; border-radius: 13px;
+  border: 1px solid var(--border); background: var(--panel); }
+.wh-stat-hd { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.wh-stat-hd a { margin-left: auto; font-size: 11.5px; font-weight: 500; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.wh-stat-hd a:hover { color: var(--accent); }
+.wh-stat > b { font-size: 30px; line-height: 1.1; margin: 12px 0 0; letter-spacing: -.02em; }
+.wh-stat > em { font-style: normal; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.wh-stat ul { list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 1px; }
+.wh-stat li { display: flex; align-items: center; gap: 10px; min-height: 24px;
+  font-size: 12.5px; color: var(--muted); }
+.wh-stat li > span { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+.wh-stat li > a { flex: 1; min-width: 0; color: var(--muted); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wh-stat li > a:hover { color: var(--accent); }
+.wh-stat li.wh-none { color: var(--dim); }
+
+/* 底图：钉在视口底边，压在内容下面。只用 currentColor + 透明度，深浅自动成立。 */
+.bd { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: 100vw; height: min(46vh, 420px);
+  z-index: -1; pointer-events: none; color: var(--accent); }
+.bd-far { stroke: currentColor; opacity: .26; }
+.bd-pad { fill: currentColor; opacity: .3; }
+.bd-board { fill: none; stroke: currentColor; opacity: .22; stroke-width: 1.6; }
+.bd-board .bd-chip { opacity: .9; }
+.bd-board .bd-pin { opacity: .7; }
+.bd-near { stroke: currentColor; opacity: .2; }
+.bd-glow { fill: var(--amber); opacity: .14; }
+.bd-led { fill: var(--amber); opacity: .55; }
+:root[data-theme="dark"] .bd-far { opacity: .18; }
+:root[data-theme="dark"] .bd-pad, :root[data-theme="dark"] .bd-board, :root[data-theme="dark"] .bd-near { opacity: .16; }
